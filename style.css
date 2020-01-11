@@ -1,0 +1,85 @@
+h1 {
+    font-family: 'Courier New';
+    text-align: left;
+    padding: 30px;
+    padding-bottom: 25px;
+    font-size: 65px;
+    color: black;
+    margin: 100px;
+    margin-left: 0px;
+    margin-bottom: 0px;
+
+
+}
+
+.typewriter {
+    overflow: hidden;
+    border-right: .15em solid rgb(252, 1, 1);
+    white-space: nowrap; 
+    letter-spacing: .15em;
+    animation: 
+    typing 2.0s steps(25),
+    blink-caret 1.25s step-end infinite;
+    display: flex;
+}
+
+.typewriter {
+    display:inline-flex
+}
+
+@keyframes typing {
+    from {width: 0}
+    to {width: 40%};
+}
+
+@keyframes blink-caret {
+    from, to { border-color: transparent }
+    50% { border-color: rgb(252, 1, 1); }
+  }
+
+.links {
+    font-family: 'Courier NEw';
+    font-weight: bold;
+    
+    color: rgb(252, 1, 1);
+    text-align: left;
+}
+
+ul {
+    padding-inline-start: 35px;
+    margin-top: 20px;
+}
+.icon {
+    color: rgb(51, 45, 45);
+    margin-left: 30px;
+}
+.social {
+    display: flex;
+    flex-direction: row;
+    justify-content: left;
+    margin-top: 0px;
+    margin-bottom: 30px;
+    text-align: left;
+}
+
+p {
+    font-family: 'Courier New';
+    margin: 100px;
+    margin-top: 0px;
+    margin-bottom: 0px;
+    padding: 30px;
+    padding-top: 0px;
+    font-size: 25px;
+    color: black;
+    display: block;
+    margin-block-start: 1em;
+    margin-block-end: 1em;
+    margin-inline-start: 0px;
+    margin-inline-end: 0px;
+    font-weight: bold;
+}
+
+
+
+html {background-color: white}
+
