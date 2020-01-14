@@ -12,6 +12,26 @@ h1 {
 
 }
 
+.resume {
+    font-family: 'Courier New';
+    text-align: left;
+    padding: 30px;
+    padding-bottom: 25px;
+    padding-top: 10px;
+    font-size: 40px;
+    color: grey;
+    margin: 100px;
+    margin-top: 0px;
+    margin-left: 0px;
+    margin-bottom: 0px;
+
+
+}
+
+.resume:hover {
+    color: red;
+}
+
 .typewriter {
     overflow: hidden;
     border-right: .15em solid rgb(252, 1, 1);
