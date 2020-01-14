@@ -79,7 +79,9 @@ p {
     font-weight: bold;
 }
 
-
+.calendly-inline-widget {
+    margin-bottom: 40px;
+}
 
 html {background-color: white}
 
