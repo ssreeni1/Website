@@ -4,7 +4,7 @@ h1 {
     padding: 30px;
     padding-bottom: 25px;
     font-size: 65px;
-    color: white;
+    color: black;
     margin: 100px;
     margin-left: 0px;
     margin-bottom: 0px;
@@ -63,8 +63,13 @@ h1 {
     
     color: rgb(252, 1, 1);
     text-align: left;
+    text-decoration: none;
 }
 
+
+.links:hover {
+    text-decoration: underline;
+}
 ul {
     padding-inline-start: 35px;
     margin-top: 20px;
@@ -76,11 +81,11 @@ ul {
 
 .icon:hover {
 
-    text-shadow: 5px 5px 5px grey;
+    text-shadow: 5px 5px 5px black;
 }
 .linkedin:hover {
 
-    text-shadow: 5px 5px 5px grey;
+    text-shadow: 5px 5px 5px black;
 }
 
     
@@ -103,7 +108,7 @@ p {
     padding: 30px;
     padding-top: 0px;
     font-size: 25px;
-    color: white;
+    color: black;
     display: block;
     margin-block-start: 1em;
     margin-block-end: 1em;
@@ -116,5 +121,5 @@ p {
     margin-bottom: 100px;
 }
 
-html {background-color: #2D2926FF}
+html {background-color: white}
 
