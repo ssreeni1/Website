@@ -4,7 +4,7 @@ h1 {
     padding: 30px;
     padding-bottom: 25px;
     font-size: 65px;
-    color: white;
+    color:black;
     margin: 100px;
     margin-left: 0px;
     margin-bottom: 0px;
@@ -34,7 +34,7 @@ h1 {
 
 .typewriter {
     overflow: hidden;
-    border-right: .15em solid white;
+    border-right: .15em solid black;
     white-space: nowrap; 
     letter-spacing: .15em;
     animation: 
@@ -83,10 +83,10 @@ ul {
 
     text-shadow: 5px 5px 5px rgb(47, 52, 55);
 }
-/* .linkedin:hover {
+.linkedin:hover {
 
-    text-shadow: 5px 5px 5px rgb(252, 1, 1);
-} */
+    text-shadow: 5px 5px 5px rgb(47, 52, 55);
+}
 
     
 
@@ -108,7 +108,7 @@ p {
     padding: 30px;
     padding-top: 0px;
     font-size: 25px;
-    color: white;
+    color:black;
     display: block;
     margin-block-start: 1em;
     margin-block-end: 1em;
@@ -121,5 +121,5 @@ p {
     margin-bottom: 100px;
 }
 
-html {background-color: rgb(47, 52, 55)}
+html {background-color:white}
 
