@@ -1,0 +1,83 @@
+{
+  "nodes": [
+    {
+      "id": "hyperspeculation-2",
+      "title": "HYPERSPECUL(A)T(I)ON (GENESIS II)",
+      "type": "twitter",
+      "date": "2025-09-03",
+      "url": "https://x.com/sanlsrni/status/1963298338645704781",
+      "description": "AI as engineer, player, and interface for speculation"
+    },
+    {
+      "id": "genesis-1",
+      "title": "GENESIS Pt. I: What The F*ck Happened to Crypto x AI?",
+      "type": "twitter",
+      "date": "2025-07-24",
+      "url": "https://x.com/sanlsrni/status/1948422534803652829",
+      "description": "Critical analysis of the crypto x AI intersection"
+    },
+    {
+      "id": "gachafication",
+      "title": "Shigeta's Dream: The Gachafication of Everything",
+      "type": "twitter",
+      "date": "2025-08-04",
+      "url": "https://x.com/sanlsrni/status/1952427934779859450",
+      "description": "How vending machines led to gamification of consumer apps"
+    },
+    {
+      "id": "hedonist-stone",
+      "title": "The Hedonist's Stone",
+      "type": "twitter",
+      "date": "2025-07-09",
+      "url": "https://x.com/sanlsrni/status/1943004564745261271",
+      "description": "What Cluely, OnlyFans, pump.fun, and AG1 have in common"
+    },
+    {
+      "id": "speculation-dead",
+      "title": "Speculation is Dead, Long Live Speculation",
+      "type": "twitter",
+      "date": "2025-07-03",
+      "url": "https://x.com/sanlsrni/status/1940824199099981930",
+      "description": "Evolution of speculation in the age of memecoins"
+    },
+    {
+      "id": "dr-reorg",
+      "title": "Dr. Reorg: How I Learned to Stop Worrying and Love MEV",
+      "type": "research",
+      "date": "2021-07-15",
+      "url": "https://medium.com/dragonfly-research/dr-reorg-or-how-i-learned-to-stop-worrying-and-love-mev-2ee72b428d1d",
+      "description": "MEV, Flashbots, and blockchain reorganizations"
+    },
+    {
+      "id": "ricks-analysis",
+      "title": "RICKS Mechanism Analysis",
+      "type": "research",
+      "date": "2021-10-01",
+      "url": "https://observablehq.com/@ssreeni1/picklerick",
+      "description": "Interactive analysis of RICKS mechanisms"
+    },
+    {
+      "id": "literature-thread",
+      "title": "Literature on Digitalization, AI, Crypto & Macro",
+      "type": "twitter",
+      "date": "2025-07-16",
+      "url": "https://x.com/sanlsrni",
+      "description": "Curated reading on emerging interdisciplinary themes"
+    }
+  ],
+  "edges": [
+    { "source": "hyperspeculation-2", "target": "genesis-1" },
+    { "source": "genesis-1", "target": "dr-reorg" },
+    { "source": "hyperspeculation-2", "target": "speculation-dead" },
+    { "source": "speculation-dead", "target": "hedonist-stone" },
+    { "source": "hedonist-stone", "target": "gachafication" },
+    { "source": "dr-reorg", "target": "ricks-analysis" },
+    { "source": "genesis-1", "target": "literature-thread" },
+    { "source": "speculation-dead", "target": "gachafication" }
+  ],
+  "types": {
+    "twitter": { "label": "X Article", "icon": "twitter" },
+    "research": { "label": "Research", "icon": "document" },
+    "podcast": { "label": "Podcast", "icon": "microphone" }
+  }
+}

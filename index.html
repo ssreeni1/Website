@@ -15,106 +15,57 @@
     <!-- Styles -->
     <link rel="stylesheet" href="src/core/variables.css">
     <link rel="stylesheet" href="src/nav/tabs.css">
-    <!-- Component styles loaded as implemented -->
-    <!-- <link rel="stylesheet" href="src/landing/landing.css"> -->
-    <!-- <link rel="stylesheet" href="src/work/timeline.css"> -->
-    <!-- <link rel="stylesheet" href="src/writing/writing.css"> -->
-    <!-- <link rel="stylesheet" href="src/fun/collage.css"> -->
-    <!-- <link rel="stylesheet" href="src/utils/utils.css"> -->
+    <link rel="stylesheet" href="src/landing/landing.css">
+    <link rel="stylesheet" href="src/work/timeline.css">
+    <link rel="stylesheet" href="src/writing/writing.css">
+    <link rel="stylesheet" href="src/fun/collage.css">
+    <link rel="stylesheet" href="src/utils/utils.css">
 
     <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>S</text></svg>">
 </head>
 <body>
     <main id="app-root">
-        <!--
-            Landing Container
-            Agent 1 implements: Canvas ouroboros, node network, entry animation
-        -->
+        <!-- Landing Container -->
         <section id="landing-container" data-view="landing">
-            <!-- Landing content rendered by src/landing/landing.js -->
-            <div class="landing-placeholder" style="
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                justify-content: center;
-                height: 100vh;
-                color: var(--color-text-muted);
-                font-family: var(--font-primary);
-            ">
-                <p style="font-size: var(--font-size-lg); margin-bottom: var(--spacing-md);">
-                    [ Landing Animation Placeholder ]
-                </p>
-                <p style="font-size: var(--font-size-sm);">
-                    Agent 1 will implement the ouroboros canvas animation
-                </p>
-            </div>
+            <!-- Landing canvas rendered by src/landing/landing.js -->
         </section>
 
-        <!--
-            Content Container
-            Houses tab navigation and all section content
-        -->
+        <!-- Content Container -->
         <section id="content-container" data-view="content" style="display: none;">
-            <!--
-                Tab Navigation
-                Agent 2 (this file) implements: Tab buttons, switching logic
-            -->
+            <!-- Tab Navigation -->
             <nav id="tab-nav" aria-label="Main sections"></nav>
 
-            <!--
-                Tab Panels
-                Each agent implements their respective section
-            -->
-
-            <!-- Work Tab - Agent 3 -->
+            <!-- Work Tab -->
             <div id="tab-work" class="tab-panel" data-tab="work" role="tabpanel" aria-labelledby="work-tab">
                 <div class="tab-panel__content">
-                    <div class="placeholder-content" style="
-                        padding: var(--spacing-2xl);
-                        text-align: center;
-                        color: var(--color-text-muted);
-                    ">
-                        <h2 style="color: var(--color-text); margin-bottom: var(--spacing-md);">Work</h2>
-                        <p>Agent 3 will implement the visual timeline here.</p>
-                        <p style="margin-top: var(--spacing-md); font-size: var(--font-size-sm);">
-                            Accomplice, Ritual, Alkimiya, Dragonfly, Polychain, UC Berkeley M.E.T.
-                        </p>
-                    </div>
+                    <!-- Timeline rendered by src/work/timeline.js -->
                 </div>
             </div>
 
-            <!-- Writing Tab - Agent 4 -->
+            <!-- Writing Tab -->
             <div id="tab-writing" class="tab-panel" data-tab="writing" role="tabpanel" aria-labelledby="writing-tab">
                 <div class="tab-panel__content">
-                    <div class="placeholder-content" style="
-                        padding: var(--spacing-2xl);
-                        text-align: center;
-                        color: var(--color-text-muted);
-                    ">
-                        <h2 style="color: var(--color-text); margin-bottom: var(--spacing-md);">Writing</h2>
-                        <p>Agent 4 will implement the markdown blog here.</p>
-                        <p style="margin-top: var(--spacing-md); font-size: var(--font-size-sm);">
-                            Open Alchemy, research posts, podcast recaps
-                        </p>
+                    <!-- Legend -->
+                    <div class="writing-legend">
+                        <div class="writing-legend__item">
+                            <span class="writing-legend__icon">X</span>
+                            <span>Twitter</span>
+                        </div>
+                        <div class="writing-legend__item">
+                            <span class="writing-legend__icon">R</span>
+                            <span>Research</span>
+                        </div>
                     </div>
+                    <p class="writing-hint">Click a node to open, hover to see connections</p>
+                    <!-- Network graph rendered by src/writing/network.js -->
                 </div>
             </div>
 
-            <!-- Fun Tab - Agent 5 -->
+            <!-- Fun Tab -->
             <div id="tab-fun" class="tab-panel" data-tab="fun" role="tabpanel" aria-labelledby="fun-tab">
                 <div class="tab-panel__content">
-                    <div class="placeholder-content" style="
-                        padding: var(--spacing-2xl);
-                        text-align: center;
-                        color: var(--color-text-muted);
-                    ">
-                        <h2 style="color: var(--color-text); margin-bottom: var(--spacing-md);">Fun</h2>
-                        <p>Agent 5 will implement the image collage here.</p>
-                        <p style="margin-top: var(--spacing-md); font-size: var(--font-size-sm);">
-                            Backgammon, DJing, tennis/padel, horology, F1/rally
-                        </p>
-                    </div>
+                    <!-- Collage rendered by src/fun/collage.js -->
                 </div>
             </div>
         </section>
