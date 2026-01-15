@@ -1,33 +1,126 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Saneel Sreeni</title>
-    <link rel="stylesheet" type="text/css" href="style-cli.css">
-    <script src="https://kit.fontawesome.com/9431ee9534.js" crossorigin="anonymous"></script>
-    <meta charset="utf-8">
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Saneel Sreeni - Investor, builder, exploring AI, markets, and everything in between.">
+
+    <title>Saneel Sreeni</title>
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="src/core/variables.css">
+    <link rel="stylesheet" href="src/nav/tabs.css">
+    <!-- Component styles loaded as implemented -->
+    <!-- <link rel="stylesheet" href="src/landing/landing.css"> -->
+    <!-- <link rel="stylesheet" href="src/work/timeline.css"> -->
+    <!-- <link rel="stylesheet" href="src/writing/writing.css"> -->
+    <!-- <link rel="stylesheet" href="src/fun/collage.css"> -->
+    <!-- <link rel="stylesheet" href="src/utils/utils.css"> -->
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>S</text></svg>">
 </head>
 <body>
-    <div class="terminal">
-        <div class="terminal-header">
-            <div class="terminal-buttons">
-                <div class="terminal-button close"></div>
-                <div class="terminal-button minimize"></div>
-                <div class="terminal-button maximize"></div>
+    <main id="app-root">
+        <!--
+            Landing Container
+            Agent 1 implements: Canvas ouroboros, node network, entry animation
+        -->
+        <section id="landing-container" data-view="landing">
+            <!-- Landing content rendered by src/landing/landing.js -->
+            <div class="landing-placeholder" style="
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                height: 100vh;
+                color: var(--color-text-muted);
+                font-family: var(--font-primary);
+            ">
+                <p style="font-size: var(--font-size-lg); margin-bottom: var(--spacing-md);">
+                    [ Landing Animation Placeholder ]
+                </p>
+                <p style="font-size: var(--font-size-sm);">
+                    Agent 1 will implement the ouroboros canvas animation
+                </p>
             </div>
-            <div class="terminal-title">saneel.xyz</div>
-        </div>
-        <div class="terminal-content">
-            <div id="output">
-                <p class="welcome-message">Hi, I'm Saneel. Type /help to get started</p>
+        </section>
+
+        <!--
+            Content Container
+            Houses tab navigation and all section content
+        -->
+        <section id="content-container" data-view="content" style="display: none;">
+            <!--
+                Tab Navigation
+                Agent 2 (this file) implements: Tab buttons, switching logic
+            -->
+            <nav id="tab-nav" aria-label="Main sections"></nav>
+
+            <!--
+                Tab Panels
+                Each agent implements their respective section
+            -->
+
+            <!-- Work Tab - Agent 3 -->
+            <div id="tab-work" class="tab-panel" data-tab="work" role="tabpanel" aria-labelledby="work-tab">
+                <div class="tab-panel__content">
+                    <div class="placeholder-content" style="
+                        padding: var(--spacing-2xl);
+                        text-align: center;
+                        color: var(--color-text-muted);
+                    ">
+                        <h2 style="color: var(--color-text); margin-bottom: var(--spacing-md);">Work</h2>
+                        <p>Agent 3 will implement the visual timeline here.</p>
+                        <p style="margin-top: var(--spacing-md); font-size: var(--font-size-sm);">
+                            Accomplice, Ritual, Alkimiya, Dragonfly, Polychain, UC Berkeley M.E.T.
+                        </p>
+                    </div>
+                </div>
             </div>
-            <div class="input-line">
-                <span class="prompt">$</span>
-                <span id="input" contenteditable="true" spellcheck="false"></span>
-                <span class="cursor"></span>
+
+            <!-- Writing Tab - Agent 4 -->
+            <div id="tab-writing" class="tab-panel" data-tab="writing" role="tabpanel" aria-labelledby="writing-tab">
+                <div class="tab-panel__content">
+                    <div class="placeholder-content" style="
+                        padding: var(--spacing-2xl);
+                        text-align: center;
+                        color: var(--color-text-muted);
+                    ">
+                        <h2 style="color: var(--color-text); margin-bottom: var(--spacing-md);">Writing</h2>
+                        <p>Agent 4 will implement the markdown blog here.</p>
+                        <p style="margin-top: var(--spacing-md); font-size: var(--font-size-sm);">
+                            Open Alchemy, research posts, podcast recaps
+                        </p>
+                    </div>
+                </div>
             </div>
-        </div>
-    </div>
-    <script src="cli.js"></script>
+
+            <!-- Fun Tab - Agent 5 -->
+            <div id="tab-fun" class="tab-panel" data-tab="fun" role="tabpanel" aria-labelledby="fun-tab">
+                <div class="tab-panel__content">
+                    <div class="placeholder-content" style="
+                        padding: var(--spacing-2xl);
+                        text-align: center;
+                        color: var(--color-text-muted);
+                    ">
+                        <h2 style="color: var(--color-text); margin-bottom: var(--spacing-md);">Fun</h2>
+                        <p>Agent 5 will implement the image collage here.</p>
+                        <p style="margin-top: var(--spacing-md); font-size: var(--font-size-sm);">
+                            Backgammon, DJing, tennis/padel, horology, F1/rally
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Main Application Script -->
+    <script type="module" src="src/core/app.js"></script>
 </body>
 </html>
