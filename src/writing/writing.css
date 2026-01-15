@@ -1,0 +1,63 @@
+/**
+ * Writing Section Styles
+ * Prefix: .writing-*
+ */
+
+#tab-writing {
+    position: relative;
+    min-height: 500px;
+}
+
+.writing-canvas {
+    display: block;
+    width: 100%;
+    background: transparent;
+}
+
+.writing-legend {
+    display: flex;
+    justify-content: center;
+    gap: var(--spacing-lg);
+    padding: var(--spacing-md);
+    margin-bottom: var(--spacing-md);
+}
+
+.writing-legend__item {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    font-family: var(--font-primary);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: var(--letter-spacing-wide);
+}
+
+.writing-legend__icon {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    color: var(--color-text);
+}
+
+.writing-hint {
+    text-align: center;
+    font-family: var(--font-primary);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+    padding: var(--spacing-sm);
+}
+
+/* Mobile adjustments */
+@media (max-width: 768px) {
+    .writing-legend {
+        flex-wrap: wrap;
+        gap: var(--spacing-md);
+    }
+}
