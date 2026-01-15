@@ -1,6 +1,6 @@
 /**
- * Writing Network Graph
- * Interactive force-directed graph visualization
+ * Writing Network - Interactive node network visualization
+ * Gray shimmering orbs with orange hover effect
  */
 
 export class WritingNetwork {
@@ -14,39 +14,33 @@ export class WritingNetwork {
         this.hoveredNode = null;
         this.animationId = null;
         this.isActive = false;
-        this.pulseOffset = 0;
-
-        // Physics
-        this.centerForce = 0.01;
-        this.repulsion = 2000;
-        this.linkStrength = 0.05;
-        this.damping = 0.85;
-
-        // Colors
-        this.colors = {
-            node: '#ffffff',
-            nodeHover: '#ff4500',
-            edge: 'rgba(255, 255, 255, 0.2)',
-            edgeHighlight: 'rgba(255, 69, 0, 0.6)',
-            text: '#ffffff',
-            textMuted: 'rgba(255, 255, 255, 0.6)'
-        };
+        this.time = 0;
+        this.seedRandom = null;
     }
 
     /**
-     * Initialize network
+     * Seeded random for consistent layout
+     */
+    seededRandom(seed) {
+        const x = Math.sin(seed++) * 10000;
+        return x - Math.floor(x);
+    }
+
+    /**
+     * Initialize writing section
      */
     async init(container) {
         this.container = container;
         await this.loadData();
         this.createCanvas();
-        this.initializePositions();
+        this.calculateLayout();
+        this.createEdges();
         this.setupEventListeners();
         return this;
     }
 
     /**
-     * Load network data
+     * Load writing data
      */
     async loadData() {
         try {
@@ -54,362 +48,408 @@ export class WritingNetwork {
             this.data = await response.json();
         } catch (error) {
             console.error('Failed to load writing data:', error);
-            this.data = { nodes: [], edges: [], types: {} };
+            this.data = { items: [] };
         }
     }
 
     /**
-     * Create canvas
+     * Create canvas element
      */
     createCanvas() {
-        this.canvas = document.createElement('canvas');
-        this.canvas.className = 'writing-canvas';
-        this.container.appendChild(this.canvas);
+        this.container.innerHTML = `
+            <div class="writing-network">
+                <canvas class="writing-network__canvas"></canvas>
+                <div class="writing-network__tooltip"></div>
+            </div>
+        `;
+        this.canvas = this.container.querySelector('.writing-network__canvas');
+        this.tooltip = this.container.querySelector('.writing-network__tooltip');
         this.ctx = this.canvas.getContext('2d');
-        this.resize();
     }
 
     /**
-     * Initialize node positions
+     * Calculate node layout - random scattered arrangement
      */
-    initializePositions() {
-        const centerX = this.canvas.width / 2;
-        const centerY = this.canvas.height / 2;
-        const radius = Math.min(centerX, centerY) * 0.6;
+    calculateLayout() {
+        const rect = this.container.getBoundingClientRect();
+        const width = rect.width || 800;
+        const height = Math.max(500, rect.height || 600);
 
-        this.nodes = this.data.nodes.map((node, i) => {
-            const angle = (i / this.data.nodes.length) * Math.PI * 2 - Math.PI / 2;
-            return {
-                ...node,
-                x: centerX + Math.cos(angle) * radius + (Math.random() - 0.5) * 50,
-                y: centerY + Math.sin(angle) * radius + (Math.random() - 0.5) * 50,
-                vx: 0,
-                vy: 0,
-                radius: 20
-            };
-        });
+        this.canvas.width = width;
+        this.canvas.height = height;
 
-        this.edges = this.data.edges.map(edge => ({
-            source: this.nodes.find(n => n.id === edge.source),
-            target: this.nodes.find(n => n.id === edge.target)
-        })).filter(e => e.source && e.target);
+        const centerX = width / 2;
+        const centerY = height / 2;
+        const count = this.data.items.length;
+        const nodeRadius = 16;
+        const padding = 80;
+
+        // Generate random positions with collision avoidance
+        const positions = [];
+        let seed = 42; // Fixed seed for consistent layout
+
+        for (let i = 0; i < count; i++) {
+            let placed = false;
+            let attempts = 0;
+            const maxAttempts = 200;
+
+            while (!placed && attempts < maxAttempts) {
+                // Random position within bounds
+                const angle = this.seededRandom(seed++) * Math.PI * 2;
+                const distance = this.seededRandom(seed++) * Math.min(width, height) * 0.35 + 50;
+
+                // Add some randomness to make it more organic
+                const jitterX = (this.seededRandom(seed++) - 0.5) * 100;
+                const jitterY = (this.seededRandom(seed++) - 0.5) * 100;
+
+                const x = centerX + Math.cos(angle) * distance + jitterX;
+                const y = centerY + Math.sin(angle) * distance + jitterY;
+
+                // Check boundaries
+                if (x < padding || x > width - padding || y < padding || y > height - padding) {
+                    attempts++;
+                    continue;
+                }
+
+                // Check for overlaps
+                let valid = true;
+                for (const pos of positions) {
+                    const dx = x - pos.x;
+                    const dy = y - pos.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist < nodeRadius * 4) {
+                        valid = false;
+                        break;
+                    }
+                }
+
+                if (valid) {
+                    positions.push({ x, y });
+                    placed = true;
+                }
+                attempts++;
+            }
+
+            // Fallback position if couldn't find valid spot
+            if (!placed) {
+                const angle = (i / count) * Math.PI * 2;
+                const distance = Math.min(width, height) * 0.3;
+                positions.push({
+                    x: centerX + Math.cos(angle) * distance,
+                    y: centerY + Math.sin(angle) * distance
+                });
+            }
+        }
+
+        this.nodes = this.data.items.map((item, index) => ({
+            ...item,
+            x: positions[index].x,
+            y: positions[index].y,
+            radius: nodeRadius,
+            shimmerOffset: Math.random() * Math.PI * 2
+        }));
+    }
+
+    /**
+     * Create edges - highly interconnected random web
+     */
+    createEdges() {
+        this.edges = [];
+        const n = this.nodes.length;
+
+        // Connect each node to 3-4 nearest neighbors
+        for (let i = 0; i < n; i++) {
+            const distances = [];
+            for (let j = 0; j < n; j++) {
+                if (i !== j) {
+                    const dx = this.nodes[i].x - this.nodes[j].x;
+                    const dy = this.nodes[i].y - this.nodes[j].y;
+                    distances.push({ index: j, dist: Math.sqrt(dx * dx + dy * dy) });
+                }
+            }
+            distances.sort((a, b) => a.dist - b.dist);
+
+            // Connect to 3-4 nearest neighbors
+            const connectCount = Math.min(4, distances.length);
+            for (let k = 0; k < connectCount; k++) {
+                const j = distances[k].index;
+                // Avoid duplicate edges
+                const exists = this.edges.some(e =>
+                    (e.from === i && e.to === j) || (e.from === j && e.to === i)
+                );
+                if (!exists) {
+                    this.edges.push({ from: i, to: j });
+                }
+            }
+        }
+
+        // Add some random cross-connections for more chaos
+        let seed = 123;
+        for (let i = 0; i < n; i++) {
+            const randomTarget = Math.floor(this.seededRandom(seed++) * n);
+            if (randomTarget !== i) {
+                const exists = this.edges.some(e =>
+                    (e.from === i && e.to === randomTarget) || (e.from === randomTarget && e.to === i)
+                );
+                if (!exists) {
+                    this.edges.push({ from: i, to: randomTarget });
+                }
+            }
+        }
     }
 
     /**
      * Setup event listeners
      */
     setupEventListeners() {
-        window.addEventListener('resize', () => this.resize());
+        this.canvas.addEventListener('mousemove', (e) => this.handleMouseMove(e));
+        this.canvas.addEventListener('click', (e) => this.handleClick(e));
+        this.canvas.addEventListener('mouseleave', () => this.hideTooltip());
 
-        this.canvas.addEventListener('mousemove', (e) => {
-            const rect = this.canvas.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
-            this.handleHover(x, y);
+        // Handle resize
+        this.resizeObserver = new ResizeObserver(() => {
+            this.calculateLayout();
+            this.createEdges();
         });
-
-        this.canvas.addEventListener('mouseleave', () => {
-            this.hoveredNode = null;
-            this.canvas.style.cursor = 'default';
-        });
-
-        this.canvas.addEventListener('click', (e) => {
-            const rect = this.canvas.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
-            this.handleClick(x, y);
-        });
-
-        // Touch support
-        this.canvas.addEventListener('touchend', (e) => {
-            e.preventDefault();
-            const touch = e.changedTouches[0];
-            const rect = this.canvas.getBoundingClientRect();
-            const x = touch.clientX - rect.left;
-            const y = touch.clientY - rect.top;
-            this.handleClick(x, y);
-        });
+        this.resizeObserver.observe(this.container);
     }
 
     /**
-     * Handle resize
+     * Handle mouse move for hover effects
      */
-    resize() {
-        const rect = this.container.getBoundingClientRect();
-        this.canvas.width = rect.width;
-        this.canvas.height = Math.max(500, window.innerHeight - 200);
+    handleMouseMove(e) {
+        const rect = this.canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
 
-        if (this.nodes.length > 0) {
-            this.initializePositions();
-        }
-    }
-
-    /**
-     * Handle hover
-     */
-    handleHover(x, y) {
-        this.hoveredNode = null;
-
+        let foundNode = null;
         for (const node of this.nodes) {
             const dx = x - node.x;
             const dy = y - node.y;
             const distance = Math.sqrt(dx * dx + dy * dy);
 
             if (distance < node.radius + 10) {
-                this.hoveredNode = node;
+                foundNode = node;
                 break;
             }
         }
 
-        this.canvas.style.cursor = this.hoveredNode ? 'pointer' : 'default';
-    }
-
-    /**
-     * Handle click
-     */
-    handleClick(x, y) {
-        for (const node of this.nodes) {
-            const dx = x - node.x;
-            const dy = y - node.y;
-            const distance = Math.sqrt(dx * dx + dy * dy);
-
-            if (distance < node.radius + 10) {
-                window.open(node.url, '_blank', 'noopener,noreferrer');
-                return;
+        if (foundNode !== this.hoveredNode) {
+            this.hoveredNode = foundNode;
+            if (foundNode) {
+                this.showTooltip(foundNode, e.clientX, e.clientY);
+                this.canvas.style.cursor = 'pointer';
+            } else {
+                this.hideTooltip();
+                this.canvas.style.cursor = 'default';
             }
+        } else if (foundNode) {
+            this.updateTooltipPosition(e.clientX, e.clientY);
         }
     }
 
     /**
-     * Start rendering
+     * Handle click to open link
+     */
+    handleClick(e) {
+        if (this.hoveredNode && this.hoveredNode.url) {
+            window.open(this.hoveredNode.url, '_blank', 'noopener,noreferrer');
+        }
+    }
+
+    /**
+     * Show tooltip
+     */
+    showTooltip(node, x, y) {
+        const date = new Date(node.date).toLocaleDateString('en-US', {
+            month: 'short',
+            year: 'numeric'
+        });
+
+        this.tooltip.innerHTML = `
+            <div class="writing-network__tooltip-title">${node.title}</div>
+            <div class="writing-network__tooltip-meta">
+                <span class="writing-network__tooltip-type">${node.type}</span>
+                <span class="writing-network__tooltip-date">${date}</span>
+            </div>
+        `;
+        this.tooltip.classList.add('visible');
+        this.updateTooltipPosition(x, y);
+    }
+
+    /**
+     * Update tooltip position
+     */
+    updateTooltipPosition(x, y) {
+        const rect = this.container.getBoundingClientRect();
+        this.tooltip.style.left = `${x - rect.left + 15}px`;
+        this.tooltip.style.top = `${y - rect.top - 10}px`;
+    }
+
+    /**
+     * Hide tooltip
+     */
+    hideTooltip() {
+        this.tooltip.classList.remove('visible');
+        this.hoveredNode = null;
+    }
+
+    /**
+     * Render the network
      */
     render() {
+        if (!this.data) return;
+
+        // Recreate canvas if it was cleaned up
+        if (!this.canvas || !this.ctx) {
+            this.createCanvas();
+            this.calculateLayout();
+            this.createEdges();
+            this.setupEventListeners();
+        }
+
         this.isActive = true;
-        this.animate();
-    }
-
-    /**
-     * Animation loop
-     */
-    animate() {
-        if (!this.isActive) return;
-
-        this.updatePhysics();
+        this.time = performance.now();
         this.draw();
-        this.pulseOffset = (this.pulseOffset + 0.01) % 1;
-
-        this.animationId = requestAnimationFrame(() => this.animate());
     }
 
     /**
-     * Update physics simulation
-     */
-    updatePhysics() {
-        const centerX = this.canvas.width / 2;
-        const centerY = this.canvas.height / 2;
-
-        // Apply forces
-        for (const node of this.nodes) {
-            // Center force
-            node.vx += (centerX - node.x) * this.centerForce;
-            node.vy += (centerY - node.y) * this.centerForce;
-
-            // Repulsion from other nodes
-            for (const other of this.nodes) {
-                if (node === other) continue;
-
-                const dx = node.x - other.x;
-                const dy = node.y - other.y;
-                const distance = Math.sqrt(dx * dx + dy * dy) || 1;
-                const force = this.repulsion / (distance * distance);
-
-                node.vx += (dx / distance) * force;
-                node.vy += (dy / distance) * force;
-            }
-        }
-
-        // Link forces
-        for (const edge of this.edges) {
-            const dx = edge.target.x - edge.source.x;
-            const dy = edge.target.y - edge.source.y;
-            const distance = Math.sqrt(dx * dx + dy * dy) || 1;
-            const force = (distance - 150) * this.linkStrength;
-
-            const fx = (dx / distance) * force;
-            const fy = (dy / distance) * force;
-
-            edge.source.vx += fx;
-            edge.source.vy += fy;
-            edge.target.vx -= fx;
-            edge.target.vy -= fy;
-        }
-
-        // Apply velocity and damping
-        for (const node of this.nodes) {
-            node.vx *= this.damping;
-            node.vy *= this.damping;
-            node.x += node.vx;
-            node.y += node.vy;
-
-            // Boundary constraints
-            const margin = 50;
-            node.x = Math.max(margin, Math.min(this.canvas.width - margin, node.x));
-            node.y = Math.max(margin, Math.min(this.canvas.height - margin, node.y));
-        }
-    }
-
-    /**
-     * Draw everything
+     * Draw the network
      */
     draw() {
-        // Clear
-        this.ctx.fillStyle = 'transparent';
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        if (!this.isActive) return;
+
+        const ctx = this.ctx;
+        const width = this.canvas.width;
+        const height = this.canvas.height;
+        this.time = performance.now();
+
+        // Clear canvas
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, 0, width, height);
 
         // Draw edges
-        this.drawEdges();
+        this.drawEdges(ctx);
 
         // Draw nodes
-        this.drawNodes();
+        this.drawNodes(ctx);
+
+        // Continue animation for shimmer effect
+        this.animationId = requestAnimationFrame(() => this.draw());
     }
 
     /**
-     * Draw edges
+     * Draw connecting edges
      */
-    drawEdges() {
+    drawEdges(ctx) {
+        ctx.strokeStyle = '#444444';
+        ctx.lineWidth = 1;
+        ctx.globalAlpha = 0.25;
+
         for (const edge of this.edges) {
-            const isHighlighted = this.hoveredNode &&
-                (edge.source === this.hoveredNode || edge.target === this.hoveredNode);
+            const from = this.nodes[edge.from];
+            const to = this.nodes[edge.to];
 
-            this.ctx.beginPath();
-            this.ctx.moveTo(edge.source.x, edge.source.y);
-            this.ctx.lineTo(edge.target.x, edge.target.y);
-            this.ctx.strokeStyle = isHighlighted ? this.colors.edgeHighlight : this.colors.edge;
-            this.ctx.lineWidth = isHighlighted ? 2 : 1;
-            this.ctx.stroke();
-
-            // Draw energy pulse on highlighted edges
-            if (isHighlighted) {
-                const pulseT = this.pulseOffset;
-                const pulseX = edge.source.x + (edge.target.x - edge.source.x) * pulseT;
-                const pulseY = edge.source.y + (edge.target.y - edge.source.y) * pulseT;
-
-                this.ctx.beginPath();
-                this.ctx.arc(pulseX, pulseY, 3, 0, Math.PI * 2);
-                this.ctx.fillStyle = '#ff4500';
-                this.ctx.fill();
-            }
+            ctx.beginPath();
+            ctx.moveTo(from.x, from.y);
+            ctx.lineTo(to.x, to.y);
+            ctx.stroke();
         }
+
+        ctx.globalAlpha = 1;
     }
 
     /**
-     * Draw nodes
+     * Draw nodes - gray shimmering orbs, orange on hover
      */
-    drawNodes() {
+    drawNodes(ctx) {
         for (const node of this.nodes) {
-            const isHovered = node === this.hoveredNode;
-            const isConnected = this.hoveredNode && this.edges.some(
-                e => (e.source === this.hoveredNode && e.target === node) ||
-                     (e.target === this.hoveredNode && e.source === node)
-            );
-            const isActive = isHovered || isConnected;
+            const isHovered = this.hoveredNode === node;
+            const baseRadius = node.radius;
+            const radius = isHovered ? baseRadius + 4 : baseRadius;
 
-            const radius = isHovered ? node.radius + 5 : node.radius;
+            // Calculate shimmer effect
+            const shimmer = Math.sin(this.time * 0.002 + node.shimmerOffset) * 0.15 + 0.85;
 
-            // Draw node circle
-            this.ctx.beginPath();
-            this.ctx.arc(node.x, node.y, radius, 0, Math.PI * 2);
-
-            if (isActive) {
-                this.ctx.fillStyle = '#ff4500';
-                this.ctx.shadowColor = '#ff4500';
-                this.ctx.shadowBlur = 20;
-            } else {
-                this.ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
-                this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
-                this.ctx.lineWidth = 1;
-                this.ctx.stroke();
-            }
-
-            this.ctx.fill();
-            this.ctx.shadowBlur = 0;
-
-            // Draw type icon/letter
-            this.ctx.font = '12px "SF Mono", Monaco, monospace';
-            this.ctx.fillStyle = isActive ? '#000' : this.colors.text;
-            this.ctx.textAlign = 'center';
-            this.ctx.textBaseline = 'middle';
-
-            const typeIcon = node.type === 'twitter' ? 'X' : node.type === 'research' ? 'R' : 'P';
-            this.ctx.fillText(typeIcon, node.x, node.y);
-
-            // Draw label on hover
             if (isHovered) {
-                this.drawTooltip(node);
+                // Orange glow for hovered
+                ctx.shadowColor = '#ff4500';
+                ctx.shadowBlur = 25;
+
+                // Outer glow ring
+                const gradient = ctx.createRadialGradient(
+                    node.x, node.y, radius * 0.5,
+                    node.x, node.y, radius * 1.5
+                );
+                gradient.addColorStop(0, '#ff4500');
+                gradient.addColorStop(0.5, 'rgba(255, 69, 0, 0.5)');
+                gradient.addColorStop(1, 'rgba(255, 69, 0, 0)');
+
+                ctx.beginPath();
+                ctx.arc(node.x, node.y, radius * 1.5, 0, Math.PI * 2);
+                ctx.fillStyle = gradient;
+                ctx.fill();
+
+                // Main orb - solid orange
+                ctx.beginPath();
+                ctx.arc(node.x, node.y, radius, 0, Math.PI * 2);
+                ctx.fillStyle = '#ff4500';
+                ctx.fill();
+
+                // Inner highlight
+                const innerGradient = ctx.createRadialGradient(
+                    node.x - radius * 0.3, node.y - radius * 0.3, 0,
+                    node.x, node.y, radius
+                );
+                innerGradient.addColorStop(0, 'rgba(255, 200, 150, 0.6)');
+                innerGradient.addColorStop(0.5, 'rgba(255, 100, 50, 0.3)');
+                innerGradient.addColorStop(1, 'rgba(255, 69, 0, 0)');
+
+                ctx.beginPath();
+                ctx.arc(node.x, node.y, radius, 0, Math.PI * 2);
+                ctx.fillStyle = innerGradient;
+                ctx.fill();
+
+            } else {
+                // Gray shimmering orb
+                const grayBase = Math.floor(80 + shimmer * 40);
+                const grayHighlight = Math.floor(140 + shimmer * 60);
+
+                // Subtle outer glow
+                ctx.shadowColor = `rgba(${grayHighlight}, ${grayHighlight}, ${grayHighlight}, 0.5)`;
+                ctx.shadowBlur = 8;
+
+                // Main orb gradient
+                const gradient = ctx.createRadialGradient(
+                    node.x - radius * 0.3, node.y - radius * 0.3, 0,
+                    node.x, node.y, radius * 1.2
+                );
+                gradient.addColorStop(0, `rgb(${grayHighlight + 30}, ${grayHighlight + 30}, ${grayHighlight + 30})`);
+                gradient.addColorStop(0.4, `rgb(${grayBase + 40}, ${grayBase + 40}, ${grayBase + 40})`);
+                gradient.addColorStop(0.8, `rgb(${grayBase}, ${grayBase}, ${grayBase})`);
+                gradient.addColorStop(1, `rgb(${grayBase - 20}, ${grayBase - 20}, ${grayBase - 20})`);
+
+                ctx.beginPath();
+                ctx.arc(node.x, node.y, radius, 0, Math.PI * 2);
+                ctx.fillStyle = gradient;
+                ctx.fill();
+
+                // Specular highlight
+                const specGradient = ctx.createRadialGradient(
+                    node.x - radius * 0.4, node.y - radius * 0.4, 0,
+                    node.x - radius * 0.2, node.y - radius * 0.2, radius * 0.5
+                );
+                specGradient.addColorStop(0, `rgba(255, 255, 255, ${0.3 * shimmer})`);
+                specGradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+
+                ctx.beginPath();
+                ctx.arc(node.x, node.y, radius, 0, Math.PI * 2);
+                ctx.fillStyle = specGradient;
+                ctx.fill();
             }
+
+            ctx.shadowBlur = 0;
         }
-    }
-
-    /**
-     * Draw tooltip for hovered node
-     */
-    drawTooltip(node) {
-        const padding = 10;
-        const lineHeight = 18;
-
-        this.ctx.font = '14px "SF Mono", Monaco, monospace';
-        const titleWidth = this.ctx.measureText(node.title).width;
-
-        this.ctx.font = '12px "SF Mono", Monaco, monospace';
-        const descWidth = node.description ? this.ctx.measureText(node.description).width : 0;
-
-        const boxWidth = Math.min(300, Math.max(titleWidth, descWidth) + padding * 2);
-        const boxHeight = node.description ? lineHeight * 2 + padding * 2 : lineHeight + padding * 2;
-
-        let boxX = node.x - boxWidth / 2;
-        let boxY = node.y - node.radius - boxHeight - 15;
-
-        // Keep tooltip on screen
-        boxX = Math.max(10, Math.min(this.canvas.width - boxWidth - 10, boxX));
-        if (boxY < 10) {
-            boxY = node.y + node.radius + 15;
-        }
-
-        // Background
-        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.9)';
-        this.ctx.fillRect(boxX, boxY, boxWidth, boxHeight);
-
-        this.ctx.strokeStyle = '#ff4500';
-        this.ctx.lineWidth = 1;
-        this.ctx.strokeRect(boxX, boxY, boxWidth, boxHeight);
-
-        // Title
-        this.ctx.font = '14px "SF Mono", Monaco, monospace';
-        this.ctx.fillStyle = '#ff4500';
-        this.ctx.textAlign = 'left';
-        this.ctx.textBaseline = 'top';
-
-        const truncatedTitle = this.truncateText(node.title, boxWidth - padding * 2);
-        this.ctx.fillText(truncatedTitle, boxX + padding, boxY + padding);
-
-        // Description
-        if (node.description) {
-            this.ctx.font = '12px "SF Mono", Monaco, monospace';
-            this.ctx.fillStyle = this.colors.textMuted;
-            const truncatedDesc = this.truncateText(node.description, boxWidth - padding * 2);
-            this.ctx.fillText(truncatedDesc, boxX + padding, boxY + padding + lineHeight);
-        }
-    }
-
-    /**
-     * Truncate text to fit width
-     */
-    truncateText(text, maxWidth) {
-        let truncated = text;
-        while (this.ctx.measureText(truncated).width > maxWidth && truncated.length > 0) {
-            truncated = truncated.slice(0, -1);
-        }
-        return truncated.length < text.length ? truncated + '...' : truncated;
     }
 
     /**
@@ -421,9 +461,17 @@ export class WritingNetwork {
             cancelAnimationFrame(this.animationId);
             this.animationId = null;
         }
-        if (this.canvas && this.canvas.parentNode) {
-            this.canvas.parentNode.removeChild(this.canvas);
+        if (this.resizeObserver) {
+            this.resizeObserver.disconnect();
+            this.resizeObserver = null;
         }
+        if (this.container) {
+            this.container.innerHTML = '';
+        }
+        // Clear references so render() knows to recreate
+        this.canvas = null;
+        this.ctx = null;
+        this.tooltip = null;
     }
 }
 

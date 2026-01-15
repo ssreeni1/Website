@@ -8,56 +8,83 @@
     min-height: 500px;
 }
 
-.writing-canvas {
+/* Network visualization */
+.writing-network {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    min-height: 500px;
+}
+
+.writing-network__canvas {
     display: block;
     width: 100%;
-    background: transparent;
+    height: 100%;
+    min-height: 500px;
 }
 
-.writing-legend {
-    display: flex;
-    justify-content: center;
-    gap: var(--spacing-lg);
-    padding: var(--spacing-md);
-    margin-bottom: var(--spacing-md);
+/* Tooltip */
+.writing-network__tooltip {
+    position: absolute;
+    background: rgba(20, 20, 20, 0.95);
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    padding: var(--spacing-sm) var(--spacing-md);
+    pointer-events: none;
+    opacity: 0;
+    transform: translateY(5px);
+    transition: opacity var(--transition-fast), transform var(--transition-fast);
+    max-width: 300px;
+    z-index: 100;
 }
 
-.writing-legend__item {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-xs);
-    font-family: var(--font-primary);
-    font-size: var(--font-size-xs);
-    color: var(--color-text-muted);
-    text-transform: uppercase;
-    letter-spacing: var(--letter-spacing-wide);
+.writing-network__tooltip.visible {
+    opacity: 1;
+    transform: translateY(0);
 }
 
-.writing-legend__icon {
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    background: rgba(255, 255, 255, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.5);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 10px;
-    color: var(--color-text);
-}
-
-.writing-hint {
-    text-align: center;
+.writing-network__tooltip-title {
     font-family: var(--font-primary);
     font-size: var(--font-size-sm);
+    font-weight: 500;
+    color: var(--color-text);
+    margin-bottom: var(--spacing-xs);
+    line-height: 1.4;
+}
+
+.writing-network__tooltip-meta {
+    display: flex;
+    gap: var(--spacing-sm);
+    font-family: var(--font-primary);
+    font-size: var(--font-size-xs);
+}
+
+.writing-network__tooltip-type {
+    text-transform: uppercase;
+    letter-spacing: var(--letter-spacing-wide);
+    color: var(--color-accent);
+}
+
+.writing-network__tooltip-date {
     color: var(--color-text-muted);
-    padding: var(--spacing-sm);
 }
 
 /* Mobile adjustments */
 @media (max-width: 768px) {
-    .writing-legend {
-        flex-wrap: wrap;
-        gap: var(--spacing-md);
+    .writing-network {
+        min-height: 400px;
+    }
+
+    .writing-network__canvas {
+        min-height: 400px;
+    }
+
+    .writing-network__tooltip {
+        max-width: 200px;
+        padding: var(--spacing-xs) var(--spacing-sm);
+    }
+
+    .writing-network__tooltip-title {
+        font-size: var(--font-size-xs);
     }
 }

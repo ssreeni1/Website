@@ -42,6 +42,9 @@ export const TabNav = {
 
         this.container.innerHTML = `
             <div class="nav-tabs" role="tablist">
+                <button class="nav-tabs__home" data-action="home" aria-label="Go to home">
+                    SS
+                </button>
                 ${tabs.map(tab => `
                     <button
                         class="nav-tabs__button ${tab.id === AppState.currentTab ? 'nav-tabs__button--active' : ''}"
@@ -64,6 +67,7 @@ export const TabNav = {
      * Bind click events
      */
     bindEvents() {
+        // Tab buttons
         this.buttons.forEach(button => {
             button.addEventListener('click', () => {
                 const tab = button.dataset.tab;
@@ -75,6 +79,41 @@ export const TabNav = {
                 }
             });
         });
+
+        // Home button
+        const homeButton = this.container.querySelector('[data-action="home"]');
+        if (homeButton) {
+            homeButton.addEventListener('click', () => {
+                this.goToLanding();
+            });
+        }
+    },
+
+    /**
+     * Go back to landing page
+     */
+    goToLanding() {
+        const landing = document.getElementById('landing-container');
+        const content = document.getElementById('content-container');
+
+        if (content) {
+            content.style.opacity = '0';
+        }
+
+        setTimeout(() => {
+            if (content) {
+                content.style.display = 'none';
+            }
+            if (landing) {
+                landing.classList.remove('landing-hidden', 'landing-fade-out');
+                landing.style.display = 'block';
+            }
+
+            AppState.setState({ currentView: 'landing' });
+
+            // Reload the page to reinitialize landing
+            window.location.reload();
+        }, 300);
     },
 
     /**

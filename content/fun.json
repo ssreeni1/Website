@@ -5,7 +5,8 @@
       "src": "content/images/backgammon.jpg",
       "alt": "Competitive backgammon",
       "url": null,
-      "span": "large"
+      "span": "large",
+      "contain": true
     },
     {
       "id": "djing",

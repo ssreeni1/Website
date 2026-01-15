@@ -103,6 +103,9 @@ export const Router = {
         if (!this.initialized.has(tabName)) {
             await component.init(container);
             this.initialized.add(tabName);
+        } else {
+            // Update container reference for re-visits
+            component.container = container;
         }
 
         component.render();

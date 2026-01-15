@@ -61,6 +61,11 @@ export class Timeline {
     render() {
         if (!this.data) return;
 
+        // Re-create observer if it was disconnected
+        if (!this.observer) {
+            this.setupIntersectionObserver();
+        }
+
         this.container.innerHTML = `
             <div class="timeline">
                 <div class="timeline-line"></div>

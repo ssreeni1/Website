@@ -4,11 +4,33 @@
  */
 
 .nav-tabs {
+    position: relative;
     display: flex;
     justify-content: center;
+    align-items: center;
     gap: var(--spacing-lg);
     padding: var(--spacing-lg) var(--spacing-md);
     border-bottom: 1px solid var(--color-border);
+}
+
+.nav-tabs__home {
+    position: absolute;
+    left: var(--spacing-md);
+    background: none;
+    border: 1px solid var(--color-border);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    cursor: pointer;
+    font-family: var(--font-primary);
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    letter-spacing: var(--letter-spacing-wide);
+    color: var(--color-text-muted);
+    transition: all var(--transition-fast);
+}
+
+.nav-tabs__home:hover {
+    color: var(--color-accent);
+    border-color: var(--color-accent);
 }
 
 .nav-tabs__button {
@@ -87,6 +109,11 @@
     .nav-tabs {
         gap: var(--spacing-md);
         padding: var(--spacing-md);
+    }
+
+    .nav-tabs__home {
+        font-size: var(--font-size-xs);
+        padding: var(--spacing-xs);
     }
 
     .nav-tabs__button {
