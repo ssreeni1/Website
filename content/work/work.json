@@ -1,0 +1,77 @@
+{
+  "positions": [
+    {
+      "id": "accomplice",
+      "company": "Accomplice VC",
+      "title": "Partner",
+      "dates": "2022 - Present",
+      "description": "Investing up to $2M in early-stage crypto and AI companies (pre-seed/seed/series A)",
+      "url": "https://www.accomplice.co/",
+      "current": true
+    },
+    {
+      "id": "ritual",
+      "company": "Ritual",
+      "title": "Founding Team",
+      "dates": "2023",
+      "description": "Infrastructure for crypto and AI",
+      "url": "https://www.ritual.net/",
+      "current": false
+    },
+    {
+      "id": "anicca",
+      "company": "Anicca Research",
+      "title": "Founding Team",
+      "dates": "2021",
+      "description": "Products for BTC Miners",
+      "url": "https://www.alkimiya.io/",
+      "current": false
+    },
+    {
+      "id": "dragonfly",
+      "company": "Dragonfly",
+      "title": "Junior Partner",
+      "dates": "2021",
+      "description": "Investing in early-stage crypto companies",
+      "url": "https://www.dragonfly.xyz/",
+      "current": false
+    },
+    {
+      "id": "polychain",
+      "company": "Polychain Capital",
+      "title": "Research Intern",
+      "dates": "2020",
+      "description": "Investing in early-stage crypto companies + data science/engineering",
+      "url": "https://www.polychain.capital/",
+      "current": false
+    },
+    {
+      "id": "lineage",
+      "company": "Lineage Logistics",
+      "title": "Data Science Intern",
+      "dates": "2020",
+      "description": "ML/optimization for warehouse efficiency",
+      "url": "https://www.lineagelogistics.com/",
+      "current": false
+    },
+    {
+      "id": "contrary",
+      "company": "Contrary",
+      "title": "Venture Partner",
+      "dates": "2019",
+      "description": "Early-stage venture capital",
+      "url": "https://contrary.com/",
+      "current": false
+    }
+  ],
+  "education": [
+    {
+      "id": "berkeley",
+      "institution": "UC Berkeley M.E.T.",
+      "degree": "Bachelor's degree",
+      "field": "Electrical Engineering & Computer Science, Business Administration",
+      "url": "https://met.berkeley.edu/",
+      "current": false
+    }
+  ]
+}

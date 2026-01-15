@@ -1,0 +1,39 @@
+{
+  "images": [
+    {
+      "id": "backgammon",
+      "src": "content/images/backgammon.jpg",
+      "alt": "Competitive backgammon",
+      "url": null,
+      "span": "large"
+    },
+    {
+      "id": "djing",
+      "src": "content/images/djing.jpg",
+      "alt": "DJing",
+      "url": null,
+      "span": "medium"
+    },
+    {
+      "id": "f1",
+      "src": "content/images/f1.jpg",
+      "alt": "F1 / Rally",
+      "url": null,
+      "span": "medium"
+    },
+    {
+      "id": "tennis",
+      "src": "content/images/tennis.jpg",
+      "alt": "Tennis / Padel",
+      "url": null,
+      "span": "large"
+    },
+    {
+      "id": "horology",
+      "src": "content/images/horology.jpg",
+      "alt": "Horology",
+      "url": null,
+      "span": "medium"
+    }
+  ]
+}
