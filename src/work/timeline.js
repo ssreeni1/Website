@@ -3,9 +3,17 @@
  * Simple prose content replacing the timeline
  */
 
+const SCRAMBLE_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*<>{}[]|;:~';
+const CHARS_PER_FRAME = 4;
+
+function randomChar() {
+    return SCRAMBLE_CHARS[Math.floor(Math.random() * SCRAMBLE_CHARS.length)];
+}
+
 export class Timeline {
     constructor() {
         this.container = null;
+        this.animFrameId = null;
     }
 
     async init(container) {
@@ -35,9 +43,83 @@ export class Timeline {
                 </ul>
             </div>
         `;
+
+        this.scrambleDecode();
+    }
+
+    scrambleDecode() {
+        if (this.animFrameId) {
+            cancelAnimationFrame(this.animFrameId);
+            this.animFrameId = null;
+        }
+
+        const aboutEl = this.container.querySelector('.work-about');
+        if (!aboutEl) return;
+
+        // Collect all text nodes
+        const walker = document.createTreeWalker(aboutEl, NodeFilter.SHOW_TEXT);
+        const entries = [];
+        let totalChars = 0;
+
+        while (walker.nextNode()) {
+            const node = walker.currentNode;
+            const original = node.textContent;
+            // Build a map of which characters are non-whitespace (scramblable)
+            const chars = [];
+            for (let i = 0; i < original.length; i++) {
+                const ch = original[i];
+                const isWhitespace = /\s/.test(ch);
+                if (!isWhitespace) totalChars++;
+                chars.push({ original: ch, isWhitespace });
+            }
+            entries.push({ node, chars });
+        }
+
+        // Initial scramble: replace all non-whitespace with random glyphs
+        for (const entry of entries) {
+            entry.node.textContent = entry.chars
+                .map(c => c.isWhitespace ? c.original : randomChar())
+                .join('');
+        }
+
+        let resolved = 0;
+
+        const tick = () => {
+            resolved += CHARS_PER_FRAME;
+
+            let charIndex = 0;
+            for (const entry of entries) {
+                let text = '';
+                for (const c of entry.chars) {
+                    if (c.isWhitespace) {
+                        text += c.original;
+                    } else {
+                        if (charIndex < resolved) {
+                            text += c.original;
+                        } else {
+                            text += randomChar();
+                        }
+                        charIndex++;
+                    }
+                }
+                entry.node.textContent = text;
+            }
+
+            if (resolved < totalChars) {
+                this.animFrameId = requestAnimationFrame(tick);
+            } else {
+                this.animFrameId = null;
+            }
+        };
+
+        this.animFrameId = requestAnimationFrame(tick);
     }
 
     cleanup() {
+        if (this.animFrameId) {
+            cancelAnimationFrame(this.animFrameId);
+            this.animFrameId = null;
+        }
         if (this.container) {
             this.container.innerHTML = '';
         }
