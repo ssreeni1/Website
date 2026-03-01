@@ -93,10 +93,13 @@ export class Landing {
         this.canvas.height = height;
 
         this.ouroboros.init(width, height);
-
-        const center = this.ouroboros.getCenter();
         const radius = this.ouroboros.getRadius();
-        this.nodeNetwork.init(center.x, center.y, width, height, radius);
+
+        // nodeNetwork computes a bounding-box-centered position;
+        // shift the ouroboros to match so the whole composition is dead center
+        const adjCenter = this.nodeNetwork.init(width / 2, height / 2, width, height, radius);
+        this.ouroboros.centerX = adjCenter.x;
+        this.ouroboros.centerY = adjCenter.y;
     }
 
     /**
@@ -141,7 +144,7 @@ export class Landing {
         this.ouroboros.update(currentTime);
         this.ouroboros.render(this.ctx);
 
-        this.nodeNetwork.update(deltaTime);
+        this.nodeNetwork.update(deltaTime, this.ouroboros.rotation);
         this.nodeNetwork.render(this.ctx);
 
         this.animationId = requestAnimationFrame(() => this.animate());

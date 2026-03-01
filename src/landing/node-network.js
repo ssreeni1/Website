@@ -1,5 +1,5 @@
 /**
- * Node Network - Animated lines connecting ouroboros to section labels
+ * Node Network - Section labels at vertices of an ASCII triangle framing the ouroboros
  */
 
 export class NodeNetwork {
@@ -7,129 +7,159 @@ export class NodeNetwork {
         this.nodes = [];
         this.center = { x: 0, y: 0 };
         this.hoveredNode = null;
-        this.pulseOffset = 0;
         this.color = '#ffffff';
         this.accentColor = '#ff4500';
+        this.flowOffset = 0;
+        this.flowChars = '·-~=*=~-';
+        this.charSpacing = 14;
+        this.fontSize = 22;
     }
 
     /**
-     * Initialize with center point and viewport dimensions
+     * Initialize with center point and viewport dimensions.
+     * Returns the adjusted center so the ouroboros can be shifted to match.
      */
     init(centerX, centerY, width, height, radius) {
-        this.center = { x: centerX, y: centerY };
+        const isMobile = width < 768;
+        this.fontSize = isMobile ? 16 : 22;
+        const labelPad = isMobile ? 90 : 80;
 
-        // Calculate node positions around the ouroboros
-        const distance = radius * 2.5;
+        const idealDistance = radius * 4;
+        const horizontalMax = (width / 2 - labelPad) / Math.cos(Math.PI / 6);
+        const verticalMax = height / 2 - (isMobile ? 70 : 60);
+        const distance = Math.min(idealDistance, horizontalMax, verticalMax);
 
-        this.nodes = [
-            {
-                id: 'work',
-                label: 'Work',
-                angle: -Math.PI / 4, // Top-right
-                x: centerX + Math.cos(-Math.PI / 4) * distance,
-                y: centerY + Math.sin(-Math.PI / 4) * distance,
-                progress: 0 // For draw-in animation
-            },
-            {
-                id: 'writing',
-                label: 'Writing',
-                angle: -3 * Math.PI / 4, // Top-left
-                x: centerX + Math.cos(-3 * Math.PI / 4) * distance,
-                y: centerY + Math.sin(-3 * Math.PI / 4) * distance,
-                progress: 0
-            },
-            {
-                id: 'fun',
-                label: 'Fun',
-                angle: Math.PI / 2, // Bottom
-                x: centerX + Math.cos(Math.PI / 2) * distance,
-                y: centerY + Math.sin(Math.PI / 2) * distance,
-                progress: 0
-            }
+        const labelOffset = isMobile ? 12 : 16;
+        const bottomLabelGap = isMobile ? 18 : 24;
+
+        // Compute raw vertex positions relative to 0,0 then find bounding box
+        const raw = [
+            { angle: -Math.PI / 6,     lox: labelOffset,  loy: 0,              ta: 'left',   label: 'Work' },
+            { angle: -5 * Math.PI / 6, lox: -labelOffset, loy: 0,              ta: 'right',  label: 'Writing' },
+            { angle: Math.PI / 2,      lox: 0,            loy: bottomLabelGap, ta: 'center', label: 'Fun' },
         ];
 
-        return this;
+        // Estimate label pixel widths for bounding box (monospace ~0.6 * fontSize per char)
+        const charPx = this.fontSize * 0.6;
+
+        let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+
+        for (const r of raw) {
+            const vx = Math.cos(r.angle) * distance;
+            const vy = Math.sin(r.angle) * distance;
+
+            // Label extent
+            const labelW = r.label.length * charPx;
+            let labelLeft, labelRight;
+            if (r.ta === 'left')        { labelLeft = vx + r.lox;            labelRight = vx + r.lox + labelW; }
+            else if (r.ta === 'right')  { labelLeft = vx + r.lox - labelW;   labelRight = vx + r.lox; }
+            else                        { labelLeft = vx - labelW / 2;        labelRight = vx + labelW / 2; }
+
+            const labelTop = vy + r.loy - this.fontSize / 2;
+            const labelBottom = vy + r.loy + this.fontSize / 2;
+
+            minX = Math.min(minX, vx, labelLeft);
+            maxX = Math.max(maxX, vx, labelRight);
+            minY = Math.min(minY, vy, labelTop);
+            maxY = Math.max(maxY, vy, labelBottom);
+        }
+
+        // Shift so bounding box is centered in viewport
+        const bboxCenterX = (minX + maxX) / 2;
+        const bboxCenterY = (minY + maxY) / 2;
+
+        const adjCenterX = width / 2 - bboxCenterX;
+        const adjCenterY = height / 2 - bboxCenterY;
+
+        this.center = { x: adjCenterX, y: adjCenterY };
+
+        this.nodes = raw.map(r => ({
+            id: r.label.toLowerCase(),
+            label: r.label,
+            x: adjCenterX + Math.cos(r.angle) * distance,
+            y: adjCenterY + Math.sin(r.angle) * distance,
+            labelOffsetX: r.lox,
+            labelOffsetY: r.loy,
+            textAlign: r.ta,
+        }));
+
+        return this.center;
     }
 
     /**
-     * Update animations
+     * Update flow animation
      */
-    update(deltaTime) {
-        // Update pulse animation
-        this.pulseOffset = (this.pulseOffset + deltaTime * 0.001) % 1;
-
-        // Update draw-in progress for each node
-        this.nodes.forEach(node => {
-            if (node.progress < 1) {
-                node.progress = Math.min(1, node.progress + 0.02);
-            }
-        });
+    update(deltaTime, rotation) {
+        this.flowOffset += deltaTime * 0.03;
     }
 
     /**
-     * Render nodes and connecting lines
+     * Render flowing edges, dots, and labels
      */
     render(ctx) {
+        this.renderEdges(ctx);
         this.nodes.forEach(node => {
-            this.renderLine(ctx, node);
-            this.renderNode(ctx, node);
+            this.renderDot(ctx, node);
             this.renderLabel(ctx, node);
         });
     }
 
     /**
-     * Render connecting line with energy pulse
+     * Render flowing ASCII characters along each triangle edge
      */
-    renderLine(ctx, node) {
-        const isHovered = this.hoveredNode === node.id;
-        const progress = this.easeOutCubic(node.progress);
+    renderEdges(ctx) {
+        const n = this.nodes;
+        const edges = [
+            [n[0], n[1]],
+            [n[1], n[2]],
+            [n[2], n[0]],
+        ];
 
-        // Calculate current end point based on progress
-        const currentX = this.center.x + (node.x - this.center.x) * progress;
-        const currentY = this.center.y + (node.y - this.center.y) * progress;
+        ctx.font = '10px "SF Mono", Monaco, monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
 
-        // Draw line
-        ctx.beginPath();
-        ctx.moveTo(this.center.x, this.center.y);
-        ctx.lineTo(currentX, currentY);
-        ctx.strokeStyle = isHovered ? this.accentColor : this.color;
-        ctx.lineWidth = isHovered ? 2 : 1;
-        ctx.globalAlpha = 0.6;
-        ctx.stroke();
-        ctx.globalAlpha = 1;
+        for (const [a, b] of edges) {
+            const dx = b.x - a.x;
+            const dy = b.y - a.y;
+            const length = Math.sqrt(dx * dx + dy * dy);
+            const count = Math.floor(length / this.charSpacing);
 
-        // Draw energy pulse if fully drawn
-        if (node.progress >= 1) {
-            const pulseT = (this.pulseOffset + this.nodes.indexOf(node) * 0.33) % 1;
-            const pulseX = this.center.x + (node.x - this.center.x) * pulseT;
-            const pulseY = this.center.y + (node.y - this.center.y) * pulseT;
+            for (let i = 1; i < count; i++) {
+                const t = i / count;
+                const x = a.x + dx * t;
+                const y = a.y + dy * t;
 
-            ctx.beginPath();
-            ctx.arc(pulseX, pulseY, 3, 0, Math.PI * 2);
-            ctx.fillStyle = this.accentColor;
-            ctx.shadowColor = this.accentColor;
-            ctx.shadowBlur = 10;
-            ctx.fill();
-            ctx.shadowBlur = 0;
+                const charIdx = Math.floor(i + this.flowOffset) % this.flowChars.length;
+                const char = this.flowChars[charIdx];
+
+                // Fade near vertices
+                const edgeFade = Math.min(t, 1 - t) * 4;
+                const alpha = Math.min(1, edgeFade) * 0.35;
+
+                ctx.globalAlpha = alpha;
+                ctx.fillStyle = this.color;
+                ctx.fillText(char, x, y);
+            }
         }
+
+        ctx.globalAlpha = 1;
     }
 
     /**
-     * Render node circle
+     * Render vertex dot
      */
-    renderNode(ctx, node) {
-        if (node.progress < 1) return;
-
+    renderDot(ctx, node) {
         const isHovered = this.hoveredNode === node.id;
-        const radius = isHovered ? 10 : 7;
+        const r = isHovered ? 5 : 3;
 
         ctx.beginPath();
-        ctx.arc(node.x, node.y, radius, 0, Math.PI * 2);
+        ctx.arc(node.x, node.y, r, 0, Math.PI * 2);
         ctx.fillStyle = isHovered ? this.accentColor : this.color;
 
         if (isHovered) {
             ctx.shadowColor = this.accentColor;
-            ctx.shadowBlur = 15;
+            ctx.shadowBlur = 10;
         }
 
         ctx.fill();
@@ -137,29 +167,26 @@ export class NodeNetwork {
     }
 
     /**
-     * Render node label
+     * Render label text positioned outside each vertex
      */
     renderLabel(ctx, node) {
-        if (node.progress < 1) return;
-
         const isHovered = this.hoveredNode === node.id;
 
-        ctx.font = `${isHovered ? '600' : '500'} 14px "SF Mono", Monaco, monospace`;
+        ctx.font = `${isHovered ? '600' : '500'} ${this.fontSize}px "SF Mono", Monaco, monospace`;
         ctx.fillStyle = isHovered ? this.accentColor : this.color;
-        ctx.textAlign = 'center';
+        ctx.textAlign = node.textAlign;
         ctx.textBaseline = 'middle';
-
-        // Position label outside the node
-        const labelDistance = 25;
-        const labelX = node.x + Math.cos(node.angle) * labelDistance;
-        const labelY = node.y + Math.sin(node.angle) * labelDistance;
 
         if (isHovered) {
             ctx.shadowColor = this.accentColor;
             ctx.shadowBlur = 10;
         }
 
-        ctx.fillText(node.label, labelX, labelY);
+        ctx.fillText(
+            node.label,
+            node.x + node.labelOffsetX,
+            node.y + node.labelOffsetY
+        );
         ctx.shadowBlur = 0;
     }
 
@@ -172,9 +199,9 @@ export class NodeNetwork {
         for (const node of this.nodes) {
             const dx = x - node.x;
             const dy = y - node.y;
-            const distance = Math.sqrt(dx * dx + dy * dy);
+            const dist = Math.sqrt(dx * dx + dy * dy);
 
-            if (distance < 30) { // Hit area
+            if (dist < 40) {
                 this.hoveredNode = node.id;
                 break;
             }
@@ -190,20 +217,13 @@ export class NodeNetwork {
         for (const node of this.nodes) {
             const dx = x - node.x;
             const dy = y - node.y;
-            const distance = Math.sqrt(dx * dx + dy * dy);
+            const dist = Math.sqrt(dx * dx + dy * dy);
 
-            if (distance < 30) {
+            if (dist < 40) {
                 return node.id;
             }
         }
         return null;
-    }
-
-    /**
-     * Easing function for smooth animations
-     */
-    easeOutCubic(t) {
-        return 1 - Math.pow(1 - t, 3);
     }
 }
 
