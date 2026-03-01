@@ -11,6 +11,7 @@ export class Collage {
         this.edges = [];
         this.hoveredNode = null;
         this.loadedImages = new Map();
+        this.grayscaleImages = new Map();
         this.isActive = false;
         this.animationId = null;
     }
@@ -47,6 +48,7 @@ export class Collage {
                 const img = new Image();
                 img.onload = () => {
                     this.loadedImages.set(item.id, img);
+                    this.grayscaleImages.set(item.id, this.createGrayscale(img));
                     resolve();
                 };
                 img.onerror = () => resolve();
@@ -54,6 +56,27 @@ export class Collage {
             });
         });
         await Promise.all(promises);
+    }
+
+    /**
+     * Pre-render a grayscale version of an image (works on all browsers)
+     */
+    createGrayscale(img) {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const d = imageData.data;
+        for (let i = 0; i < d.length; i += 4) {
+            const gray = d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114;
+            d[i] = gray;
+            d[i + 1] = gray;
+            d[i + 2] = gray;
+        }
+        ctx.putImageData(imageData, 0, 0);
+        return canvas;
     }
 
     /**
@@ -94,12 +117,19 @@ export class Collage {
 
         this.nodes = this.data.images.map((item, index) => {
             const size = item.span === 'large' ? baseSize * 1.3 : baseSize;
+            const w = size;
+            const h = size * 0.75;
+            const angle = Math.random() * Math.PI * 2;
+            const speed = 0.8 + Math.random() * 0.4;
             return {
                 ...item,
                 x: positions[index].x,
                 y: positions[index].y,
-                width: size,
-                height: size * 0.75,
+                width: w,
+                height: h,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed,
+                mass: w * h,
                 hoverScale: 1
             };
         });
@@ -203,10 +233,12 @@ export class Collage {
         this.canvas.addEventListener('mousemove', (e) => this.handleMouseMove(e));
         this.canvas.addEventListener('click', (e) => this.handleClick(e));
         this.canvas.addEventListener('mouseleave', () => this.hideTooltip());
+        this.canvas.addEventListener('touchstart', (e) => this.handleTouch(e), { passive: true });
 
         this.resizeObserver = new ResizeObserver(() => {
             this.calculateLayout();
             this.createEdges();
+            this.lastTimestamp = null;
         });
         this.resizeObserver.observe(this.container);
     }
@@ -241,6 +273,28 @@ export class Collage {
             }
         } else if (foundNode) {
             this.updateTooltipPosition(e.clientX, e.clientY);
+        }
+    }
+
+    /**
+     * Handle touch for mobile tap-to-open
+     */
+    handleTouch(e) {
+        const touch = e.touches[0];
+        if (!touch) return;
+        const rect = this.canvas.getBoundingClientRect();
+        const x = touch.clientX - rect.left;
+        const y = touch.clientY - rect.top;
+
+        this.hoveredNode = null;
+        for (const node of this.nodes) {
+            const halfW = node.width / 2;
+            const halfH = node.height / 2;
+            if (x >= node.x - halfW && x <= node.x + halfW &&
+                y >= node.y - halfH && y <= node.y + halfH) {
+                this.hoveredNode = node;
+                break;
+            }
         }
     }
 
@@ -296,14 +350,103 @@ export class Collage {
         }
 
         this.isActive = true;
-        this.draw();
+        this.lastTimestamp = null;
+        this.draw(performance.now());
+    }
+
+    /**
+     * Update node positions — drift + wall bounce + node-node collisions
+     */
+    update(dt) {
+        const w = this.canvas.width;
+        const h = this.canvas.height;
+        const nodes = this.nodes;
+        const minSpeed = 0.3;
+        const maxSpeed = 2.5;
+
+        // Move nodes
+        for (const n of nodes) {
+            n.x += n.vx * dt;
+            n.y += n.vy * dt;
+
+            // Wall bounce
+            const halfW = n.width / 2;
+            const halfH = n.height / 2;
+            if (n.x - halfW < 0) { n.x = halfW; n.vx = Math.abs(n.vx); }
+            if (n.x + halfW > w) { n.x = w - halfW; n.vx = -Math.abs(n.vx); }
+            if (n.y - halfH < 0) { n.y = halfH; n.vy = Math.abs(n.vy); }
+            if (n.y + halfH > h) { n.y = h - halfH; n.vy = -Math.abs(n.vy); }
+        }
+
+        // Node-node elastic collisions (circle-based)
+        for (let i = 0; i < nodes.length; i++) {
+            for (let j = i + 1; j < nodes.length; j++) {
+                const a = nodes[i];
+                const b = nodes[j];
+                const dx = b.x - a.x;
+                const dy = b.y - a.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                const rA = Math.max(a.width, a.height) / 2 * 0.85;
+                const rB = Math.max(b.width, b.height) / 2 * 0.85;
+                const minDist = rA + rB;
+
+                if (dist < minDist && dist > 0) {
+                    // Normal vector
+                    const nx = dx / dist;
+                    const ny = dy / dist;
+
+                    // Separate overlapping nodes
+                    const overlap = (minDist - dist) / 2;
+                    a.x -= nx * overlap;
+                    a.y -= ny * overlap;
+                    b.x += nx * overlap;
+                    b.y += ny * overlap;
+
+                    // Relative velocity along normal
+                    const dvx = a.vx - b.vx;
+                    const dvy = a.vy - b.vy;
+                    const dvn = dvx * nx + dvy * ny;
+
+                    // Only resolve if approaching
+                    if (dvn > 0) {
+                        const totalMass = a.mass + b.mass;
+                        const impulse = (2 * dvn) / totalMass;
+                        a.vx -= impulse * b.mass * nx;
+                        a.vy -= impulse * b.mass * ny;
+                        b.vx += impulse * a.mass * nx;
+                        b.vy += impulse * a.mass * ny;
+                    }
+                }
+            }
+        }
+
+        // Clamp speeds
+        for (const n of nodes) {
+            const speed = Math.sqrt(n.vx * n.vx + n.vy * n.vy);
+            if (speed < minSpeed) {
+                const scale = minSpeed / speed;
+                n.vx *= scale;
+                n.vy *= scale;
+            } else if (speed > maxSpeed) {
+                const scale = maxSpeed / speed;
+                n.vx *= scale;
+                n.vy *= scale;
+            }
+        }
     }
 
     /**
      * Draw the network
      */
-    draw() {
+    draw(timestamp) {
         if (!this.isActive) return;
+
+        // Compute delta time (capped at 32ms to prevent tunneling)
+        if (this.lastTimestamp) {
+            const dt = Math.min(timestamp - this.lastTimestamp, 32) / 16.667;
+            this.update(dt);
+        }
+        this.lastTimestamp = timestamp;
 
         const ctx = this.ctx;
         const width = this.canvas.width;
@@ -319,7 +462,7 @@ export class Collage {
         // Draw nodes (images)
         this.drawNodes(ctx);
 
-        this.animationId = requestAnimationFrame(() => this.draw());
+        this.animationId = requestAnimationFrame((ts) => this.draw(ts));
     }
 
     /**
@@ -376,15 +519,13 @@ export class Collage {
 
             ctx.shadowBlur = 0;
 
-            // Apply grayscale filter for non-hovered images
+            // Draw image (pre-rendered grayscale for non-hovered)
             if (!isHovered) {
-                ctx.filter = 'grayscale(100%)';
+                const grayImg = this.grayscaleImages.get(node.id);
+                ctx.drawImage(grayImg || img, x, y, width, height);
             } else {
-                ctx.filter = 'grayscale(0%)';
+                ctx.drawImage(img, x, y, width, height);
             }
-
-            // Draw image
-            ctx.drawImage(img, x, y, width, height);
 
             ctx.restore();
         }
@@ -395,6 +536,7 @@ export class Collage {
      */
     cleanup() {
         this.isActive = false;
+        this.lastTimestamp = null;
         if (this.animationId) {
             cancelAnimationFrame(this.animationId);
             this.animationId = null;
