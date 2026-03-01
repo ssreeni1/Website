@@ -77,7 +77,7 @@ export class Collage {
     calculateLayout() {
         const rect = this.container.getBoundingClientRect();
         const width = rect.width || 800;
-        const height = Math.max(500, rect.height || 600);
+        const height = Math.max(700, rect.height || 700);
 
         this.canvas.width = width;
         this.canvas.height = height;
@@ -87,7 +87,7 @@ export class Collage {
         const count = this.data.images.length;
 
         // Calculate image sizes based on viewport
-        const baseSize = Math.min(width, height) * 0.18;
+        const baseSize = Math.min(width, height) * 0.26;
 
         // Position images in an organic scattered pattern
         const positions = this.generatePositions(count, centerX, centerY, width, height, baseSize);
@@ -110,7 +110,7 @@ export class Collage {
      */
     generatePositions(count, centerX, centerY, width, height, baseSize) {
         const positions = [];
-        const padding = baseSize * 0.8;
+        const padding = baseSize * 1.1;
         const maxAttempts = 100;
 
         for (let i = 0; i < count; i++) {
@@ -121,7 +121,7 @@ export class Collage {
                 // Generate position with some organic variation
                 const angle = (i / count) * Math.PI * 2 + Math.random() * 0.3;
                 const radiusVariation = 0.6 + Math.random() * 0.4;
-                const radius = Math.min(width, height) * 0.28 * radiusVariation;
+                const radius = Math.min(width, height) * 0.38 * radiusVariation;
 
                 const x = centerX + Math.cos(angle) * radius;
                 const y = centerY + Math.sin(angle) * radius;
@@ -153,7 +153,7 @@ export class Collage {
             // Fallback position if couldn't find valid spot
             if (!placed) {
                 const angle = (i / count) * Math.PI * 2;
-                const radius = Math.min(width, height) * 0.3;
+                const radius = Math.min(width, height) * 0.4;
                 positions.push({
                     x: centerX + Math.cos(angle) * radius,
                     y: centerY + Math.sin(angle) * radius

@@ -51,3 +51,27 @@
     border-color: var(--color-accent);
     text-decoration: none;
 }
+
+/* Mobile */
+@media (max-width: 768px) {
+    .work-about {
+        padding: var(--spacing-xl) var(--spacing-lg);
+    }
+
+    .work-about p {
+        font-size: var(--font-size-xs);
+        line-height: 1.9;
+        margin-bottom: var(--spacing-xl);
+    }
+
+    .work-about li {
+        font-size: var(--font-size-xs);
+        line-height: 1.9;
+        padding-left: var(--spacing-sm);
+        margin-bottom: var(--spacing-md);
+    }
+
+    .work-about li::before {
+        left: -2px;
+    }
+}

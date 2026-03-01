@@ -5,7 +5,7 @@
 
 #tab-fun {
     position: relative;
-    min-height: 500px;
+    min-height: 700px;
 }
 
 /* Network visualization */
@@ -13,14 +13,14 @@
     position: relative;
     width: 100%;
     height: 100%;
-    min-height: 500px;
+    min-height: 700px;
 }
 
 .fun-network__canvas {
     display: block;
     width: 100%;
     height: 100%;
-    min-height: 500px;
+    min-height: 700px;
 }
 
 /* Tooltip */
@@ -55,11 +55,11 @@
 /* Mobile adjustments */
 @media (max-width: 768px) {
     .fun-network {
-        min-height: 400px;
+        min-height: 500px;
     }
 
     .fun-network__canvas {
-        min-height: 400px;
+        min-height: 500px;
     }
 
     .fun-network__tooltip {
