@@ -1,145 +1,43 @@
 /**
- * Work Timeline Component
- * Vertical timeline with nodes, alternating sides, scroll reveal
+ * Work About Component
+ * Simple prose content replacing the timeline
  */
-
-import { EventBus, Events } from '../core/events.js';
 
 export class Timeline {
     constructor() {
         this.container = null;
-        this.data = null;
-        this.observer = null;
     }
 
-    /**
-     * Initialize timeline
-     */
     async init(container) {
         this.container = container;
-        await this.loadData();
-        this.setupIntersectionObserver();
         return this;
     }
 
-    /**
-     * Load timeline data
-     */
-    async loadData() {
-        try {
-            const response = await fetch('/content/work/work.json');
-            this.data = await response.json();
-        } catch (error) {
-            console.error('Failed to load work data:', error);
-            this.data = { positions: [], education: [] };
-        }
-    }
-
-    /**
-     * Setup intersection observer for scroll animations
-     */
-    setupIntersectionObserver() {
-        this.observer = new IntersectionObserver(
-            (entries) => {
-                entries.forEach((entry) => {
-                    if (entry.isIntersecting) {
-                        entry.target.classList.add('timeline-item--visible');
-                        this.observer.unobserve(entry.target);
-                    }
-                });
-            },
-            {
-                threshold: 0.2,
-                rootMargin: '0px 0px -50px 0px'
-            }
-        );
-    }
-
-    /**
-     * Render timeline
-     */
     render() {
-        if (!this.data) return;
-
-        // Re-create observer if it was disconnected
-        if (!this.observer) {
-            this.setupIntersectionObserver();
-        }
+        if (!this.container) return;
 
         this.container.innerHTML = `
-            <div class="timeline">
-                <div class="timeline-line"></div>
-                ${this.renderPositions()}
-                ${this.renderEducation()}
-            </div>
-        `;
+            <div class="work-about">
+                <p>Hi, I'm Saneel. The through-line of my <a href="https://www.linkedin.com/in/snlsrn/" target="_blank" rel="noopener noreferrer">work</a> is a simple question: what happens when genuinely new technology meets genuinely old industries?</p>
 
-        // Observe all timeline items
-        this.container.querySelectorAll('.timeline-item').forEach((item) => {
-            this.observer.observe(item);
-        });
-    }
+                <p>I've explored this by building (<a href="https://ritual.net" target="_blank" rel="noopener noreferrer">Ritual</a>, <a href="https://alkimiya.io" target="_blank" rel="noopener noreferrer">Alkimiya</a>), by investing at the earliest stages (<a href="https://accomplice.co" target="_blank" rel="noopener noreferrer">Accomplice</a>, <a href="https://dragonfly.xyz" target="_blank" rel="noopener noreferrer">Dragonfly</a>, <a href="https://polychain.capital" target="_blank" rel="noopener noreferrer">Polychain</a>), and by trading public markets. I have been immensely fortunate to work with and learn from some pretty exceptional people through these things, and that remains a core driving factor for me. All my work has primarily been in crypto and AI, but I'm now dedicating more of my time to branch out.</p>
 
-    /**
-     * Render work positions
-     */
-    renderPositions() {
-        return this.data.positions
-            .map((position, index) => this.renderItem(position, index, 'position'))
-            .join('');
-    }
-
-    /**
-     * Render education
-     */
-    renderEducation() {
-        if (!this.data.education || this.data.education.length === 0) return '';
-
-        return `
-            <div class="timeline-section-label">Education</div>
-            ${this.data.education
-                .map((edu, index) => this.renderItem(edu, this.data.positions.length + index, 'education'))
-                .join('')}
-        `;
-    }
-
-    /**
-     * Render a single timeline item
-     */
-    renderItem(item, index, type) {
-        const side = index % 2 === 0 ? 'left' : 'right';
-        const isCurrent = item.current;
-        const title = type === 'education' ? item.institution : item.company;
-        const subtitle = type === 'education' ? `${item.degree} - ${item.field}` : item.title;
-        const dates = item.dates || '';
-        const description = item.description || '';
-
-        return `
-            <div class="timeline-item timeline-item--${side}" data-id="${item.id}">
-                <div class="timeline-node ${isCurrent ? 'timeline-node--current' : ''}">
-                    <div class="timeline-node__dot"></div>
-                    ${isCurrent ? '<div class="timeline-node__pulse"></div>' : ''}
-                </div>
-                <div class="timeline-content">
-                    <a href="${item.url}" target="_blank" rel="noopener noreferrer" class="timeline-content__link">
-                        <h3 class="timeline-content__title">${title}</h3>
-                        <p class="timeline-content__subtitle">${subtitle}</p>
-                        <span class="timeline-content__dates">${dates}</span>
-                        ${description ? `<p class="timeline-content__description">${description}</p>` : ''}
-                    </a>
-                </div>
+                <p>What I'm thinking about now:</p>
+                <ul>
+                    <li>the adaptation of AI to legacy services, not by replacing them, but by making them unrecognizable</li>
+                    <li>compounders in the age of software and labor automation, marketplaces in particular, which age like almost nothing else</li>
+                    <li><a href="https://superpositioned.co" target="_blank" rel="noopener noreferrer">quantum computing</a></li>
+                    <li>the convergence of payment and asset rails with blockchains, finance re-plumbed from below</li>
+                    <li>the enduring, compounding value of live experiences: the Amans, the Vail Resorts, the things no algorithm can intermediate</li>
+                    <li>operating with <a href="https://quartr.com/insights/business-philosophy/the-brunello-cucinelli-story-combining-elegance-and-ethics" target="_blank" rel="noopener noreferrer">taste and aesthetics</a>, the Cucinelli ethos that elegance and ethics aren't at odds</li>
+                    <li>becoming like the people I look up to: my parents, Lee Kuan Yew, <a href="https://quartr.com/insights/investment-strategy/reece-duca-the-manager-who-outperformed-buffett" target="_blank" rel="noopener noreferrer">Reece Duca</a>, Swedish House Mafia, Ralph Lauren</li>
+                    <li>wisdom from long history and anthropology, the Bhagavad Gita, the Bible, Girard's mimetic theory, the Meditations of Marcus Aurelius, etc.</li>
+                </ul>
             </div>
         `;
     }
 
-    /**
-     * Cleanup
-     */
     cleanup() {
-        if (this.observer) {
-            this.observer.disconnect();
-            this.observer = null;
-        }
         if (this.container) {
             this.container.innerHTML = '';
         }
