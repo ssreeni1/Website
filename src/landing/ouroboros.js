@@ -136,7 +136,7 @@ export class Ouroboros {
         const startY = this.centerY - totalHeight / 2;
 
         // Set up text rendering
-        ctx.font = `${this.fontSize * this.scale}px "SF Mono", Monaco, "Courier New", monospace`;
+        ctx.font = `${this.fontSize * this.scale}px "Electrolize", sans-serif`;
         ctx.textBaseline = 'top';
         ctx.textAlign = 'left';
 
@@ -171,17 +171,17 @@ export class Ouroboros {
                 const x = startX + col * this.charWidth * this.scale;
                 const y = startY + row * this.charHeight * this.scale;
 
-                // Color based on brightness - white with slight orange tint for brighter areas
+                // Color based on brightness - orange tones
                 if (brightness > 180) {
-                    ctx.fillStyle = '#ffffff';
+                    ctx.fillStyle = '#ff4500';
                     ctx.shadowColor = '#ff4500';
                     ctx.shadowBlur = 8;
                 } else if (brightness > 100) {
-                    ctx.fillStyle = '#cccccc';
+                    ctx.fillStyle = '#cc3700';
                     ctx.shadowColor = '#ff4500';
                     ctx.shadowBlur = 4;
                 } else {
-                    ctx.fillStyle = '#888888';
+                    ctx.fillStyle = '#7a2000';
                     ctx.shadowBlur = 0;
                 }
 

@@ -1,6 +1,13 @@
 {
   "items": [
     {
+      "id": "superpositioned",
+      "title": "Superpositioned",
+      "type": "research",
+      "date": "2026-03-02",
+      "url": "https://superpositioned.co"
+    },
+    {
       "id": "when-everything-goes-to-0",
       "title": "When Everything Goes to 0",
       "type": "twitter",

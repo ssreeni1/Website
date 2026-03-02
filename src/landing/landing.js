@@ -114,7 +114,7 @@ export class Landing {
         setTimeout(() => {
             this.cleanup();
             Router.enterContent(sectionId);
-        }, 500);
+        }, 200);
     }
 
     /**

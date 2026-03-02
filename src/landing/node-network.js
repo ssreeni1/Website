@@ -21,19 +21,26 @@ export class NodeNetwork {
      */
     init(centerX, centerY, width, height, radius) {
         const isMobile = width < 768;
-        this.fontSize = isMobile ? 16 : 22;
-        const labelPad = isMobile ? 90 : 80;
+        this.fontSize = isMobile ? 14 : 22;
 
-        const idealDistance = radius * 4;
+        // On mobile, labels go above/below vertices (center-aligned) so they
+        // don't eat horizontal space — lets the triangle be much larger.
+        const labelPad = isMobile ? 35 : 80;
+        const idealDistance = radius * (isMobile ? 5 : 4);
         const horizontalMax = (width / 2 - labelPad) / Math.cos(Math.PI / 6);
-        const verticalMax = height / 2 - (isMobile ? 70 : 60);
+        const verticalMax = height / 2 - (isMobile ? 50 : 60);
         const distance = Math.min(idealDistance, horizontalMax, verticalMax);
 
-        const labelOffset = isMobile ? 12 : 16;
-        const bottomLabelGap = isMobile ? 18 : 24;
+        const labelOffset = 16;
+        const bottomLabelGap = isMobile ? 16 : 24;
+        const topLabelGap = isMobile ? -16 : 0;
 
         // Compute raw vertex positions relative to 0,0 then find bounding box
-        const raw = [
+        const raw = isMobile ? [
+            { angle: -Math.PI / 6,     lox: 0,            loy: topLabelGap,    ta: 'center', label: 'Work' },
+            { angle: -5 * Math.PI / 6, lox: 0,            loy: topLabelGap,    ta: 'center', label: 'Writing' },
+            { angle: Math.PI / 2,      lox: 0,            loy: bottomLabelGap, ta: 'center', label: 'Fun' },
+        ] : [
             { angle: -Math.PI / 6,     lox: labelOffset,  loy: 0,              ta: 'left',   label: 'Work' },
             { angle: -5 * Math.PI / 6, lox: -labelOffset, loy: 0,              ta: 'right',  label: 'Writing' },
             { angle: Math.PI / 2,      lox: 0,            loy: bottomLabelGap, ta: 'center', label: 'Fun' },
@@ -115,7 +122,7 @@ export class NodeNetwork {
             [n[2], n[0]],
         ];
 
-        ctx.font = '10px "SF Mono", Monaco, monospace';
+        ctx.font = '10px "Electrolize", sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
 
@@ -135,10 +142,10 @@ export class NodeNetwork {
 
                 // Fade near vertices
                 const edgeFade = Math.min(t, 1 - t) * 4;
-                const alpha = Math.min(1, edgeFade) * 0.35;
+                const alpha = Math.min(1, edgeFade) * 0.95;
 
                 ctx.globalAlpha = alpha;
-                ctx.fillStyle = this.color;
+                ctx.fillStyle = this.accentColor;
                 ctx.fillText(char, x, y);
             }
         }
@@ -172,7 +179,7 @@ export class NodeNetwork {
     renderLabel(ctx, node) {
         const isHovered = this.hoveredNode === node.id;
 
-        ctx.font = `${isHovered ? '600' : '500'} ${this.fontSize}px "SF Mono", Monaco, monospace`;
+        ctx.font = `${isHovered ? '600' : '500'} ${this.fontSize}px "Electrolize", sans-serif`;
         ctx.fillStyle = isHovered ? this.accentColor : this.color;
         ctx.textAlign = node.textAlign;
         ctx.textBaseline = 'middle';

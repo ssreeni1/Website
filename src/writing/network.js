@@ -339,21 +339,55 @@ export class WritingNetwork {
     }
 
     /**
-     * Draw connecting edges
+     * Draw connecting edges as flowing ASCII characters
      */
     drawEdges(ctx) {
-        ctx.strokeStyle = '#444444';
-        ctx.lineWidth = 1;
-        ctx.globalAlpha = 0.25;
+        const chars = '·~-=+*.:';
+        const spacing = 12;
+        const speed = 0.025;
+
+        ctx.font = '13px monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
 
         for (const edge of this.edges) {
             const from = this.nodes[edge.from];
             const to = this.nodes[edge.to];
 
-            ctx.beginPath();
-            ctx.moveTo(from.x, from.y);
-            ctx.lineTo(to.x, to.y);
-            ctx.stroke();
+            const dx = to.x - from.x;
+            const dy = to.y - from.y;
+            const length = Math.sqrt(dx * dx + dy * dy);
+            if (length < 1) continue;
+
+            const steps = Math.floor(length / spacing);
+            // Unique phase per edge so they don't all move in sync
+            const edgeSeed = edge.from * 31 + edge.to * 17;
+
+            for (let i = 0; i <= steps; i++) {
+                const t = i / steps;
+                const x = from.x + dx * t;
+                const y = from.y + dy * t;
+
+                // Cycle through chars with time-based flow
+                const charIndex = Math.abs(Math.floor(i - this.time * speed + edgeSeed)) % chars.length;
+                const char = chars[charIndex];
+
+                // Fade near nodes so chars don't overlap the orbs
+                const distFromStart = t * length;
+                const distFromEnd = (1 - t) * length;
+                const fadeZone = 22;
+                let alpha = 0.6;
+                if (distFromStart < fadeZone) alpha *= distFromStart / fadeZone;
+                if (distFromEnd < fadeZone) alpha *= distFromEnd / fadeZone;
+
+                // Per-character shimmer
+                const shimmer = Math.sin(this.time * 0.003 + i * 0.7 + edgeSeed) * 0.15 + 0.85;
+                alpha *= shimmer;
+
+                ctx.globalAlpha = alpha;
+                ctx.fillStyle = '#ff4500';
+                ctx.fillText(char, x, y);
+            }
         }
 
         ctx.globalAlpha = 1;

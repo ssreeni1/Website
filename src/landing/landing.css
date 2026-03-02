@@ -13,7 +13,7 @@
     height: 100vh;
     background: var(--color-bg);
     z-index: 100;
-    transition: opacity var(--transition-slow), transform var(--transition-slow);
+    transition: opacity 200ms ease, transform 200ms ease;
     display: flex;
     align-items: center;
     justify-content: center;
