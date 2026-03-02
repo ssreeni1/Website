@@ -1,5 +1,5 @@
 /**
- * Node Network - Section labels at vertices of an ASCII triangle framing the ouroboros
+ * Node Network - Metallic orbs at triangle vertices with flowing ASCII edges
  */
 
 export class NodeNetwork {
@@ -7,12 +7,12 @@ export class NodeNetwork {
         this.nodes = [];
         this.center = { x: 0, y: 0 };
         this.hoveredNode = null;
-        this.color = '#ffffff';
         this.accentColor = '#ff4500';
         this.flowOffset = 0;
         this.flowChars = '·-~=*=~-';
         this.charSpacing = 14;
-        this.fontSize = 22;
+        this.orbRadius = 16;
+        this.time = 0;
     }
 
     /**
@@ -21,73 +21,42 @@ export class NodeNetwork {
      */
     init(centerX, centerY, width, height, radius) {
         const isMobile = width < 768;
-        this.fontSize = isMobile ? 14 : 22;
+        this.orbRadius = isMobile ? 12 : 16;
 
-        // On mobile, labels go above/below vertices (center-aligned) so they
-        // don't eat horizontal space — lets the triangle be much larger.
-        const labelPad = isMobile ? 35 : 80;
+        const pad = this.orbRadius + 10;
         const idealDistance = radius * (isMobile ? 5 : 4);
-        const horizontalMax = (width / 2 - labelPad) / Math.cos(Math.PI / 6);
-        const verticalMax = height / 2 - (isMobile ? 50 : 60);
+        const horizontalMax = (width / 2 - pad) / Math.cos(Math.PI / 6);
+        const verticalMax = height / 2 - pad;
         const distance = Math.min(idealDistance, horizontalMax, verticalMax);
 
-        const labelOffset = 16;
-        const bottomLabelGap = isMobile ? 16 : 24;
-        const topLabelGap = isMobile ? -16 : 0;
-
-        // Compute raw vertex positions relative to 0,0 then find bounding box
-        const raw = isMobile ? [
-            { angle: -Math.PI / 6,     lox: 0,            loy: topLabelGap,    ta: 'center', label: 'Work' },
-            { angle: -5 * Math.PI / 6, lox: 0,            loy: topLabelGap,    ta: 'center', label: 'Writing' },
-            { angle: Math.PI / 2,      lox: 0,            loy: bottomLabelGap, ta: 'center', label: 'Fun' },
-        ] : [
-            { angle: -Math.PI / 6,     lox: labelOffset,  loy: 0,              ta: 'left',   label: 'Work' },
-            { angle: -5 * Math.PI / 6, lox: -labelOffset, loy: 0,              ta: 'right',  label: 'Writing' },
-            { angle: Math.PI / 2,      lox: 0,            loy: bottomLabelGap, ta: 'center', label: 'Fun' },
+        const raw = [
+            { angle: -Math.PI / 6,     label: 'Work' },
+            { angle: -5 * Math.PI / 6, label: 'Writing' },
+            { angle: Math.PI / 2,      label: 'Fun' },
         ];
 
-        // Estimate label pixel widths for bounding box (monospace ~0.6 * fontSize per char)
-        const charPx = this.fontSize * 0.6;
-
+        // Bounding box for centering
         let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-
         for (const r of raw) {
             const vx = Math.cos(r.angle) * distance;
             const vy = Math.sin(r.angle) * distance;
-
-            // Label extent
-            const labelW = r.label.length * charPx;
-            let labelLeft, labelRight;
-            if (r.ta === 'left')        { labelLeft = vx + r.lox;            labelRight = vx + r.lox + labelW; }
-            else if (r.ta === 'right')  { labelLeft = vx + r.lox - labelW;   labelRight = vx + r.lox; }
-            else                        { labelLeft = vx - labelW / 2;        labelRight = vx + labelW / 2; }
-
-            const labelTop = vy + r.loy - this.fontSize / 2;
-            const labelBottom = vy + r.loy + this.fontSize / 2;
-
-            minX = Math.min(minX, vx, labelLeft);
-            maxX = Math.max(maxX, vx, labelRight);
-            minY = Math.min(minY, vy, labelTop);
-            maxY = Math.max(maxY, vy, labelBottom);
+            minX = Math.min(minX, vx - this.orbRadius);
+            maxX = Math.max(maxX, vx + this.orbRadius);
+            minY = Math.min(minY, vy - this.orbRadius);
+            maxY = Math.max(maxY, vy + this.orbRadius);
         }
 
-        // Shift so bounding box is centered in viewport
-        const bboxCenterX = (minX + maxX) / 2;
-        const bboxCenterY = (minY + maxY) / 2;
-
-        const adjCenterX = width / 2 - bboxCenterX;
-        const adjCenterY = height / 2 - bboxCenterY;
-
+        const adjCenterX = width / 2 - (minX + maxX) / 2;
+        const adjCenterY = height / 2 - (minY + maxY) / 2;
         this.center = { x: adjCenterX, y: adjCenterY };
 
         this.nodes = raw.map(r => ({
             id: r.label.toLowerCase(),
             label: r.label,
+            angle: r.angle,
             x: adjCenterX + Math.cos(r.angle) * distance,
             y: adjCenterY + Math.sin(r.angle) * distance,
-            labelOffsetX: r.lox,
-            labelOffsetY: r.loy,
-            textAlign: r.ta,
+            shimmerOffset: Math.random() * Math.PI * 2,
         }));
 
         return this.center;
@@ -98,17 +67,15 @@ export class NodeNetwork {
      */
     update(deltaTime, rotation) {
         this.flowOffset += deltaTime * 0.03;
+        this.time = performance.now();
     }
 
     /**
-     * Render flowing edges, dots, and labels
+     * Render flowing edges and orbs
      */
     render(ctx) {
         this.renderEdges(ctx);
-        this.nodes.forEach(node => {
-            this.renderDot(ctx, node);
-            this.renderLabel(ctx, node);
-        });
+        this.nodes.forEach(node => this.renderOrb(ctx, node));
     }
 
     /**
@@ -154,46 +121,56 @@ export class NodeNetwork {
     }
 
     /**
-     * Render vertex dot
+     * Render metallic shimmering orb at vertex
      */
-    renderDot(ctx, node) {
+    renderOrb(ctx, node) {
         const isHovered = this.hoveredNode === node.id;
-        const r = isHovered ? 5 : 3;
+        const r = isHovered ? this.orbRadius + 4 : this.orbRadius;
+        const shimmer = Math.sin(this.time * 0.002 + node.shimmerOffset) * 0.15 + 0.85;
 
+        // Pulsating glow intensity
+        const pulse = Math.sin(this.time * 0.005 + node.shimmerOffset) * 0.5 + 0.5;
+        const glowRadius = r * (2.0 + pulse * 1.2);
+        const shadowIntensity = isHovered ? 40 : 20 + pulse * 25;
+
+        // Outer pulsating glow
+        ctx.shadowColor = this.accentColor;
+        ctx.shadowBlur = shadowIntensity;
+
+        const glow = ctx.createRadialGradient(node.x, node.y, r * 0.3, node.x, node.y, glowRadius);
+        glow.addColorStop(0, `rgba(255, 69, 0, ${isHovered ? 0.8 : 0.5 * pulse})`);
+        glow.addColorStop(0.5, `rgba(255, 69, 0, ${isHovered ? 0.4 : 0.2 * pulse})`);
+        glow.addColorStop(1, 'rgba(255, 69, 0, 0)');
+        ctx.beginPath();
+        ctx.arc(node.x, node.y, glowRadius, 0, Math.PI * 2);
+        ctx.fillStyle = glow;
+        ctx.fill();
+
+        // Main orb
+        const main = ctx.createRadialGradient(
+            node.x - r * 0.3, node.y - r * 0.3, 0,
+            node.x, node.y, r
+        );
+        main.addColorStop(0, '#ff8c42');
+        main.addColorStop(0.5, '#ff4500');
+        main.addColorStop(1, '#cc3700');
         ctx.beginPath();
         ctx.arc(node.x, node.y, r, 0, Math.PI * 2);
-        ctx.fillStyle = isHovered ? this.accentColor : this.color;
-
-        if (isHovered) {
-            ctx.shadowColor = this.accentColor;
-            ctx.shadowBlur = 10;
-        }
-
+        ctx.fillStyle = main;
         ctx.fill();
-        ctx.shadowBlur = 0;
-    }
 
-    /**
-     * Render label text positioned outside each vertex
-     */
-    renderLabel(ctx, node) {
-        const isHovered = this.hoveredNode === node.id;
-
-        ctx.font = `${isHovered ? '600' : '500'} ${this.fontSize}px "Electrolize", sans-serif`;
-        ctx.fillStyle = isHovered ? this.accentColor : this.color;
-        ctx.textAlign = node.textAlign;
-        ctx.textBaseline = 'middle';
-
-        if (isHovered) {
-            ctx.shadowColor = this.accentColor;
-            ctx.shadowBlur = 10;
-        }
-
-        ctx.fillText(
-            node.label,
-            node.x + node.labelOffsetX,
-            node.y + node.labelOffsetY
+        // Specular highlight
+        const spec = ctx.createRadialGradient(
+            node.x - r * 0.35, node.y - r * 0.35, 0,
+            node.x - r * 0.15, node.y - r * 0.15, r * 0.5
         );
+        spec.addColorStop(0, `rgba(255, 220, 180, ${0.5 * shimmer})`);
+        spec.addColorStop(1, 'rgba(255, 220, 180, 0)');
+        ctx.beginPath();
+        ctx.arc(node.x, node.y, r, 0, Math.PI * 2);
+        ctx.fillStyle = spec;
+        ctx.fill();
+
         ctx.shadowBlur = 0;
     }
 
@@ -202,18 +179,14 @@ export class NodeNetwork {
      */
     handleHover(x, y) {
         this.hoveredNode = null;
-
         for (const node of this.nodes) {
             const dx = x - node.x;
             const dy = y - node.y;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-
-            if (dist < 40) {
+            if (Math.sqrt(dx * dx + dy * dy) < this.orbRadius + 10) {
                 this.hoveredNode = node.id;
                 break;
             }
         }
-
         return this.hoveredNode;
     }
 
@@ -224,11 +197,7 @@ export class NodeNetwork {
         for (const node of this.nodes) {
             const dx = x - node.x;
             const dy = y - node.y;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-
-            if (dist < 40) {
-                return node.id;
-            }
+            if (Math.sqrt(dx * dx + dy * dy) < this.orbRadius + 10) return node.id;
         }
         return null;
     }
