@@ -43,23 +43,27 @@
     color: var(--color-accent);
     text-decoration: none;
     border-bottom: 1px solid rgba(255, 69, 0, 0.3);
-    animation: link-pulse 2.5s ease-in-out infinite;
+    display: inline;
+    padding: 0 2px;
+    margin: 0 -2px;
+    border-radius: 2px;
+    animation: link-glow 2.5s ease-in-out infinite;
 }
 
 .work-about a:hover {
     color: var(--color-accent-hover);
     border-color: var(--color-accent);
-    text-shadow: 0 0 14px rgba(255, 69, 0, 0.7), 0 0 4px rgba(255, 69, 0, 0.4);
+    box-shadow: 0 0 16px rgba(255, 69, 0, 0.6), 0 0 4px rgba(255, 69, 0, 0.3);
     text-decoration: none;
     animation: none;
 }
 
-@keyframes link-pulse {
+@keyframes link-glow {
     0%, 100% {
-        text-shadow: 0 0 3px rgba(255, 69, 0, 0.2), 0 0 1px rgba(255, 69, 0, 0.1);
+        box-shadow: 0 0 4px rgba(255, 69, 0, 0.1), 0 0 1px rgba(255, 69, 0, 0.05);
     }
     50% {
-        text-shadow: 0 0 12px rgba(255, 69, 0, 0.6), 0 0 4px rgba(255, 69, 0, 0.3);
+        box-shadow: 0 0 14px rgba(255, 69, 0, 0.45), 0 0 4px rgba(255, 69, 0, 0.2);
     }
 }
 
