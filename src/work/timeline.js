@@ -3,7 +3,7 @@
  * Simple prose content replacing the timeline
  */
 
-const SCRAMBLE_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*<>{}[]|;:~';
+const SCRAMBLE_CHARS = '·~-=+*.:><[]{}|;^~·*=+-.:';
 const CHARS_PER_FRAME = 4;
 
 function randomChar() {
@@ -56,15 +56,15 @@ export class Timeline {
         const aboutEl = this.container.querySelector('.work-about');
         if (!aboutEl) return;
 
-        // Collect all text nodes
-        const walker = document.createTreeWalker(aboutEl, NodeFilter.SHOW_TEXT);
+        // Snapshot the DOM structure so we can rebuild it each frame
+        // We walk all text nodes, recording their parent and position
         const entries = [];
         let totalChars = 0;
 
+        const walker = document.createTreeWalker(aboutEl, NodeFilter.SHOW_TEXT);
         while (walker.nextNode()) {
             const node = walker.currentNode;
             const original = node.textContent;
-            // Build a map of which characters are non-whitespace (scramblable)
             const chars = [];
             for (let i = 0; i < original.length; i++) {
                 const ch = original[i];
@@ -75,11 +75,14 @@ export class Timeline {
             entries.push({ node, chars });
         }
 
-        // Initial scramble: replace all non-whitespace with random glyphs
+        // Initial scramble: replace all non-whitespace with random orange glyphs
         for (const entry of entries) {
-            entry.node.textContent = entry.chars
-                .map(c => c.isWhitespace ? c.original : randomChar())
+            const span = document.createElement('span');
+            span.innerHTML = entry.chars
+                .map(c => c.isWhitespace ? c.original : `<span style="color:#ff4500;opacity:0.8">${randomChar()}</span>`)
                 .join('');
+            entry.node.parentNode.replaceChild(span, entry.node);
+            entry.wrapper = span;
         }
 
         let resolved = 0;
@@ -89,25 +92,32 @@ export class Timeline {
 
             let charIndex = 0;
             for (const entry of entries) {
-                let text = '';
+                let html = '';
                 for (const c of entry.chars) {
                     if (c.isWhitespace) {
-                        text += c.original;
+                        html += c.original;
                     } else {
                         if (charIndex < resolved) {
-                            text += c.original;
+                            html += c.original;
                         } else {
-                            text += randomChar();
+                            html += `<span style="color:#ff4500;opacity:0.8">${randomChar()}</span>`;
                         }
                         charIndex++;
                     }
                 }
-                entry.node.textContent = text;
+                entry.wrapper.innerHTML = html;
             }
 
             if (resolved < totalChars) {
                 this.animFrameId = requestAnimationFrame(tick);
             } else {
+                // Clean up: unwrap spans, leaving just text
+                for (const entry of entries) {
+                    const text = document.createTextNode(
+                        entry.chars.map(c => c.original).join('')
+                    );
+                    entry.wrapper.parentNode.replaceChild(text, entry.wrapper);
+                }
                 this.animFrameId = null;
             }
         };

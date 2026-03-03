@@ -40,16 +40,24 @@
 }
 
 .work-about a {
-    color: var(--color-text);
+    color: var(--color-accent);
     text-decoration: none;
-    border-bottom: 1px solid var(--color-border);
-    transition: color var(--transition-fast), border-color var(--transition-fast);
+    border-bottom: 1px solid rgba(255, 69, 0, 0.3);
+    transition: color var(--transition-fast), border-color var(--transition-fast),
+                text-shadow var(--transition-fast);
+    animation: link-pulse 4s ease-in-out infinite;
 }
 
 .work-about a:hover {
-    color: var(--color-accent);
+    color: var(--color-accent-hover);
     border-color: var(--color-accent);
+    text-shadow: 0 0 8px rgba(255, 69, 0, 0.4);
     text-decoration: none;
+}
+
+@keyframes link-pulse {
+    0%, 100% { opacity: 0.85; }
+    50% { opacity: 1; }
 }
 
 /* Mobile */
