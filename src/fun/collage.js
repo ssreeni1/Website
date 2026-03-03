@@ -541,27 +541,29 @@ export class Collage {
 
             ctx.save();
 
-            // Pulsating orange glow — overlapping filled rects (additive on black)
+            // Pulsating orange glow — layered rects + shadowBlur on border
             const fx = x - 3;
             const fy = y - 3;
             const fw = width + 6;
             const fh = height + 6;
-            const baseAlpha = isHovered ? 0.25 : 0.12 + pulse * 0.16;
+
+            // Soft radiating aura via overlapping filled rects
+            const auraAlpha = isHovered ? 0.25 : 0.06 + pulse * 0.20;
             const spreads = isHovered
                 ? [36, 26, 18, 10, 4]
-                : [22 + pulse * 16, 16 + pulse * 12, 10 + pulse * 7, 5 + pulse * 4, 2];
-
+                : [18 + pulse * 22, 12 + pulse * 16, 7 + pulse * 10, 3 + pulse * 5, 1];
             for (const s of spreads) {
-                ctx.fillStyle = `rgba(255, 69, 0, ${baseAlpha})`;
+                ctx.fillStyle = `rgba(255, 69, 0, ${auraAlpha})`;
                 ctx.fillRect(fx - s, fy - s, fw + s * 2, fh + s * 2);
             }
 
-            // Bright solid orange border with pulsating shadowBlur glow
-            ctx.shadowColor = 'rgba(255, 69, 0, 1)';
-            ctx.shadowBlur = isHovered ? 30 : 10 + pulse * 20;
-            const borderAlpha = isHovered ? 1.0 : 0.6 + pulse * 0.4;
+            // Glowing border with pulsating shadowBlur halo
+            ctx.shadowColor = 'rgba(255, 69, 0, 0.9)';
+            ctx.shadowBlur = isHovered ? 40 : 6 + pulse * 30;
+            const borderAlpha = isHovered ? 1.0 : 0.45 + pulse * 0.55;
             ctx.strokeStyle = `rgba(255, 69, 0, ${borderAlpha})`;
-            ctx.lineWidth = isHovered ? 3 : 2;
+            ctx.lineWidth = isHovered ? 3 : 1.5 + pulse * 1;
+            ctx.strokeRect(fx, fy, fw, fh);
             ctx.strokeRect(fx, fy, fw, fh);
             ctx.shadowBlur = 0;
 
