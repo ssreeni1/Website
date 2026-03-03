@@ -4,7 +4,7 @@
  */
 
 const SCRAMBLE_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*<>{}[]|;:~';
-const CHARS_PER_FRAME = 10;
+const DECODE_DURATION = 500; // total decode time in ms
 
 function randomChar() {
     return SCRAMBLE_CHARS[Math.floor(Math.random() * SCRAMBLE_CHARS.length)];
@@ -97,28 +97,37 @@ export class Timeline {
                 node.parentNode.replaceChild(frag, node);
             }
 
-            // --- Phase 3: animate ---
-            let resolved = 0;
+            // --- Phase 3: simultaneous decode over DECODE_DURATION ms ---
+            // Each slot gets a random resolve time; all characters decode in parallel
+            for (const slot of slots) {
+                slot.resolveAt = Math.random() * DECODE_DURATION;
+                slot.resolved = false;
+            }
+
+            const startTime = performance.now();
+            let remaining = slots.length;
 
             const tick = () => {
-                const newResolved = Math.min(resolved + CHARS_PER_FRAME, slots.length);
-                for (let i = resolved; i < newResolved; i++) {
-                    const slot = slots[i];
-                    slot.span.textContent = slot.original;
-                    slot.span.className = '';
-                    slot.span.style.animationDelay = '';
-                }
-                resolved = newResolved;
+                const elapsed = performance.now() - startTime;
 
-                // Sparse character cycling — capped DOM writes
-                const unresolvedCount = slots.length - resolved;
-                const budget = Math.min(Math.ceil(unresolvedCount * 0.15), 50);
-                for (let n = 0; n < budget; n++) {
-                    const i = resolved + Math.floor(Math.random() * unresolvedCount);
-                    slots[i].span.textContent = randomChar();
+                // Resolve characters whose time has come
+                for (const slot of slots) {
+                    if (slot.resolved) continue;
+                    if (elapsed >= slot.resolveAt) {
+                        slot.span.textContent = slot.original;
+                        slot.span.className = '';
+                        slot.span.style.animationDelay = '';
+                        slot.resolved = true;
+                        remaining--;
+                    } else {
+                        // Cycle unresolved characters (sparse — ~20% chance per frame)
+                        if (Math.random() < 0.2) {
+                            slot.span.textContent = randomChar();
+                        }
+                    }
                 }
 
-                if (resolved < slots.length) {
+                if (remaining > 0) {
                     this.animFrameId = requestAnimationFrame(tick);
                 } else {
                     this.animFrameId = null;
