@@ -3,7 +3,7 @@
  * Simple prose content replacing the timeline
  */
 
-const SCRAMBLE_CHARS = '·~-=+*.:><[]{}|;^~·*=+-.:';
+const SCRAMBLE_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*<>{}[]|;:~';
 const CHARS_PER_FRAME = 10;
 
 function randomChar() {
@@ -79,7 +79,7 @@ export class Timeline {
         for (const entry of entries) {
             const span = document.createElement('span');
             span.innerHTML = entry.chars
-                .map(c => c.isWhitespace ? c.original : `<span style="color:#ff4500;opacity:0.8">${randomChar()}</span>`)
+                .map(c => c.isWhitespace ? c.original : `<span class="scramble-glyph">${randomChar()}</span>`)
                 .join('');
             entry.node.parentNode.replaceChild(span, entry.node);
             entry.wrapper = span;
@@ -100,7 +100,7 @@ export class Timeline {
                         if (charIndex < resolved) {
                             html += c.original;
                         } else {
-                            html += `<span style="color:#ff4500;opacity:0.8">${randomChar()}</span>`;
+                            html += `<span class="scramble-glyph">${randomChar()}</span>`;
                         }
                         charIndex++;
                     }
