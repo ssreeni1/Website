@@ -1,6 +1,6 @@
 /**
  * Writing Network - Interactive node network visualization
- * Gray shimmering orbs with orange hover effect
+ * Orange pulsating orbs matching landing page style
  */
 
 export class WritingNetwork {
@@ -394,93 +394,58 @@ export class WritingNetwork {
     }
 
     /**
-     * Draw nodes - gray shimmering orbs, orange on hover
+     * Draw nodes - orange pulsating orbs matching landing style
      */
     drawNodes(ctx) {
         for (const node of this.nodes) {
             const isHovered = this.hoveredNode === node;
             const baseRadius = node.radius;
-            const radius = isHovered ? baseRadius + 4 : baseRadius;
+            const r = isHovered ? baseRadius + 4 : baseRadius;
 
-            // Calculate shimmer effect
             const shimmer = Math.sin(this.time * 0.002 + node.shimmerOffset) * 0.15 + 0.85;
 
-            if (isHovered) {
-                // Orange glow for hovered
-                ctx.shadowColor = '#ff4500';
-                ctx.shadowBlur = 25;
+            // Soft rhythmic pulse — each orb offset for a breathing wave effect
+            const pulse = Math.sin(this.time * 0.0025 + node.shimmerOffset) * 0.5 + 0.5;
+            const glowRadius = r * (1.8 + pulse * 0.8);
+            const shadowIntensity = isHovered ? 35 : 10 + pulse * 15;
 
-                // Outer glow ring
-                const gradient = ctx.createRadialGradient(
-                    node.x, node.y, radius * 0.5,
-                    node.x, node.y, radius * 1.5
-                );
-                gradient.addColorStop(0, '#ff4500');
-                gradient.addColorStop(0.5, 'rgba(255, 69, 0, 0.5)');
-                gradient.addColorStop(1, 'rgba(255, 69, 0, 0)');
+            // Outer pulsating glow
+            ctx.shadowColor = '#ff4500';
+            ctx.shadowBlur = shadowIntensity;
 
-                ctx.beginPath();
-                ctx.arc(node.x, node.y, radius * 1.5, 0, Math.PI * 2);
-                ctx.fillStyle = gradient;
-                ctx.fill();
+            const glow = ctx.createRadialGradient(node.x, node.y, r * 0.3, node.x, node.y, glowRadius);
+            glow.addColorStop(0, `rgba(255, 69, 0, ${isHovered ? 0.6 : 0.3 * pulse})`);
+            glow.addColorStop(0.5, `rgba(255, 69, 0, ${isHovered ? 0.3 : 0.12 * pulse})`);
+            glow.addColorStop(1, 'rgba(255, 69, 0, 0)');
+            ctx.beginPath();
+            ctx.arc(node.x, node.y, glowRadius, 0, Math.PI * 2);
+            ctx.fillStyle = glow;
+            ctx.fill();
 
-                // Main orb - solid orange
-                ctx.beginPath();
-                ctx.arc(node.x, node.y, radius, 0, Math.PI * 2);
-                ctx.fillStyle = '#ff4500';
-                ctx.fill();
+            // Main orb gradient
+            const main = ctx.createRadialGradient(
+                node.x - r * 0.3, node.y - r * 0.3, 0,
+                node.x, node.y, r
+            );
+            main.addColorStop(0, '#ff8c42');
+            main.addColorStop(0.5, '#ff4500');
+            main.addColorStop(1, '#cc3700');
+            ctx.beginPath();
+            ctx.arc(node.x, node.y, r, 0, Math.PI * 2);
+            ctx.fillStyle = main;
+            ctx.fill();
 
-                // Inner highlight
-                const innerGradient = ctx.createRadialGradient(
-                    node.x - radius * 0.3, node.y - radius * 0.3, 0,
-                    node.x, node.y, radius
-                );
-                innerGradient.addColorStop(0, 'rgba(255, 200, 150, 0.6)');
-                innerGradient.addColorStop(0.5, 'rgba(255, 100, 50, 0.3)');
-                innerGradient.addColorStop(1, 'rgba(255, 69, 0, 0)');
-
-                ctx.beginPath();
-                ctx.arc(node.x, node.y, radius, 0, Math.PI * 2);
-                ctx.fillStyle = innerGradient;
-                ctx.fill();
-
-            } else {
-                // Gray shimmering orb
-                const grayBase = Math.floor(80 + shimmer * 40);
-                const grayHighlight = Math.floor(140 + shimmer * 60);
-
-                // Subtle outer glow
-                ctx.shadowColor = `rgba(${grayHighlight}, ${grayHighlight}, ${grayHighlight}, 0.5)`;
-                ctx.shadowBlur = 8;
-
-                // Main orb gradient
-                const gradient = ctx.createRadialGradient(
-                    node.x - radius * 0.3, node.y - radius * 0.3, 0,
-                    node.x, node.y, radius * 1.2
-                );
-                gradient.addColorStop(0, `rgb(${grayHighlight + 30}, ${grayHighlight + 30}, ${grayHighlight + 30})`);
-                gradient.addColorStop(0.4, `rgb(${grayBase + 40}, ${grayBase + 40}, ${grayBase + 40})`);
-                gradient.addColorStop(0.8, `rgb(${grayBase}, ${grayBase}, ${grayBase})`);
-                gradient.addColorStop(1, `rgb(${grayBase - 20}, ${grayBase - 20}, ${grayBase - 20})`);
-
-                ctx.beginPath();
-                ctx.arc(node.x, node.y, radius, 0, Math.PI * 2);
-                ctx.fillStyle = gradient;
-                ctx.fill();
-
-                // Specular highlight
-                const specGradient = ctx.createRadialGradient(
-                    node.x - radius * 0.4, node.y - radius * 0.4, 0,
-                    node.x - radius * 0.2, node.y - radius * 0.2, radius * 0.5
-                );
-                specGradient.addColorStop(0, `rgba(255, 255, 255, ${0.3 * shimmer})`);
-                specGradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
-
-                ctx.beginPath();
-                ctx.arc(node.x, node.y, radius, 0, Math.PI * 2);
-                ctx.fillStyle = specGradient;
-                ctx.fill();
-            }
+            // Specular highlight
+            const spec = ctx.createRadialGradient(
+                node.x - r * 0.35, node.y - r * 0.35, 0,
+                node.x - r * 0.15, node.y - r * 0.15, r * 0.5
+            );
+            spec.addColorStop(0, `rgba(255, 220, 180, ${0.5 * shimmer})`);
+            spec.addColorStop(1, 'rgba(255, 220, 180, 0)');
+            ctx.beginPath();
+            ctx.arc(node.x, node.y, r, 0, Math.PI * 2);
+            ctx.fillStyle = spec;
+            ctx.fill();
 
             ctx.shadowBlur = 0;
         }
