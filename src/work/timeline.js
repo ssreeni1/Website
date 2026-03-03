@@ -56,70 +56,61 @@ export class Timeline {
         const aboutEl = this.container.querySelector('.work-about');
         if (!aboutEl) return;
 
-        // Collect all text nodes and build a flat array of character slots
-        const slots = []; // { span, original, phaseOffset, resolved }
+        // Collect all text nodes
+        const slots = [];
         const walker = document.createTreeWalker(aboutEl, NodeFilter.SHOW_TEXT);
         const textNodes = [];
         while (walker.nextNode()) textNodes.push(walker.currentNode);
 
+        // Build all spans in one batch before touching the DOM
+        const replacements = [];
         for (const node of textNodes) {
             const original = node.textContent;
-            const wrapper = document.createDocumentFragment();
+            const frag = document.createDocumentFragment();
 
             for (let i = 0; i < original.length; i++) {
                 const ch = original[i];
-                const isWhitespace = /\s/.test(ch);
-
-                if (isWhitespace) {
-                    wrapper.appendChild(document.createTextNode(ch));
+                if (/\s/.test(ch)) {
+                    frag.appendChild(document.createTextNode(ch));
                 } else {
                     const span = document.createElement('span');
                     span.textContent = randomChar();
-                    span.style.color = '#ff4500';
-                    slots.push({
-                        span,
-                        original: ch,
-                        phaseOffset: slots.length * 0.15,
-                        resolved: false
-                    });
-                    wrapper.appendChild(span);
+                    // CSS class handles color + pulse animation (GPU-friendly)
+                    span.className = 'scramble-glyph';
+                    // Stagger the animation start per character for wave effect
+                    span.style.animationDelay = `${-(slots.length % 40) * 0.06}s`;
+                    slots.push({ span, original: ch });
+                    frag.appendChild(span);
                 }
             }
+            replacements.push({ node, frag });
+        }
 
-            node.parentNode.replaceChild(wrapper, node);
+        // Single DOM write — replace all text nodes at once
+        for (const { node, frag } of replacements) {
+            node.parentNode.replaceChild(frag, node);
         }
 
         let resolved = 0;
-        const startTime = performance.now();
 
-        const tick = (time) => {
-            // Resolve characters progressively
+        const tick = () => {
+            // Resolve a batch of characters
             const newResolved = Math.min(resolved + CHARS_PER_FRAME, slots.length);
             for (let i = resolved; i < newResolved; i++) {
                 const slot = slots[i];
-                slot.resolved = true;
                 slot.span.textContent = slot.original;
-                slot.span.style.color = '';
-                slot.span.style.textShadow = '';
-                slot.span.style.opacity = '';
+                slot.span.className = '';
+                slot.span.style.animationDelay = '';
             }
             resolved = newResolved;
 
-            // Animate unresolved characters — JS-driven pulse like the orbs
-            const elapsed = time - startTime;
-            for (let i = resolved; i < slots.length; i++) {
-                const slot = slots[i];
-                // Cycle character
-                if (Math.random() < 0.3) {
-                    slot.span.textContent = randomChar();
-                }
-                // Smooth sinusoidal pulse matching orb rhythm
-                const pulse = Math.sin(elapsed * 0.005 + slot.phaseOffset) * 0.5 + 0.5;
-                const blur = 2 + pulse * 8;
-                const alpha = 0.15 + pulse * 0.4;
-                const opacity = 0.65 + pulse * 0.35;
-                slot.span.style.textShadow = `0 0 ${blur}px rgba(255, 69, 0, ${alpha})`;
-                slot.span.style.opacity = opacity;
+            // Only cycle characters that are still unresolved
+            // Touch a sparse subset each frame to minimize DOM writes
+            const unresolvedCount = slots.length - resolved;
+            const cycleBudget = Math.min(Math.ceil(unresolvedCount * 0.15), 60);
+            for (let n = 0; n < cycleBudget; n++) {
+                const i = resolved + Math.floor(Math.random() * unresolvedCount);
+                slots[i].span.textContent = randomChar();
             }
 
             if (resolved < slots.length) {

@@ -60,11 +60,23 @@
 
 @keyframes link-glow {
     0%, 100% {
-        box-shadow: 0 0 4px rgba(255, 69, 0, 0.1), 0 0 1px rgba(255, 69, 0, 0.05);
+        box-shadow: 0 0 6px rgba(255, 69, 0, 0.15), 0 0 2px rgba(255, 69, 0, 0.1);
     }
     50% {
-        box-shadow: 0 0 14px rgba(255, 69, 0, 0.45), 0 0 4px rgba(255, 69, 0, 0.2);
+        box-shadow: 0 0 18px rgba(255, 69, 0, 0.55), 0 0 6px rgba(255, 69, 0, 0.3);
     }
+}
+
+/* Scramble decode characters — CSS-driven pulse for performance */
+.scramble-glyph {
+    color: #ff4500;
+    will-change: opacity;
+    animation: glyph-breathe 2.4s ease-in-out infinite;
+}
+
+@keyframes glyph-breathe {
+    0%, 100% { opacity: 0.6; }
+    50% { opacity: 1; }
 }
 
 /* Mobile */
