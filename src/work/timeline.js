@@ -4,7 +4,7 @@
  */
 
 const SCRAMBLE_CHARS = '·~-=+*.:><[]{}|;^~·*=+-.:';
-const CHARS_PER_FRAME = 4;
+const CHARS_PER_FRAME = 10;
 
 function randomChar() {
     return SCRAMBLE_CHARS[Math.floor(Math.random() * SCRAMBLE_CHARS.length)];

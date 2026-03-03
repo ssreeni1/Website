@@ -45,19 +45,23 @@
     border-bottom: 1px solid rgba(255, 69, 0, 0.3);
     transition: color var(--transition-fast), border-color var(--transition-fast),
                 text-shadow var(--transition-fast);
-    animation: link-pulse 4s ease-in-out infinite;
+    animation: link-pulse 3s ease-in-out infinite;
 }
 
 .work-about a:hover {
     color: var(--color-accent-hover);
     border-color: var(--color-accent);
-    text-shadow: 0 0 8px rgba(255, 69, 0, 0.4);
+    text-shadow: 0 0 10px rgba(255, 69, 0, 0.5);
     text-decoration: none;
 }
 
 @keyframes link-pulse {
-    0%, 100% { opacity: 0.85; }
-    50% { opacity: 1; }
+    0%, 100% {
+        text-shadow: 0 0 2px rgba(255, 69, 0, 0.15);
+    }
+    50% {
+        text-shadow: 0 0 6px rgba(255, 69, 0, 0.35);
+    }
 }
 
 /* Mobile */
