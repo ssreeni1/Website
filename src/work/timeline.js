@@ -4,7 +4,8 @@
  */
 
 const SCRAMBLE_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*<>{}[]|;:~';
-const DECODE_DURATION = 500; // total decode time in ms
+const DECODE_DURATION = 1500; // total decode time in ms
+const CYCLE_BUDGET = 30;      // max random char swaps per frame
 
 function randomChar() {
     return SCRAMBLE_CHARS[Math.floor(Math.random() * SCRAMBLE_CHARS.length)];
@@ -98,36 +99,36 @@ export class Timeline {
             }
 
             // --- Phase 3: simultaneous decode over DECODE_DURATION ms ---
-            // Each slot gets a random resolve time; all characters decode in parallel
+            // Assign random resolve times, then sort so we can use a cursor
+            // instead of scanning all slots every frame (O(resolved) vs O(n)).
             for (const slot of slots) {
                 slot.resolveAt = Math.random() * DECODE_DURATION;
-                slot.resolved = false;
             }
+            slots.sort((a, b) => a.resolveAt - b.resolveAt);
 
             const startTime = performance.now();
-            let remaining = slots.length;
+            let cursor = 0;
 
             const tick = () => {
                 const elapsed = performance.now() - startTime;
 
-                // Resolve characters whose time has come
-                for (const slot of slots) {
-                    if (slot.resolved) continue;
-                    if (elapsed >= slot.resolveAt) {
-                        slot.span.textContent = slot.original;
-                        slot.span.className = '';
-                        slot.span.style.animationDelay = '';
-                        slot.resolved = true;
-                        remaining--;
-                    } else {
-                        // Cycle unresolved characters (sparse — ~20% chance per frame)
-                        if (Math.random() < 0.2) {
-                            slot.span.textContent = randomChar();
-                        }
-                    }
+                // Advance cursor — resolve all slots whose time has come
+                while (cursor < slots.length && slots[cursor].resolveAt <= elapsed) {
+                    const slot = slots[cursor];
+                    slot.span.textContent = slot.original;
+                    slot.span.className = '';
+                    cursor++;
                 }
 
-                if (remaining > 0) {
+                // Sparse cycling on still-unresolved chars (capped budget)
+                const unresolvedCount = slots.length - cursor;
+                const budget = Math.min(CYCLE_BUDGET, unresolvedCount);
+                for (let n = 0; n < budget; n++) {
+                    const idx = cursor + Math.floor(Math.random() * unresolvedCount);
+                    slots[idx].span.textContent = randomChar();
+                }
+
+                if (cursor < slots.length) {
                     this.animFrameId = requestAnimationFrame(tick);
                 } else {
                     this.animFrameId = null;
