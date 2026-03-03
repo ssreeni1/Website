@@ -538,24 +538,33 @@ export class Collage {
             // Soft rhythmic pulse per node — always visible
             const shimmerOffset = node.id * 1.7;
             const pulse = Math.sin(time * 0.0025 + shimmerOffset) * 0.5 + 0.5;
-            const shadowIntensity = isHovered ? 40 : 15 + pulse * 20;
 
             ctx.save();
 
-            // Persistent pulsating orange glow around frame
-            ctx.shadowColor = '#ff4500';
-            ctx.shadowBlur = shadowIntensity;
+            // Pulsating orange glow — overlapping filled rects (additive on black)
+            const fx = x - 3;
+            const fy = y - 3;
+            const fw = width + 6;
+            const fh = height + 6;
+            const baseAlpha = isHovered ? 0.18 : 0.08 + pulse * 0.10;
+            const spreads = isHovered
+                ? [24, 18, 12, 7, 3]
+                : [14 + pulse * 10, 10 + pulse * 7, 6 + pulse * 4, 3 + pulse * 2, 1];
 
-            // Draw border/frame with persistent orange border
-            ctx.fillStyle = '#1a1a1a';
-            ctx.fillRect(x - 3, y - 3, width + 6, height + 6);
+            for (const s of spreads) {
+                ctx.fillStyle = `rgba(255, 69, 0, ${baseAlpha})`;
+                ctx.fillRect(fx - s, fy - s, fw + s * 2, fh + s * 2);
+            }
 
-            const borderAlpha = isHovered ? 1.0 : 0.5 + pulse * 0.35;
+            // Bright solid orange border
+            const borderAlpha = isHovered ? 1.0 : 0.5 + pulse * 0.4;
             ctx.strokeStyle = `rgba(255, 69, 0, ${borderAlpha})`;
             ctx.lineWidth = isHovered ? 2.5 : 1.5;
-            ctx.strokeRect(x - 3, y - 3, width + 6, height + 6);
+            ctx.strokeRect(fx, fy, fw, fh);
 
-            ctx.shadowBlur = 0;
+            // Dark frame fill (covers glow inside the frame)
+            ctx.fillStyle = '#000';
+            ctx.fillRect(fx + 1, fy + 1, fw - 2, fh - 2);
 
             // Draw image (pre-rendered grayscale for non-hovered)
             if (!isHovered) {
