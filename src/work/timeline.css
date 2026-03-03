@@ -47,6 +47,10 @@
     padding: 0 2px;
     margin: 0 -2px;
     border-radius: 2px;
+    animation: none;
+}
+
+.work-about.decrypt-done a {
     animation: link-glow 2.5s ease-in-out infinite;
 }
 
@@ -67,16 +71,10 @@
     }
 }
 
-/* Scramble decode characters — CSS-driven pulse for performance */
+/* Scramble decode characters — opacity driven by JS custom property on parent */
 .scramble-glyph {
     color: #ff4500;
-    will-change: opacity;
-    animation: glyph-breathe 2.4s ease-in-out infinite;
-}
-
-@keyframes glyph-breathe {
-    0%, 100% { opacity: 0.6; }
-    50% { opacity: 1; }
+    opacity: var(--glyph-opacity, 0.8);
 }
 
 /* Mobile */

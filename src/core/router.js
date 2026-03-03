@@ -67,12 +67,21 @@ export const Router = {
         // Wait for exit animation
         await new Promise(resolve => setTimeout(resolve, 150));
 
-        // Activate new panel
+        // Activate new panel and wait for its CSS transition to finish
         if (newPanel) {
             newPanel.classList.add('active');
+            await new Promise(resolve => {
+                const onEnd = () => {
+                    clearTimeout(fallback);
+                    newPanel.removeEventListener('transitionend', onEnd);
+                    resolve();
+                };
+                const fallback = setTimeout(onEnd, 350);
+                newPanel.addEventListener('transitionend', onEnd, { once: true });
+            });
         }
 
-        // Activate new component
+        // Activate new component (after transition completes)
         await this.activateTab(tabName);
 
         AppState.setState({

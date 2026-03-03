@@ -6,16 +6,26 @@
 const SCRAMBLE_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*<>{}[]|;:~';
 const DECODE_DURATION = 2500;  // total decode time in ms
 const SETTLE_WINDOW = 150;     // ms of rapid cycling before a char resolves
-const BUFFER_DELAY = 250;      // ms to let browser settle after span creation
 const CYCLE_BUDGET = 20;       // max ambient random swaps per frame
 
+// Pre-generated ring buffer of random characters to avoid Math.random() on the hot path
+const RING_SIZE = 256;
+const charRing = new Array(RING_SIZE);
+for (let i = 0; i < RING_SIZE; i++) {
+    charRing[i] = SCRAMBLE_CHARS[Math.floor(Math.random() * SCRAMBLE_CHARS.length)];
+}
+let ringIdx = 0;
+
 function randomChar() {
-    return SCRAMBLE_CHARS[Math.floor(Math.random() * SCRAMBLE_CHARS.length)];
+    const ch = charRing[ringIdx];
+    ringIdx = (ringIdx + 1) & (RING_SIZE - 1);
+    return ch;
 }
 
 export class Timeline {
     constructor() {
         this.container = null;
+        this.aboutEl = null;
         this.animFrameId = null;
     }
 
@@ -47,6 +57,7 @@ export class Timeline {
             </div>
         `;
 
+        this.aboutEl = this.container.querySelector('.work-about');
         this.scrambleDecode();
     }
 
@@ -56,11 +67,10 @@ export class Timeline {
             this.animFrameId = null;
         }
 
-        const aboutEl = this.container.querySelector('.work-about');
+        const aboutEl = this.aboutEl;
         if (!aboutEl) return;
 
         // --- Phase 1: instant scramble (no new DOM elements) ---
-        // Just overwrite textContent on existing text nodes for a zero-cost first paint
         const walker = document.createTreeWalker(aboutEl, NodeFilter.SHOW_TEXT);
         const textEntries = [];
         while (walker.nextNode()) {
@@ -92,7 +102,7 @@ export class Timeline {
                         const span = document.createElement('span');
                         span.textContent = randomChar();
                         span.className = 'scramble-glyph';
-                        span.style.animationDelay = `${-(slots.length % 40) * 0.06}s`;
+                        // No per-span animationDelay — opacity driven by parent custom property
                         slots.push({ span, original });
                         frag.appendChild(span);
                     }
@@ -100,9 +110,7 @@ export class Timeline {
                 node.parentNode.replaceChild(frag, node);
             }
 
-            // --- Phase 3: buffer then uniform-rate decode with settle phase ---
-            // Uniform distribution = constant resolve rate (no acceleration).
-            // Buffer lets browser commit span layout before we start animating.
+            // --- Phase 3: double-rAF then uniform-rate decode with settling Set ---
             for (const slot of slots) {
                 slot.resolveAt = Math.random() * DECODE_DURATION;
                 slot.settleAt = Math.max(0, slot.resolveAt - SETTLE_WINDOW);
@@ -113,52 +121,70 @@ export class Timeline {
             const bySettle = slots.map((_, i) => i);
             bySettle.sort((a, b) => slots[a].settleAt - slots[b].settleAt);
 
-            // Wait for browser to finish layout before starting animation
-            setTimeout(() => {
-                const startTime = performance.now();
-                let cursor = 0;
-                let settleCursor = 0;
+            // Build a Set of currently-settling slot indices for O(1) iteration
+            const settlingSet = new Set();
 
-                const tick = () => {
-                    const elapsed = performance.now() - startTime;
+            // Double-rAF: guarantees one full render cycle committed before animation starts
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    const startTime = performance.now();
+                    let cursor = 0;
+                    let settleCursor = 0;
 
-                    // Advance settle cursor — mark slots entering settle window
-                    while (settleCursor < bySettle.length &&
-                           slots[bySettle[settleCursor]].settleAt <= elapsed) {
-                        slots[bySettle[settleCursor]].settling = true;
-                        settleCursor++;
-                    }
+                    const tick = () => {
+                        const now = performance.now();
+                        const elapsed = now - startTime;
 
-                    // Advance resolve cursor — finalize chars whose time has come
-                    while (cursor < slots.length && slots[cursor].resolveAt <= elapsed) {
-                        const slot = slots[cursor];
-                        slot.span.textContent = slot.original;
-                        slot.span.className = '';
-                        slot.settling = false;
-                        cursor++;
-                    }
+                        // Drive glyph pulse via single CSS custom property on parent
+                        const opacity = 0.6 + 0.4 * (0.5 + 0.5 * Math.sin(elapsed / 2400 * Math.PI * 2));
+                        aboutEl.style.setProperty('--glyph-opacity', opacity.toFixed(3));
 
-                    // Settling chars cycle every frame (searching for the right letter)
-                    // Ambient unresolved chars cycle sparsely for background texture
-                    let ambientBudget = CYCLE_BUDGET;
-                    for (let i = cursor; i < slots.length; i++) {
-                        if (slots[i].settling) {
-                            slots[i].span.textContent = randomChar();
-                        } else if (ambientBudget > 0 && Math.random() < 0.06) {
-                            slots[i].span.textContent = randomChar();
-                            ambientBudget--;
+                        // Advance settle cursor — add slots entering settle window
+                        while (settleCursor < bySettle.length &&
+                               slots[bySettle[settleCursor]].settleAt <= elapsed) {
+                            settlingSet.add(bySettle[settleCursor]);
+                            settleCursor++;
                         }
-                    }
 
-                    if (cursor < slots.length) {
-                        this.animFrameId = requestAnimationFrame(tick);
-                    } else {
-                        this.animFrameId = null;
-                    }
-                };
+                        // Advance resolve cursor — finalize chars whose time has come
+                        while (cursor < slots.length && slots[cursor].resolveAt <= elapsed) {
+                            const slot = slots[cursor];
+                            slot.span.textContent = slot.original;
+                            slot.span.className = '';
+                            settlingSet.delete(cursor);
+                            cursor++;
+                        }
 
-                this.animFrameId = requestAnimationFrame(tick);
-            }, BUFFER_DELAY);
+                        // Settling chars cycle every frame (only ~70-80 items)
+                        for (const idx of settlingSet) {
+                            slots[idx].span.textContent = randomChar();
+                        }
+
+                        // Ambient unresolved chars: capped budget of random picks
+                        let ambientBudget = CYCLE_BUDGET;
+                        const remaining = slots.length - cursor;
+                        if (remaining > 0 && ambientBudget > 0) {
+                            for (let j = 0; j < ambientBudget; j++) {
+                                const pick = cursor + Math.floor(Math.random() * remaining);
+                                if (!settlingSet.has(pick)) {
+                                    slots[pick].span.textContent = randomChar();
+                                }
+                            }
+                        }
+
+                        if (cursor < slots.length) {
+                            this.animFrameId = requestAnimationFrame(tick);
+                        } else {
+                            // Decrypt complete — enable link glow, clean up custom property
+                            aboutEl.style.removeProperty('--glyph-opacity');
+                            aboutEl.classList.add('decrypt-done');
+                            this.animFrameId = null;
+                        }
+                    };
+
+                    this.animFrameId = requestAnimationFrame(tick);
+                });
+            });
         });
     }
 
@@ -166,6 +192,10 @@ export class Timeline {
         if (this.animFrameId) {
             cancelAnimationFrame(this.animFrameId);
             this.animFrameId = null;
+        }
+        if (this.aboutEl) {
+            this.aboutEl.style.removeProperty('--glyph-opacity');
+            this.aboutEl.classList.remove('decrypt-done');
         }
         if (this.container) {
             this.container.innerHTML = '';
