@@ -466,30 +466,64 @@ export class Collage {
     }
 
     /**
-     * Draw connecting edges
+     * Draw connecting edges as flowing ASCII characters
      */
     drawEdges(ctx) {
-        ctx.strokeStyle = '#333333';
-        ctx.lineWidth = 1;
-        ctx.globalAlpha = 0.4;
+        const chars = '·~-=+*.:';
+        const spacing = 12;
+        const speed = 0.025;
+        const time = performance.now();
+
+        ctx.font = '13px monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
 
         for (const edge of this.edges) {
             const from = this.nodes[edge.from];
             const to = this.nodes[edge.to];
 
-            ctx.beginPath();
-            ctx.moveTo(from.x, from.y);
-            ctx.lineTo(to.x, to.y);
-            ctx.stroke();
+            const dx = to.x - from.x;
+            const dy = to.y - from.y;
+            const length = Math.sqrt(dx * dx + dy * dy);
+            if (length < 1) continue;
+
+            const steps = Math.floor(length / spacing);
+            const edgeSeed = edge.from * 31 + edge.to * 17;
+
+            for (let i = 0; i <= steps; i++) {
+                const t = i / steps;
+                const x = from.x + dx * t;
+                const y = from.y + dy * t;
+
+                const charIndex = Math.abs(Math.floor(i - time * speed + edgeSeed)) % chars.length;
+                const char = chars[charIndex];
+
+                // Fade near nodes so chars don't overlap images
+                const distFromStart = t * length;
+                const distFromEnd = (1 - t) * length;
+                const fadeZone = 40;
+                let alpha = 0.6;
+                if (distFromStart < fadeZone) alpha *= distFromStart / fadeZone;
+                if (distFromEnd < fadeZone) alpha *= distFromEnd / fadeZone;
+
+                const shimmer = Math.sin(time * 0.003 + i * 0.7 + edgeSeed) * 0.15 + 0.85;
+                alpha *= shimmer;
+
+                ctx.globalAlpha = alpha;
+                ctx.fillStyle = '#ff4500';
+                ctx.fillText(char, x, y);
+            }
         }
 
         ctx.globalAlpha = 1;
     }
 
     /**
-     * Draw image nodes
+     * Draw image nodes with pulsating orange glow
      */
     drawNodes(ctx) {
+        const time = performance.now();
+
         for (const node of this.nodes) {
             const img = this.loadedImages.get(node.id);
             if (!img) continue;
@@ -501,19 +535,23 @@ export class Collage {
             const x = node.x - width / 2;
             const y = node.y - height / 2;
 
-            // Save context for effects
+            // Soft rhythmic pulse per node
+            const shimmerOffset = node.id * 1.7;
+            const pulse = Math.sin(time * 0.0025 + shimmerOffset) * 0.5 + 0.5;
+            const shadowIntensity = isHovered ? 35 : 8 + pulse * 12;
+
             ctx.save();
 
-            // Add glow on hover
-            if (isHovered) {
-                ctx.shadowColor = '#ff4500';
-                ctx.shadowBlur = 20;
-            }
+            // Pulsating orange glow around frame
+            ctx.shadowColor = '#ff4500';
+            ctx.shadowBlur = shadowIntensity;
 
-            // Draw border/frame
+            // Draw border/frame with pulsating orange tint
             ctx.fillStyle = '#1a1a1a';
             ctx.fillRect(x - 3, y - 3, width + 6, height + 6);
-            ctx.strokeStyle = isHovered ? '#ff4500' : '#333333';
+
+            const borderAlpha = isHovered ? 1.0 : 0.3 + pulse * 0.4;
+            ctx.strokeStyle = `rgba(255, 69, 0, ${borderAlpha})`;
             ctx.lineWidth = isHovered ? 2 : 1;
             ctx.strokeRect(x - 3, y - 3, width + 6, height + 6);
 
