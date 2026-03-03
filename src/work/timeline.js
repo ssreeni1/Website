@@ -56,71 +56,77 @@ export class Timeline {
         const aboutEl = this.container.querySelector('.work-about');
         if (!aboutEl) return;
 
-        // Collect all text nodes
-        const slots = [];
+        // --- Phase 1: instant scramble (no new DOM elements) ---
+        // Just overwrite textContent on existing text nodes for a zero-cost first paint
         const walker = document.createTreeWalker(aboutEl, NodeFilter.SHOW_TEXT);
-        const textNodes = [];
-        while (walker.nextNode()) textNodes.push(walker.currentNode);
-
-        // Build all spans in one batch before touching the DOM
-        const replacements = [];
-        for (const node of textNodes) {
+        const textEntries = [];
+        while (walker.nextNode()) {
+            const node = walker.currentNode;
             const original = node.textContent;
-            const frag = document.createDocumentFragment();
-
+            const scrambled = [];
+            const charMap = [];
             for (let i = 0; i < original.length; i++) {
                 const ch = original[i];
-                if (/\s/.test(ch)) {
-                    frag.appendChild(document.createTextNode(ch));
-                } else {
-                    const span = document.createElement('span');
-                    span.textContent = randomChar();
-                    // CSS class handles color + pulse animation (GPU-friendly)
-                    span.className = 'scramble-glyph';
-                    // Stagger the animation start per character for wave effect
-                    span.style.animationDelay = `${-(slots.length % 40) * 0.06}s`;
-                    slots.push({ span, original: ch });
-                    frag.appendChild(span);
+                const ws = /\s/.test(ch);
+                scrambled.push(ws ? ch : randomChar());
+                charMap.push({ original: ch, ws });
+            }
+            node.textContent = scrambled.join('');
+            textEntries.push({ node, charMap });
+        }
+
+        // --- Phase 2: build span infrastructure after first paint ---
+        this.animFrameId = requestAnimationFrame(() => {
+            const slots = [];
+
+            for (const { node, charMap } of textEntries) {
+                const frag = document.createDocumentFragment();
+                for (let i = 0; i < charMap.length; i++) {
+                    const { original, ws } = charMap[i];
+                    if (ws) {
+                        frag.appendChild(document.createTextNode(original));
+                    } else {
+                        const span = document.createElement('span');
+                        span.textContent = randomChar();
+                        span.className = 'scramble-glyph';
+                        span.style.animationDelay = `${-(slots.length % 40) * 0.06}s`;
+                        slots.push({ span, original });
+                        frag.appendChild(span);
+                    }
                 }
-            }
-            replacements.push({ node, frag });
-        }
-
-        // Single DOM write — replace all text nodes at once
-        for (const { node, frag } of replacements) {
-            node.parentNode.replaceChild(frag, node);
-        }
-
-        let resolved = 0;
-
-        const tick = () => {
-            // Resolve a batch of characters
-            const newResolved = Math.min(resolved + CHARS_PER_FRAME, slots.length);
-            for (let i = resolved; i < newResolved; i++) {
-                const slot = slots[i];
-                slot.span.textContent = slot.original;
-                slot.span.className = '';
-                slot.span.style.animationDelay = '';
-            }
-            resolved = newResolved;
-
-            // Only cycle characters that are still unresolved
-            // Touch a sparse subset each frame to minimize DOM writes
-            const unresolvedCount = slots.length - resolved;
-            const cycleBudget = Math.min(Math.ceil(unresolvedCount * 0.15), 60);
-            for (let n = 0; n < cycleBudget; n++) {
-                const i = resolved + Math.floor(Math.random() * unresolvedCount);
-                slots[i].span.textContent = randomChar();
+                node.parentNode.replaceChild(frag, node);
             }
 
-            if (resolved < slots.length) {
-                this.animFrameId = requestAnimationFrame(tick);
-            } else {
-                this.animFrameId = null;
-            }
-        };
+            // --- Phase 3: animate ---
+            let resolved = 0;
 
-        this.animFrameId = requestAnimationFrame(tick);
+            const tick = () => {
+                const newResolved = Math.min(resolved + CHARS_PER_FRAME, slots.length);
+                for (let i = resolved; i < newResolved; i++) {
+                    const slot = slots[i];
+                    slot.span.textContent = slot.original;
+                    slot.span.className = '';
+                    slot.span.style.animationDelay = '';
+                }
+                resolved = newResolved;
+
+                // Sparse character cycling — capped DOM writes
+                const unresolvedCount = slots.length - resolved;
+                const budget = Math.min(Math.ceil(unresolvedCount * 0.15), 50);
+                for (let n = 0; n < budget; n++) {
+                    const i = resolved + Math.floor(Math.random() * unresolvedCount);
+                    slots[i].span.textContent = randomChar();
+                }
+
+                if (resolved < slots.length) {
+                    this.animFrameId = requestAnimationFrame(tick);
+                } else {
+                    this.animFrameId = null;
+                }
+            };
+
+            this.animFrameId = requestAnimationFrame(tick);
+        });
     }
 
     cleanup() {
