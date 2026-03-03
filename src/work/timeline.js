@@ -4,11 +4,18 @@
  */
 
 const SCRAMBLE_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*<>{}[]|;:~';
-const DECODE_DURATION = 1500; // total decode time in ms
-const CYCLE_BUDGET = 30;      // max random char swaps per frame
+const DECODE_DURATION = 2500;  // total decode time in ms
+const SETTLE_WINDOW = 200;     // ms of rapid cycling before a char resolves
+const CYCLE_BUDGET = 25;       // max ambient random swaps per frame
 
 function randomChar() {
     return SCRAMBLE_CHARS[Math.floor(Math.random() * SCRAMBLE_CHARS.length)];
+}
+
+/** Bell-curve random (0–1): sum of 3 uniforms gives a smooth peak at 0.5,
+ *  so most chars resolve mid-animation with a gentle trickle at edges. */
+function bellRandom() {
+    return (Math.random() + Math.random() + Math.random()) / 3;
 }
 
 export class Timeline {
@@ -98,34 +105,54 @@ export class Timeline {
                 node.parentNode.replaceChild(frag, node);
             }
 
-            // --- Phase 3: simultaneous decode over DECODE_DURATION ms ---
-            // Assign random resolve times, then sort so we can use a cursor
-            // instead of scanning all slots every frame (O(resolved) vs O(n)).
+            // --- Phase 3: flowing decode with eased timing + settle phase ---
+            // Ease-in-out distribution: slow trickle → wave → gentle tail.
+            // Each char also gets a "settle" window where it cycles fast
+            // before snapping to its final value, so nothing feels abrupt.
             for (const slot of slots) {
-                slot.resolveAt = Math.random() * DECODE_DURATION;
+                slot.resolveAt = bellRandom() * DECODE_DURATION;
+                slot.settleAt = Math.max(0, slot.resolveAt - SETTLE_WINDOW);
             }
             slots.sort((a, b) => a.resolveAt - b.resolveAt);
 
             const startTime = performance.now();
-            let cursor = 0;
+            let cursor = 0;        // next slot to resolve
+            let settleCursor = 0;  // next slot to enter settle phase
+
+            // Pre-sort a second reference by settleAt for the settle cursor
+            const bySettle = slots.map((s, i) => i);
+            bySettle.sort((a, b) => slots[a].settleAt - slots[b].settleAt);
 
             const tick = () => {
                 const elapsed = performance.now() - startTime;
 
-                // Advance cursor — resolve all slots whose time has come
+                // Advance settle cursor — mark slots entering their settle window
+                while (settleCursor < bySettle.length &&
+                       slots[bySettle[settleCursor]].settleAt <= elapsed) {
+                    slots[bySettle[settleCursor]].settling = true;
+                    settleCursor++;
+                }
+
+                // Advance resolve cursor — finalize chars whose time has come
                 while (cursor < slots.length && slots[cursor].resolveAt <= elapsed) {
                     const slot = slots[cursor];
                     slot.span.textContent = slot.original;
                     slot.span.className = '';
+                    slot.settling = false;
                     cursor++;
                 }
 
-                // Sparse cycling on still-unresolved chars (capped budget)
+                // Settling chars cycle every frame (they're "searching")
+                // Ambient unresolved chars cycle sparsely
+                let ambientBudget = CYCLE_BUDGET;
                 const unresolvedCount = slots.length - cursor;
-                const budget = Math.min(CYCLE_BUDGET, unresolvedCount);
-                for (let n = 0; n < budget; n++) {
-                    const idx = cursor + Math.floor(Math.random() * unresolvedCount);
-                    slots[idx].span.textContent = randomChar();
+                for (let i = cursor; i < slots.length; i++) {
+                    if (slots[i].settling) {
+                        slots[i].span.textContent = randomChar();
+                    } else if (ambientBudget > 0 && Math.random() < 0.08) {
+                        slots[i].span.textContent = randomChar();
+                        ambientBudget--;
+                    }
                 }
 
                 if (cursor < slots.length) {
