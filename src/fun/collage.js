@@ -535,24 +535,24 @@ export class Collage {
             const x = node.x - width / 2;
             const y = node.y - height / 2;
 
-            // Soft rhythmic pulse per node
+            // Soft rhythmic pulse per node — always visible
             const shimmerOffset = node.id * 1.7;
             const pulse = Math.sin(time * 0.0025 + shimmerOffset) * 0.5 + 0.5;
-            const shadowIntensity = isHovered ? 35 : 8 + pulse * 12;
+            const shadowIntensity = isHovered ? 40 : 15 + pulse * 20;
 
             ctx.save();
 
-            // Pulsating orange glow around frame
+            // Persistent pulsating orange glow around frame
             ctx.shadowColor = '#ff4500';
             ctx.shadowBlur = shadowIntensity;
 
-            // Draw border/frame with pulsating orange tint
+            // Draw border/frame with persistent orange border
             ctx.fillStyle = '#1a1a1a';
             ctx.fillRect(x - 3, y - 3, width + 6, height + 6);
 
-            const borderAlpha = isHovered ? 1.0 : 0.3 + pulse * 0.4;
+            const borderAlpha = isHovered ? 1.0 : 0.5 + pulse * 0.35;
             ctx.strokeStyle = `rgba(255, 69, 0, ${borderAlpha})`;
-            ctx.lineWidth = isHovered ? 2 : 1;
+            ctx.lineWidth = isHovered ? 2.5 : 1.5;
             ctx.strokeRect(x - 3, y - 3, width + 6, height + 6);
 
             ctx.shadowBlur = 0;
