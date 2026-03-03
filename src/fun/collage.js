@@ -546,10 +546,10 @@ export class Collage {
             const fy = y - 3;
             const fw = width + 6;
             const fh = height + 6;
-            const baseAlpha = isHovered ? 0.18 : 0.08 + pulse * 0.10;
+            const baseAlpha = isHovered ? 0.25 : 0.12 + pulse * 0.16;
             const spreads = isHovered
-                ? [24, 18, 12, 7, 3]
-                : [14 + pulse * 10, 10 + pulse * 7, 6 + pulse * 4, 3 + pulse * 2, 1];
+                ? [36, 26, 18, 10, 4]
+                : [22 + pulse * 16, 16 + pulse * 12, 10 + pulse * 7, 5 + pulse * 4, 2];
 
             for (const s of spreads) {
                 ctx.fillStyle = `rgba(255, 69, 0, ${baseAlpha})`;
@@ -557,9 +557,9 @@ export class Collage {
             }
 
             // Bright solid orange border
-            const borderAlpha = isHovered ? 1.0 : 0.5 + pulse * 0.4;
+            const borderAlpha = isHovered ? 1.0 : 0.6 + pulse * 0.4;
             ctx.strokeStyle = `rgba(255, 69, 0, ${borderAlpha})`;
-            ctx.lineWidth = isHovered ? 2.5 : 1.5;
+            ctx.lineWidth = isHovered ? 3 : 2;
             ctx.strokeRect(fx, fy, fw, fh);
 
             // Dark frame fill (covers glow inside the frame)
