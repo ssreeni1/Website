@@ -56,68 +56,75 @@ export class Timeline {
         const aboutEl = this.container.querySelector('.work-about');
         if (!aboutEl) return;
 
-        // Snapshot the DOM structure so we can rebuild it each frame
-        // We walk all text nodes, recording their parent and position
-        const entries = [];
-        let totalChars = 0;
-
+        // Collect all text nodes and build a flat array of character slots
+        const slots = []; // { span, original, phaseOffset, resolved }
         const walker = document.createTreeWalker(aboutEl, NodeFilter.SHOW_TEXT);
-        while (walker.nextNode()) {
-            const node = walker.currentNode;
+        const textNodes = [];
+        while (walker.nextNode()) textNodes.push(walker.currentNode);
+
+        for (const node of textNodes) {
             const original = node.textContent;
-            const chars = [];
+            const wrapper = document.createDocumentFragment();
+
             for (let i = 0; i < original.length; i++) {
                 const ch = original[i];
                 const isWhitespace = /\s/.test(ch);
-                if (!isWhitespace) totalChars++;
-                chars.push({ original: ch, isWhitespace });
-            }
-            entries.push({ node, chars });
-        }
 
-        // Initial scramble: replace all non-whitespace with random orange glyphs
-        for (const entry of entries) {
-            const span = document.createElement('span');
-            span.innerHTML = entry.chars
-                .map(c => c.isWhitespace ? c.original : `<span class="scramble-glyph">${randomChar()}</span>`)
-                .join('');
-            entry.node.parentNode.replaceChild(span, entry.node);
-            entry.wrapper = span;
+                if (isWhitespace) {
+                    wrapper.appendChild(document.createTextNode(ch));
+                } else {
+                    const span = document.createElement('span');
+                    span.textContent = randomChar();
+                    span.style.color = '#ff4500';
+                    slots.push({
+                        span,
+                        original: ch,
+                        phaseOffset: slots.length * 0.15,
+                        resolved: false
+                    });
+                    wrapper.appendChild(span);
+                }
+            }
+
+            node.parentNode.replaceChild(wrapper, node);
         }
 
         let resolved = 0;
+        const startTime = performance.now();
 
-        const tick = () => {
-            resolved += CHARS_PER_FRAME;
+        const tick = (time) => {
+            // Resolve characters progressively
+            const newResolved = Math.min(resolved + CHARS_PER_FRAME, slots.length);
+            for (let i = resolved; i < newResolved; i++) {
+                const slot = slots[i];
+                slot.resolved = true;
+                slot.span.textContent = slot.original;
+                slot.span.style.color = '';
+                slot.span.style.textShadow = '';
+                slot.span.style.opacity = '';
+            }
+            resolved = newResolved;
 
-            let charIndex = 0;
-            for (const entry of entries) {
-                let html = '';
-                for (const c of entry.chars) {
-                    if (c.isWhitespace) {
-                        html += c.original;
-                    } else {
-                        if (charIndex < resolved) {
-                            html += c.original;
-                        } else {
-                            html += `<span class="scramble-glyph">${randomChar()}</span>`;
-                        }
-                        charIndex++;
-                    }
+            // Animate unresolved characters — JS-driven pulse like the orbs
+            const elapsed = time - startTime;
+            for (let i = resolved; i < slots.length; i++) {
+                const slot = slots[i];
+                // Cycle character
+                if (Math.random() < 0.3) {
+                    slot.span.textContent = randomChar();
                 }
-                entry.wrapper.innerHTML = html;
+                // Smooth sinusoidal pulse matching orb rhythm
+                const pulse = Math.sin(elapsed * 0.005 + slot.phaseOffset) * 0.5 + 0.5;
+                const blur = 2 + pulse * 8;
+                const alpha = 0.15 + pulse * 0.4;
+                const opacity = 0.65 + pulse * 0.35;
+                slot.span.style.textShadow = `0 0 ${blur}px rgba(255, 69, 0, ${alpha})`;
+                slot.span.style.opacity = opacity;
             }
 
-            if (resolved < totalChars) {
+            if (resolved < slots.length) {
                 this.animFrameId = requestAnimationFrame(tick);
             } else {
-                // Clean up: unwrap spans, leaving just text
-                for (const entry of entries) {
-                    const text = document.createTextNode(
-                        entry.chars.map(c => c.original).join('')
-                    );
-                    entry.wrapper.parentNode.replaceChild(text, entry.wrapper);
-                }
                 this.animFrameId = null;
             }
         };

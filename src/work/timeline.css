@@ -64,23 +64,6 @@
     }
 }
 
-/* Scramble decode glyphs */
-.scramble-glyph {
-    color: #ff4500;
-    animation: glyph-pulse 1.2s ease-in-out infinite;
-}
-
-@keyframes glyph-pulse {
-    0%, 100% {
-        text-shadow: 0 0 2px rgba(255, 69, 0, 0.2);
-        opacity: 0.7;
-    }
-    50% {
-        text-shadow: 0 0 8px rgba(255, 69, 0, 0.5);
-        opacity: 1;
-    }
-}
-
 /* Mobile */
 @media (max-width: 768px) {
     .work-about {
