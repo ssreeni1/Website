@@ -556,11 +556,14 @@ export class Collage {
                 ctx.fillRect(fx - s, fy - s, fw + s * 2, fh + s * 2);
             }
 
-            // Bright solid orange border
+            // Bright solid orange border with pulsating shadowBlur glow
+            ctx.shadowColor = 'rgba(255, 69, 0, 1)';
+            ctx.shadowBlur = isHovered ? 30 : 10 + pulse * 20;
             const borderAlpha = isHovered ? 1.0 : 0.6 + pulse * 0.4;
             ctx.strokeStyle = `rgba(255, 69, 0, ${borderAlpha})`;
             ctx.lineWidth = isHovered ? 3 : 2;
             ctx.strokeRect(fx, fy, fw, fh);
+            ctx.shadowBlur = 0;
 
             // Dark frame fill (covers glow inside the frame)
             ctx.fillStyle = '#000';
