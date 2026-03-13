@@ -23,6 +23,12 @@ export class Ouroboros {
         // Offscreen canvas for image processing
         this.offscreenCanvas = null;
         this.offscreenCtx = null;
+
+        // Om symbol settings
+        this.omCanvas = null;
+        this.omCtx = null;
+        this.omSize = 200; // Size of the Om sampling grid
+        this.omReady = false;
     }
 
     /**
@@ -59,6 +65,9 @@ export class Ouroboros {
         // Load the ouroboros image
         this.loadImage();
 
+        // Prepare Om symbol
+        this.prepareOm();
+
         return this;
     }
 
@@ -71,6 +80,28 @@ export class Ouroboros {
             this.imageLoaded = true;
         };
         this.image.src = '/content/images/ouroboros.jpg';
+    }
+
+    /**
+     * Pre-render Om symbol to offscreen canvas for ASCII sampling
+     */
+    prepareOm() {
+        this.omCanvas = document.createElement('canvas');
+        this.omCanvas.width = this.omSize;
+        this.omCanvas.height = this.omSize;
+        this.omCtx = this.omCanvas.getContext('2d', { willReadFrequently: true });
+
+        // Draw ॐ as a large glyph onto the offscreen canvas
+        this.omCtx.fillStyle = '#000000';
+        this.omCtx.fillRect(0, 0, this.omSize, this.omSize);
+
+        this.omCtx.fillStyle = '#ffffff';
+        this.omCtx.font = `bold ${Math.floor(this.omSize * 0.75)}px serif`;
+        this.omCtx.textAlign = 'center';
+        this.omCtx.textBaseline = 'middle';
+        this.omCtx.fillText('ॐ', this.omSize / 2, this.omSize / 2);
+
+        this.omReady = true;
     }
 
     /**
@@ -190,6 +221,103 @@ export class Ouroboros {
         }
 
         // Reset shadow
+        ctx.shadowBlur = 0;
+
+        // Render Om symbol in center
+        this.renderOm(ctx);
+    }
+
+    /**
+     * Render shimmering Om symbol as ASCII art in the center of the ouroboros
+     */
+    renderOm(ctx) {
+        if (!this.omReady) return;
+
+        const omData = this.omCtx.getImageData(0, 0, this.omSize, this.omSize);
+        const omPixels = omData.data;
+
+        const cols = Math.floor(this.omSize / this.charWidth);
+        const rows = Math.floor(this.omSize / this.charHeight);
+
+        const omScale = this.scale * 0.55;
+
+        // First pass: find the actual bounding box of non-empty cells
+        // so we can center on the real content, not the grid
+        let minCol = cols, maxCol = 0, minRow = rows, maxRow = 0;
+        for (let row = 0; row < rows; row++) {
+            for (let col = 0; col < cols; col++) {
+                const sampleX = Math.floor(col * this.charWidth + this.charWidth / 2);
+                const sampleY = Math.floor(row * this.charHeight + this.charHeight / 2);
+                const pixelIndex = (sampleY * this.omSize + sampleX) * 4;
+                const r = omPixels[pixelIndex];
+                const g = omPixels[pixelIndex + 1];
+                const b = omPixels[pixelIndex + 2];
+                const brightness = 0.299 * r + 0.587 * g + 0.114 * b;
+                if (brightness >= 30) {
+                    const char = this.brightnessToChar(brightness);
+                    if (char !== ' ') {
+                        if (col < minCol) minCol = col;
+                        if (col > maxCol) maxCol = col;
+                        if (row < minRow) minRow = row;
+                        if (row > maxRow) maxRow = row;
+                    }
+                }
+            }
+        }
+
+        // Content dimensions in pixels
+        const contentWidth = (maxCol - minCol + 1) * this.charWidth * omScale;
+        const contentHeight = (maxRow - minRow + 1) * this.charHeight * omScale;
+
+        // Offset so the content bounding box is dead center on ouroboros center
+        const startX = this.centerX - contentWidth / 2 - minCol * this.charWidth * omScale;
+        const startY = this.centerY - contentHeight / 2 - minRow * this.charHeight * omScale;
+
+        // Shimmer: oscillating brightness multiplier
+        const time = performance.now();
+        const shimmer = 0.6 + 0.4 * Math.sin(time * 0.003);
+        const shimmer2 = 0.5 + 0.5 * Math.sin(time * 0.005 + 1.2);
+
+        ctx.font = `${this.fontSize * omScale}px "Electrolize", sans-serif`;
+        ctx.textBaseline = 'top';
+        ctx.textAlign = 'left';
+
+        for (let row = 0; row < rows; row++) {
+            for (let col = 0; col < cols; col++) {
+                const sampleX = Math.floor(col * this.charWidth + this.charWidth / 2);
+                const sampleY = Math.floor(row * this.charHeight + this.charHeight / 2);
+
+                const pixelIndex = (sampleY * this.omSize + sampleX) * 4;
+                const r = omPixels[pixelIndex];
+                const g = omPixels[pixelIndex + 1];
+                const b = omPixels[pixelIndex + 2];
+                const brightness = 0.299 * r + 0.587 * g + 0.114 * b;
+
+                if (brightness < 30) continue;
+
+                const char = this.brightnessToChar(brightness);
+                if (char === ' ') continue;
+
+                const x = startX + col * this.charWidth * omScale;
+                const y = startY + row * this.charHeight * omScale;
+
+                // Per-character shimmer variation based on position
+                const localShimmer = 0.6 + 0.4 * Math.sin(time * 0.004 + col * 0.3 + row * 0.5);
+                const glow = shimmer * localShimmer;
+
+                // Orange tones with shimmer - matching ouroboros palette
+                const r_color = Math.floor(255 * glow);
+                const g_color = Math.floor(69 * glow * shimmer2);
+                const b_color = 0;
+
+                ctx.fillStyle = `rgb(${r_color}, ${g_color}, ${b_color})`;
+                ctx.shadowColor = `rgb(${Math.min(255, r_color + 40)}, ${Math.min(100, g_color + 20)}, 0)`;
+                ctx.shadowBlur = 6 * glow;
+
+                ctx.fillText(char, x, y);
+            }
+        }
+
         ctx.shadowBlur = 0;
     }
 
