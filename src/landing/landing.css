@@ -60,6 +60,13 @@
     }
 }
 
+.landing-hint--ascii {
+    font-family: var(--font-mono, 'Courier New', monospace);
+    text-transform: none;
+    letter-spacing: 0.05em;
+    animation: landing-hint-fade 1s ease forwards;
+}
+
 /* Mobile adjustments */
 @media (max-width: 768px) {
     .landing-hint {

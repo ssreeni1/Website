@@ -39,6 +39,16 @@ export class Landing {
         this.canvas.className = 'landing-canvas';
         this.container.appendChild(this.canvas);
         this.ctx = this.canvas.getContext('2d');
+
+        // ASCII hint after 5 seconds
+        this.hintTimeout = setTimeout(() => {
+            if (!this.isActive) return;
+            const hint = document.createElement('div');
+            hint.className = 'landing-hint landing-hint--ascii';
+            hint.textContent = '> click the dots _';
+            this.container.appendChild(hint);
+            this.hintEl = hint;
+        }, 5000);
     }
 
     /**
@@ -158,6 +168,14 @@ export class Landing {
         if (this.animationId) {
             cancelAnimationFrame(this.animationId);
             this.animationId = null;
+        }
+        if (this.hintTimeout) {
+            clearTimeout(this.hintTimeout);
+            this.hintTimeout = null;
+        }
+        if (this.hintEl) {
+            this.hintEl.remove();
+            this.hintEl = null;
         }
     }
 }
