@@ -10,13 +10,11 @@ import { Router } from './router.js';
 import { TabNav } from '../nav/tabs.js';
 
 // Component imports
-import { Landing } from '../landing/landing.js';
 import { Timeline } from '../work/timeline.js';
 import { WritingNetwork } from '../writing/network.js';
 import { Collage } from '../fun/collage.js';
 
 // Component instances
-let landing = null;
 let timeline = null;
 let writingNetwork = null;
 let collage = null;
@@ -64,28 +62,12 @@ async function init() {
         cleanup: () => collage?.cleanup()
     });
 
-    // Check for skip-landing query param (for testing)
+    // Start directly on writing tab (landing is accessed via SS button)
     const params = new URLSearchParams(window.location.search);
-    if (params.has('skip-landing')) {
-        await skipToContent(params.get('tab') || 'work');
-    } else {
-        // Initialize landing page
-        initLanding();
-    }
+    const startTab = params.get('tab') || 'writing';
+    await skipToContent(startTab);
 
     console.log('[App] Initialized');
-}
-
-/**
- * Initialize landing page
- */
-function initLanding() {
-    const container = document.getElementById('landing-container');
-    if (!container) return;
-
-    landing = new Landing();
-    landing.init(container);
-    landing.render();
 }
 
 /**

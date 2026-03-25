@@ -15,7 +15,7 @@
 
 .nav-tabs__home {
     position: absolute;
-    left: var(--spacing-md);
+    right: var(--spacing-md);
     background: none;
     border: 1px solid var(--color-border);
     padding: var(--spacing-xs) var(--spacing-sm);

@@ -6,6 +6,7 @@
 
 import { AppState } from '../core/state.js';
 import { EventBus, Events } from '../core/events.js';
+import { Landing } from '../landing/landing.js';
 
 export const TabNav = {
     container: null,
@@ -90,10 +91,10 @@ export const TabNav = {
     },
 
     /**
-     * Go back to landing page
+     * Go to landing page (ASCII animation)
      */
     goToLanding() {
-        const landing = document.getElementById('landing-container');
+        const landingEl = document.getElementById('landing-container');
         const content = document.getElementById('content-container');
 
         if (content) {
@@ -104,15 +105,36 @@ export const TabNav = {
             if (content) {
                 content.style.display = 'none';
             }
-            if (landing) {
-                landing.classList.remove('landing-hidden', 'landing-fade-out');
-                landing.style.display = 'block';
+            if (landingEl) {
+                landingEl.classList.remove('landing-hidden', 'landing-fade-out');
+                landingEl.style.display = 'flex';
+                landingEl.innerHTML = '';
             }
 
             AppState.setState({ currentView: 'landing' });
 
-            // Reload the page to reinitialize landing
-            window.location.reload();
+            // Initialize and render landing
+            const landing = new Landing();
+            landing.init(landingEl);
+            landing.render();
+
+            // Add back button to return to content
+            const backBtn = document.createElement('button');
+            backBtn.className = 'landing-back-btn';
+            backBtn.textContent = 'Back';
+            backBtn.addEventListener('click', () => {
+                landing.cleanup();
+                landingEl.classList.add('landing-fade-out');
+                setTimeout(() => {
+                    landingEl.classList.add('landing-hidden');
+                    if (content) {
+                        content.style.display = 'block';
+                        content.style.opacity = '1';
+                    }
+                    AppState.setState({ currentView: 'content' });
+                }, 300);
+            });
+            landingEl.appendChild(backBtn);
         }, 300);
     },
 
