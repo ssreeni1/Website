@@ -64,7 +64,7 @@ async function init() {
 
     // Start directly on writing tab (landing is accessed via SS button)
     const params = new URLSearchParams(window.location.search);
-    const startTab = params.get('tab') || 'writing';
+    const startTab = params.get('tab') || 'work';
     await skipToContent(startTab);
 
     console.log('[App] Initialized');
