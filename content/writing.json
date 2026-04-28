@@ -1,6 +1,13 @@
 {
   "items": [
     {
+      "id": "pain-flights",
+      "title": "pain.flights",
+      "type": "project",
+      "date": "2026-04-28",
+      "url": "https://pain.flights"
+    },
+    {
       "id": "superpositioned",
       "title": "Superpositioned",
       "type": "research",

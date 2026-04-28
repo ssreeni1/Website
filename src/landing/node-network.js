@@ -31,7 +31,7 @@ export class NodeNetwork {
 
         const raw = [
             { angle: -Math.PI / 6,     label: 'Work' },
-            { angle: -5 * Math.PI / 6, label: 'Writing' },
+            { angle: -5 * Math.PI / 6, label: 'Writing/Projects' },
             { angle: Math.PI / 2,      label: 'Fun' },
         ];
 

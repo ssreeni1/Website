@@ -37,7 +37,7 @@ export const TabNav = {
     render() {
         const tabs = [
             { id: 'work', label: 'Work' },
-            { id: 'writing', label: 'Writing' },
+            { id: 'writing', label: 'Writing/Projects' },
             { id: 'fun', label: 'Fun' }
         ];
 
