@@ -1,65 +1,83 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Saneel Sreeni - Investor, builder, exploring AI, markets, and everything in between.">
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>saneel.xyz</title>
 
-    <title>Saneel Sreeni</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;1,400;1,500&family=Inter+Tight:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
 
-    <!-- Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Electrolize&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles/tokens.css" />
+<link rel="stylesheet" href="styles/atelier.css" />
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.88em' font-size='90'%3ES%3C/text%3E%3C/svg%3E" />
 
-    <!-- Styles -->
-    <link rel="stylesheet" href="src/core/variables.css">
-    <link rel="stylesheet" href="src/nav/tabs.css">
-    <link rel="stylesheet" href="src/landing/landing.css">
-    <link rel="stylesheet" href="src/work/timeline.css">
-    <link rel="stylesheet" href="src/writing/writing.css">
-    <link rel="stylesheet" href="src/fun/collage.css">
-    <link rel="stylesheet" href="src/utils/utils.css">
+<style>
+  html, body { height: 100%; margin: 0; background: var(--paper); }
+  body { font-family: "Inter Tight", system-ui, sans-serif; color: var(--ink); }
+  #root { min-height: 100%; }
+  .tweaks-panel { font-family: var(--mono), ui-monospace, monospace; }
+</style>
 
-    <!-- Favicon -->
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>S</text></svg>">
+<script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js" crossorigin="anonymous"></script>
 </head>
+
 <body>
-    <main id="app-root">
-        <!-- Landing Container (accessed via SS button) -->
-        <section id="landing-container" data-view="landing" class="landing-hidden">
-            <!-- Landing canvas rendered by src/landing/landing.js -->
-        </section>
 
-        <!-- Content Container -->
-        <section id="content-container" data-view="content">
-            <!-- Tab Navigation -->
-            <nav id="tab-nav" aria-label="Main sections"></nav>
+<div id="root"></div>
 
-            <!-- Work Tab -->
-            <div id="tab-work" class="tab-panel" data-tab="work" role="tabpanel" aria-labelledby="work-tab">
-                <div class="tab-panel__content">
-                    <!-- Timeline rendered by src/work/timeline.js -->
-                </div>
-            </div>
+<script src="variations/atelier.js"></script>
 
-            <!-- Writing Tab -->
-            <div id="tab-writing" class="tab-panel" data-tab="writing" role="tabpanel" aria-labelledby="writing-tab">
-                <div class="tab-panel__content">
-                    <!-- Writing list rendered by src/writing/network.js -->
-                </div>
-            </div>
+<script>
+  const { useState, useEffect } = React;
 
-            <!-- Fun Tab -->
-            <div id="tab-fun" class="tab-panel" data-tab="fun" role="tabpanel" aria-labelledby="fun-tab">
-                <div class="tab-panel__content">
-                    <!-- Collage rendered by src/fun/collage.js -->
-                </div>
-            </div>
-        </section>
-    </main>
+  const TWEAKS_DEFAULTS = {
+    "theme": "dark",
+    "serif": "EB Garamond",
+    "sans": "Inter Tight",
+    "accent": "#a47a3c"
+  };
 
-    <!-- Main Application Script -->
-    <script type="module" src="src/core/app.js"></script>
+  function applyTweaks(t) {
+    const root = document.documentElement;
+    const serifMap = {
+      "EB Garamond": '"EB Garamond", Garamond, "Times New Roman", serif',
+      "Fraunces":    '"Fraunces", "EB Garamond", Garamond, serif',
+      "Iowan":       '"Iowan Old Style", "Apple Garamond", Garamond, serif',
+      "Cormorant":   '"Cormorant Garamond", "EB Garamond", Garamond, serif',
+    };
+    const sansMap = {
+      "Inter Tight": '"Inter Tight", "Inter", -apple-system, sans-serif',
+      "Söhne":       '"Söhne", "Inter Tight", "Inter", -apple-system, sans-serif',
+      "Helvetica":   'Helvetica, "Helvetica Neue", Arial, sans-serif',
+      "Geist":       '"Geist", "Inter Tight", -apple-system, sans-serif',
+    };
+    root.style.setProperty("--serif", serifMap[t.serif] || serifMap["EB Garamond"]);
+    root.style.setProperty("--sans",  sansMap[t.sans]   || sansMap["Inter Tight"]);
+    root.style.setProperty("--ochre", t.accent || "#c9a35a");
+  }
+
+  (function injectExtraFonts() {
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = "https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,400;0,500;1,400&family=Cormorant+Garamond:ital,wght@0,400;1,400&family=Geist:wght@300;400;500&display=swap";
+    document.head.appendChild(link);
+  })();
+
+  function App() {
+    const [theme, setTheme] = useState(TWEAKS_DEFAULTS.theme);
+
+    useEffect(() => { applyTweaks(TWEAKS_DEFAULTS); }, []);
+    useEffect(() => { document.documentElement.dataset.theme = theme; }, [theme]);
+
+    const Atelier = window.Atelier;
+    return React.createElement(Atelier, { theme, setTheme });
+  }
+
+  ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(App));
+</script>
+
 </body>
 </html>

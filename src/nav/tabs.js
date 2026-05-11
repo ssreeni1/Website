@@ -6,6 +6,7 @@
 
 import { AppState } from '../core/state.js';
 import { EventBus, Events } from '../core/events.js';
+import { Router } from '../core/router.js';
 import { Landing } from '../landing/landing.js';
 
 export const TabNav = {
@@ -73,10 +74,7 @@ export const TabNav = {
             button.addEventListener('click', () => {
                 const tab = button.dataset.tab;
                 if (tab && tab !== AppState.currentTab) {
-                    EventBus.emit(Events.TAB_CHANGE, {
-                        from: AppState.currentTab,
-                        to: tab
-                    });
+                    Router.navigateTo(tab);
                 }
             });
         });

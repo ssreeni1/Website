@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Work — Saneel Sreeni</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;1,400;1,500&family=Inter+Tight:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="styles/tokens.css" />
+<link rel="stylesheet" href="styles/subpage.css" />
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.88em' font-size='90'%3ES%3C/text%3E%3C/svg%3E" />
+<style>
+  .work-lede {
+    margin-bottom: 28px;
+  }
+
+  .sp-notes {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    font-family: var(--serif);
+    font-size: 17px;
+    line-height: 1.65;
+    color: var(--ink-2);
+  }
+  .sp-notes li {
+    position: relative;
+    padding: 6px 0 6px 28px;
+    text-wrap: pretty;
+  }
+  .sp-notes li::before {
+    content: "\2014";
+    position: absolute;
+    left: 0; top: 6px;
+    color: var(--ochre);
+    font-family: var(--mono);
+    font-size: 13px;
+  }
+  .sp-notes em { color: var(--ochre); font-style: italic; }
+
+  /* Pulsing gold hyperlinks */
+  a.link-gold,
+  .sp-prose a.link-gold,
+  .sp-notes a.link-gold {
+    color: var(--ochre);
+    text-decoration: none;
+    border-bottom: 1px solid color-mix(in oklch, var(--ochre) 35%, transparent);
+    padding-bottom: 1px;
+    transition: border-color 0.4s ease, text-shadow 0.4s ease;
+    animation: link-pulse 3.4s ease-in-out infinite;
+  }
+  .link-gold:hover {
+    border-bottom-color: var(--ochre);
+    text-shadow: 0 0 14px color-mix(in oklch, var(--ochre) 45%, transparent);
+  }
+  @keyframes link-pulse {
+    0%, 100% { text-shadow: 0 0 0 transparent; }
+    50%      { text-shadow: 0 0 8px color-mix(in oklch, var(--ochre) 28%, transparent); }
+  }
+</style>
+</head>
+<body>
+<div class="sp-shell">
+
+  <header class="sp-top">
+    <a href="index.html" class="sp-back"><span class="sp-back-arrow">←</span> saneel.xyz</a>
+    <span><span data-clock>—</span> · N 40°44′</span>
+    <button class="sp-toggle" onclick="toggleTheme()" aria-label="Toggle theme">☾</button>
+  </header>
+
+  <p class="sp-eyebrow sp-reveal sp-reveal-1">i. — work</p>
+  <h1 class="sp-title sp-reveal sp-reveal-2">Where I&rsquo;ve <em>spent time</em></h1>
+  <p class="sp-lede work-lede sp-reveal sp-reveal-3">
+    Hi, I&rsquo;m Saneel. I&rsquo;m usually based in NYC and SF, but often in
+    HK, SGP and KR.
+  </p>
+
+  <section class="sp-section sp-reveal sp-reveal-4">
+    <div class="sp-prose">
+      <p>
+        The through-line of my work is a simple question:
+        <em>what happens when genuinely new technology meets genuinely old industries?</em>
+      </p>
+      <p>
+        I&rsquo;ve explored this by building
+        (<a class="link-gold" href="https://www.ritual.net/" target="_blank" rel="noopener">Ritual</a>,
+        <a class="link-gold" href="https://www.alkimiya.io/" target="_blank" rel="noopener">Alkimiya</a>),
+        by investing at the earliest stages
+        (<a class="link-gold" href="https://www.accomplice.co/" target="_blank" rel="noopener">Accomplice</a>,
+        <a class="link-gold" href="https://www.dragonfly.xyz/" target="_blank" rel="noopener">Dragonfly</a>,
+        <a class="link-gold" href="https://www.polychain.capital/" target="_blank" rel="noopener">Polychain</a>),
+        and by trading public markets. I studied EECS and Business at
+        <a class="link-gold" href="https://met.berkeley.edu/" target="_blank" rel="noopener">UC Berkeley’s M.E.T. program</a>.
+        <em>Go Bears!</em>
+      </p>
+      <p>
+        I have been immensely fortunate to work with and learn from some pretty
+        exceptional people through these things, and that remains a core driving
+        factor for me.
+      </p>
+    </div>
+  </section>
+
+  <section class="sp-section sp-reveal">
+    <div class="sp-section-head">
+      <span class="sp-num">001 —</span>
+      <h2>what I&rsquo;m thinking about now</h2>
+    </div>
+    <ul class="sp-notes">
+      <li>the adaptation of AI to legacy services, not by replacing them, but by making them <em>unrecognizable</em></li>
+      <li>compounders in the age of software and labor automation, marketplaces in particular, which age like almost nothing else</li>
+      <li><a class="link-gold" href="https://www.superpositioned.co/" target="_blank" rel="noopener">quantum computing</a></li>
+      <li>the convergence of payment and asset rails with blockchains, finance re-plumbed from below</li>
+      <li>the enduring, compounding value of live experiences: the <a class="link-gold" href="https://www.aman.com/" target="_blank" rel="noopener">Amans</a>, the <a class="link-gold" href="https://www.vailresorts.com/" target="_blank" rel="noopener">Vail Resorts</a>, the things no algorithm can intermediate</li>
+      <li>operating with taste and aesthetics, the <a class="link-gold" href="https://quartr.com/insights/business-philosophy/the-brunello-cucinelli-story-combining-elegance-and-ethics" target="_blank" rel="noopener">Cucinelli</a> ethos that elegance and ethics aren&rsquo;t at odds</li>
+      <li>becoming like the people I look up to: my parents, <a class="link-gold" href="https://en.wikipedia.org/wiki/Lee_Kuan_Yew" target="_blank" rel="noopener">Lee Kuan Yew</a>, <a class="link-gold" href="https://quartr.com/insights/investment-strategy/reece-duca-the-manager-who-outperformed-buffett" target="_blank" rel="noopener">Reece Duca</a>, <a class="link-gold" href="https://en.wikipedia.org/wiki/Swedish_House_Mafia" target="_blank" rel="noopener">Swedish House Mafia</a>, <a class="link-gold" href="https://www.ralphlauren.com/" target="_blank" rel="noopener">Ralph Lauren</a></li>
+      <li>wisdom from long history, anthropology, and applied mimetics: the <a class="link-gold" href="https://en.wikipedia.org/wiki/Bhagavad_Gita" target="_blank" rel="noopener">Bhagavad Gita</a>, the Bible, <a class="link-gold" href="https://en.wikipedia.org/wiki/Mimetic_theory" target="_blank" rel="noopener">Girard&rsquo;s mimetic theory</a>, the <a class="link-gold" href="https://en.wikipedia.org/wiki/Meditations" target="_blank" rel="noopener">Meditations</a> of Marcus Aurelius, etc.</li>
+    </ul>
+  </section>
+
+  <section class="sp-section sp-reveal sp-reveal-4">
+    <div class="sp-section-head">
+      <span class="sp-num">002 —</span>
+      <h2>positions</h2>
+    </div>
+    <ul class="sp-list">
+      <a class="sp-row" href="https://www.accomplice.co/" target="_blank" rel="noopener">
+        <span class="sp-meta">2022 — now</span>
+        <div class="sp-row-body">
+          <span class="sp-row-t">Accomplice VC <span style="color:var(--ochre); font-style:italic; font-size:0.7em; margin-left:8px; letter-spacing:0.05em;">— current</span></span>
+          <span class="sp-row-d">Partner --> EIR. Investing in early-stage companies at the frontier of computing.</span>
+        </div>
+        <span class="sp-row-arrow">↗</span>
+      </a>
+      <a class="sp-row" href="https://www.ritual.net/" target="_blank" rel="noopener">
+        <span class="sp-meta">2023</span>
+        <div class="sp-row-body">
+          <span class="sp-row-t">Ritual</span>
+          <span class="sp-row-d">Founding team. An applied AI lab building primitives in {AI, mechanism design, systems, cryptography} around autonomous intelligence.</span>
+        </div>
+        <span class="sp-row-arrow">↗</span>
+      </a>
+      <a class="sp-row" href="https://www.alkimiya.io/" target="_blank" rel="noopener">
+        <span class="sp-meta">2021</span>
+        <div class="sp-row-body">
+          <span class="sp-row-t">Anicca Research</span>
+          <span class="sp-row-d">Founding team. Products for BTC miners (now Alkimiya).</span>
+        </div>
+        <span class="sp-row-arrow">↗</span>
+      </a>
+      <a class="sp-row" href="https://www.dragonfly.xyz/" target="_blank" rel="noopener">
+        <span class="sp-meta">2021</span>
+        <div class="sp-row-body">
+          <span class="sp-row-t">Dragonfly</span>
+          <span class="sp-row-d">Junior Partner. Investing in early-stage crypto companies.</span>
+        </div>
+        <span class="sp-row-arrow">↗</span>
+      </a>
+      <a class="sp-row" href="https://www.polychain.capital/" target="_blank" rel="noopener">
+        <span class="sp-meta">2020</span>
+        <div class="sp-row-body">
+          <span class="sp-row-t">Polychain Capital</span>
+          <span class="sp-row-d">Research Intern. Early-stage crypto investing &middot; data science / engineering.</span>
+        </div>
+        <span class="sp-row-arrow">↗</span>
+      </a>
+      <a class="sp-row" href="https://www.lineagelogistics.com/" target="_blank" rel="noopener">
+        <span class="sp-meta">2020</span>
+        <div class="sp-row-body">
+          <span class="sp-row-t">Lineage Logistics</span>
+          <span class="sp-row-d">Data Science Intern. ML / optimization for warehouse efficiency.</span>
+        </div>
+        <span class="sp-row-arrow">↗</span>
+      </a>
+      <a class="sp-row" href="https://contrary.com/" target="_blank" rel="noopener">
+        <span class="sp-meta">2019</span>
+        <div class="sp-row-body">
+          <span class="sp-row-t">Contrary</span>
+          <span class="sp-row-d">Venture Partner. Early-stage venture capital.</span>
+        </div>
+        <span class="sp-row-arrow">↗</span>
+      </a>
+    </ul>
+  </section>
+
+  <section class="sp-section sp-reveal">
+    <div class="sp-section-head">
+      <span class="sp-num">003 —</span>
+      <h2>education</h2>
+    </div>
+    <ul class="sp-list">
+      <a class="sp-row" href="https://met.berkeley.edu/" target="_blank" rel="noopener">
+        <span class="sp-meta">—</span>
+        <div class="sp-row-body">
+          <span class="sp-row-t">UC Berkeley M.E.T.</span>
+          <span class="sp-row-d">Bachelor&rsquo;s &mdash; Electrical Engineering &amp; Computer Science, Business Administration.</span>
+        </div>
+        <span class="sp-row-arrow">↗</span>
+      </a>
+    </ul>
+  </section>
+
+  <footer class="sp-foot">
+    <span>© Saneel Sreeni · MMXXVI</span>
+    <span>hi@saneel.xyz</span>
+  </footer>
+
+</div>
+<script src="subpage-chrome.js"></script>
+</body>
+</html>

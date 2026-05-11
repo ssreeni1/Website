@@ -62,9 +62,8 @@ async function init() {
         cleanup: () => collage?.cleanup()
     });
 
-    // Start directly on writing tab (landing is accessed via SS button)
-    const params = new URLSearchParams(window.location.search);
-    const startTab = params.get('tab') || 'work';
+    // Start directly on the routed content tab (landing is accessed via SS button)
+    const startTab = Router.getTabFromLocation();
     await skipToContent(startTab);
 
     console.log('[App] Initialized');
@@ -87,28 +86,12 @@ async function skipToContent(tab) {
         content.style.opacity = '1';
     }
 
-    // Activate the tab panel first (use #tab-{name} to get panel, not button)
-    const panel = document.getElementById(`tab-${tab}`);
-    if (panel) {
-        panel.classList.add('active');
-    }
-
     AppState.setState({
-        currentView: 'content',
-        currentTab: tab
+        currentView: 'content'
     });
 
-    // Initialize and render the component
-    const component = Router.components.get(tab);
-    if (component) {
-        const container = panel?.querySelector('.tab-panel__content');
-        if (container) {
-            await component.init(container);
-            Router.initialized.add(tab);
-            component.render();
-            Router.currentComponent = component;
-        }
-    }
+    // Initialize and render the routed component
+    await Router.navigateTo(tab, { updateUrl: false });
 }
 
 // Initialize when DOM is ready

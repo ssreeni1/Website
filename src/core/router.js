@@ -1,12 +1,34 @@
 /**
  * Router - Client-side tab navigation
  *
- * Handles tab switching with transition animations.
- * No URL routing - purely client-side state.
+ * Handles tab switching with transition animations and URL routing.
  */
 
 import { AppState } from './state.js';
 import { EventBus, Events } from './events.js';
+
+const ROUTES = {
+    work: '/work',
+    writing: '/projects',
+    fun: '/fun'
+};
+
+const PATH_TO_TAB = new Map([
+    ['/', 'work'],
+    ['/work', 'work'],
+    ['/projects', 'writing'],
+    ['/writing', 'writing'],
+    ['/fun', 'fun']
+]);
+
+function isOldSite() {
+    return normalizePath(window.location.pathname).startsWith('/old');
+}
+
+function normalizePath(pathname) {
+    if (!pathname || pathname === '/') return '/';
+    return pathname.replace(/\/+$/, '') || '/';
+}
 
 /**
  * Router singleton
@@ -30,16 +52,57 @@ export const Router = {
      */
     init() {
         // Listen for tab change requests
-        EventBus.on(Events.TAB_CHANGE, ({ to }) => {
-            this.navigateTo(to);
+        EventBus.on(Events.TAB_CHANGE, ({ to, updateUrl = true }) => {
+            this.navigateTo(to, { updateUrl });
         });
+
+        window.addEventListener('popstate', () => {
+            const tabName = this.getTabFromLocation();
+            this.navigateTo(tabName, { updateUrl: false });
+        });
+    },
+
+    /**
+     * Resolve the current URL to a tab name.
+     * @returns {string} Tab identifier
+     */
+    getTabFromLocation() {
+        const params = new URLSearchParams(window.location.search);
+        const tabParam = params.get('tab');
+
+        if (tabParam && this.components.has(tabParam)) {
+            return tabParam;
+        }
+
+        const pathname = normalizePath(window.location.pathname);
+        if (isOldSite()) {
+            return PATH_TO_TAB.get(pathname.replace(/^\/old/, '') || '/') || 'work';
+        }
+
+        return PATH_TO_TAB.get(pathname) || 'work';
+    },
+
+    /**
+     * Update the browser address bar for a tab.
+     * @param {string} tabName - Tab identifier
+     * @param {boolean} replace - Replace instead of push history
+     */
+    updateLocation(tabName, replace = false) {
+        const path = isOldSite() ? `/old/?tab=${encodeURIComponent(tabName)}` : ROUTES[tabName];
+        if (!path || normalizePath(window.location.pathname) === path) return;
+
+        const method = replace ? 'replaceState' : 'pushState';
+        window.history[method]({ tab: tabName }, '', path);
     },
 
     /**
      * Navigate to a specific tab
      * @param {string} tabName - Tab to navigate to
+     * @param {Object} options - Navigation options
+     * @param {boolean} options.updateUrl - Whether to push the browser URL
+     * @param {boolean} options.replaceUrl - Whether to replace the current URL
      */
-    async navigateTo(tabName) {
+    async navigateTo(tabName, { updateUrl = true, replaceUrl = false } = {}) {
         if (AppState.isTransitioning) return;
         if (!this.components.has(tabName)) {
             console.warn(`Router: Unknown tab "${tabName}"`);
@@ -88,6 +151,10 @@ export const Router = {
             currentTab: tabName,
             isTransitioning: false
         });
+
+        if (updateUrl) {
+            this.updateLocation(tabName, replaceUrl);
+        }
 
         EventBus.emit(Events.TAB_CHANGED, { tab: tabName });
     },

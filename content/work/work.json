@@ -3,9 +3,9 @@
     {
       "id": "accomplice",
       "company": "Accomplice VC",
-      "title": "Partner",
+      "title": "Partner --> EIR",
       "dates": "2022 - Present",
-      "description": "Investing up to $2M in early-stage crypto and AI companies (pre-seed/seed/series A)",
+      "description": "Investing in early-stage companies at the frontier of computing.",
       "url": "https://www.accomplice.co/",
       "current": true
     },
@@ -14,7 +14,7 @@
       "company": "Ritual",
       "title": "Founding Team",
       "dates": "2023",
-      "description": "Infrastructure for crypto and AI",
+      "description": "An applied AI lab building primitives in {AI, mechanism design, systems, cryptography} around autonomous intelligence",
       "url": "https://www.ritual.net/",
       "current": false
     },

@@ -1,0 +1,351 @@
+/* Atelier — dark-navy, restrained, with quote carousel and scroll reveals */
+
+.ate-foot-centered {
+  max-width: 720px;
+  margin: 0 auto;
+  padding-top: 80px;
+  text-align: center;
+}
+.ate-colophon-centered {
+  justify-content: center;
+  gap: 24px;
+  flex-wrap: wrap;
+  border-top: none;
+  padding-top: 16px;
+  margin-top: 24px;
+}
+
+.atelier {
+  font-family: var(--sans);
+  color: var(--ink);
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 0%, color-mix(in oklch, var(--ochre) 5%, transparent) 0%, transparent 60%),
+    var(--paper);
+  min-height: 100%;
+  padding: 40px 80px 72px;
+  font-size: 16px;
+  line-height: 1.55;
+  letter-spacing: -0.005em;
+}
+
+.ate-top {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  max-width: 620px;
+  margin: 0 auto;
+  font-size: 11px;
+  color: var(--ochre);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding-bottom: 56px;
+}
+.ate-top > :first-child { justify-self: start; }
+.ate-top > :nth-child(2) { justify-self: center; }
+.ate-top > :last-child { justify-self: end; }
+.ate-top > * {
+  transition: opacity 0.4s ease;
+}
+.ate-top > *:hover {
+  animation: ate-pulse 1.8s ease-in-out infinite;
+}
+.ate-mono { font-family: var(--mono); font-feature-settings: "ss01"; }
+.ate-clock { letter-spacing: 0.05em; }
+
+.ate-toggle {
+  background: none; border: none; color: var(--ochre);
+  font-size: 14px; cursor: pointer; padding: 4px 8px;
+}
+
+@keyframes ate-pulse {
+  0%, 100% { opacity: 0.55; }
+  50%      { opacity: 1; }
+}
+
+.ate-main {
+  max-width: 620px;
+  margin: 0 auto;
+  text-align: center;
+  padding: 64px 0 96px;
+}
+
+.ate-constellation {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 64px;
+}
+.ate-canvas {
+  width: 420px;
+  max-width: 100%;
+  height: 260px;
+  display: block;
+  touch-action: none;
+  user-select: none;
+}
+
+.ate-greet {
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin: 0 0 28px;
+}
+
+.ate-name {
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: 64px;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  margin: 0 0 32px;
+  color: var(--ink);
+}
+.ate-italic { font-style: italic; color: var(--ochre); }
+
+.ate-tag {
+  font-family: var(--serif);
+  font-size: 20px;
+  line-height: 1.55;
+  color: var(--ink-2);
+  margin: 0 auto 40px;
+  max-width: 520px;
+  text-wrap: pretty;
+}
+
+/* Quote carousel */
+.ate-quote {
+  position: relative;
+  margin: 0 auto 56px;
+  max-width: 540px;
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 17px;
+  line-height: 1.55;
+  color: var(--ink-2);
+}
+.ate-quote-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  text-wrap: pretty;
+  margin: 0;
+  animation: ate-quote-fade 1.2s ease;
+}
+@keyframes ate-quote-fade { from { opacity: 0; } to { opacity: 1; } }
+.ate-quote-mark {
+  font-family: var(--serif);
+  color: var(--ochre);
+  font-size: 22px;
+  line-height: 1;
+  margin-bottom: 10px;
+  opacity: 0.7;
+}
+.ate-quote-cite {
+  font-family: var(--mono);
+  font-style: normal;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin-top: 14px;
+}
+.ate-quote-dots {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 12px;
+}
+.ate-quote-dot {
+  width: 4px; height: 4px;
+  border-radius: 50%;
+  background: var(--rule);
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: background 0.3s ease, transform 0.3s ease;
+}
+.ate-quote-dot.is-on { background: var(--ochre); transform: scale(1.4); }
+
+.ate-fn { display: inline; }
+.ate-fn-num {
+  background: none; border: none; padding: 0;
+  font: inherit; color: var(--ink);
+  cursor: pointer;
+  border-bottom: 1px solid var(--rule);
+  transition: border-color 0.3s ease, color 0.3s ease;
+}
+.ate-fn-num:hover { border-color: var(--ochre); color: var(--ochre); }
+.ate-fn-num sup { font-family: var(--mono); font-size: 0.6em; margin-left: 1px; color: var(--ochre); }
+
+.ate-inline-link {
+  color: var(--ink);
+  text-decoration: none;
+  border-bottom: 1px solid var(--rule);
+  padding-bottom: 1px;
+  transition: border-color 0.3s ease, color 0.3s ease;
+}
+.ate-inline-link:hover { color: var(--ochre); border-bottom-color: var(--ochre); }
+.ate-fn-body {
+  display: inline;
+  font-style: italic;
+  color: var(--ink-3);
+  font-size: 0.92em;
+  margin-left: 4px;
+  animation: ate-fade 0.4s ease;
+}
+@keyframes ate-fade { from { opacity: 0; } to { opacity: 1; } }
+
+.ate-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  max-width: 380px;
+  margin: 0 auto;
+}
+.ate-link {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 0;
+  border-top: 1px solid var(--rule);
+  text-decoration: none;
+  color: var(--ochre);
+  font-size: 14px;
+  letter-spacing: -0.005em;
+  transition: padding 0.4s ease;
+}
+.ate-link:last-child { border-bottom: 1px solid var(--rule); }
+.ate-link:hover {
+  padding-left: 6px;
+  padding-right: 6px;
+  animation: ate-pulse 1.8s ease-in-out infinite;
+}
+.ate-arrow {
+  font-family: var(--mono);
+  color: var(--ochre);
+  transition: transform 0.4s ease;
+}
+.ate-link:hover .ate-arrow { transform: translateX(4px); }
+
+.ate-section {
+  max-width: 720px;
+  margin: 0 auto 96px;
+}
+.ate-rule {
+  height: 1px;
+  background: var(--rule);
+  margin-bottom: 40px;
+}
+.ate-section-head {
+  display: flex;
+  align-items: baseline;
+  gap: 24px;
+  margin-bottom: 32px;
+}
+.ate-num {
+  font-size: 11px;
+  color: var(--ink-3);
+  letter-spacing: 0.1em;
+}
+.ate-section h2 {
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: 22px;
+  margin: 0;
+  letter-spacing: -0.01em;
+  color: var(--ink-2);
+  font-style: italic;
+}
+
+.ate-list { list-style: none; padding: 0; margin: 0; }
+.ate-row {
+  display: grid;
+  grid-template-columns: 80px 1fr auto;
+  gap: 32px;
+  align-items: baseline;
+  padding: 18px 0;
+  border-top: 1px solid var(--rule);
+  cursor: pointer;
+  transition: padding 0.4s ease;
+}
+.ate-row:hover { padding-left: 8px; }
+.ate-row:last-child { border-bottom: 1px solid var(--rule); }
+.ate-y { font-size: 11px; color: var(--ink-3); letter-spacing: 0.05em; }
+.ate-row-body { display: flex; flex-direction: column; gap: 4px; }
+.ate-row-t {
+  font-family: var(--serif);
+  font-size: 19px;
+  color: var(--ink);
+  letter-spacing: -0.01em;
+}
+.ate-row-d { font-size: 13px; color: var(--ink-3); font-family: var(--sans); }
+.ate-row-m { font-size: 11px; color: var(--ink-3); letter-spacing: 0.05em; }
+.ate-row:hover .ate-row-t { color: var(--ochre); font-style: italic; }
+
+.ate-foot { max-width: 720px; margin: 0 auto; padding-top: 32px; }
+.ate-foot-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 64px;
+  margin-top: 40px;
+}
+.ate-foot-lede {
+  font-family: var(--serif);
+  font-size: 22px;
+  font-style: italic;
+  color: var(--ink-2);
+  margin: 12px 0 0;
+  line-height: 1.4;
+  text-wrap: balance;
+}
+.ate-foot-links { list-style: none; padding: 0; margin: 0; }
+.ate-foot-links li { border-top: 1px solid var(--rule); }
+.ate-foot-links li:last-child { border-bottom: 1px solid var(--rule); }
+
+.ate-printer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  margin: 80px auto 40px;
+  max-width: 320px;
+}
+.ate-printer-rule { flex: 1; height: 1px; background: var(--rule); }
+.ate-printer-glyph {
+  font-family: var(--serif);
+  color: var(--ochre);
+  font-size: 18px;
+  line-height: 1;
+  opacity: 0.85;
+}
+
+.ate-colophon {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid var(--rule);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  gap: 24px;
+}
+.ate-italic-mono { font-style: italic; text-transform: none; letter-spacing: 0.04em; }
+
+/* Scroll fade-in */
+.ate-reveal {
+  opacity: 0;
+  transform: translateY(14px);
+  transition: opacity 1.2s ease, transform 1.2s ease;
+  will-change: opacity, transform;
+}
+.ate-reveal.is-in { opacity: 1; transform: translateY(0); }
+.ate-reveal-1 { transition-delay: 0.05s; }
+.ate-reveal-2 { transition-delay: 0.15s; }
+.ate-reveal-3 { transition-delay: 0.25s; }
+.ate-reveal-4 { transition-delay: 0.35s; }
+.ate-reveal-5 { transition-delay: 0.45s; }
