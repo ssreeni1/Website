@@ -66,11 +66,22 @@
     document.head.appendChild(link);
   })();
 
+  function getSavedTheme() {
+    return localStorage.getItem("saneel-theme") || TWEAKS_DEFAULTS.theme;
+  }
+
   function App() {
-    const [theme, setTheme] = useState(TWEAKS_DEFAULTS.theme);
+    const [theme, setThemeState] = useState(getSavedTheme);
 
     useEffect(() => { applyTweaks(TWEAKS_DEFAULTS); }, []);
-    useEffect(() => { document.documentElement.dataset.theme = theme; }, [theme]);
+    useEffect(() => {
+      document.documentElement.dataset.theme = theme;
+      localStorage.setItem("saneel-theme", theme);
+    }, [theme]);
+
+    function setTheme(nextTheme) {
+      setThemeState(nextTheme);
+    }
 
     const Atelier = window.Atelier;
     return React.createElement(Atelier, { theme, setTheme });
