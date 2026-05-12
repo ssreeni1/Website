@@ -1,6 +1,13 @@
 {
   "items": [
     {
+      "id": "atlas-eternal",
+      "title": "Eternal Atlas",
+      "type": "project",
+      "date": "2026-05-08",
+      "url": "https://atlaseternal.xyz"
+    },
+    {
       "id": "pain-flights",
       "title": "pain.flights",
       "type": "project",

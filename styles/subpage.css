@@ -145,12 +145,26 @@ body {
   transition: color 0.3s ease, font-style 0.3s ease;
 }
 .sp-row:hover .sp-row-t { color: var(--ochre); font-style: italic; }
+.sp-row-title-link {
+  text-decoration: none;
+  color: inherit;
+}
 .sp-row-d {
   font-size: 13.5px;
   line-height: 1.55;
   color: var(--ink-3);
   text-wrap: pretty;
   max-width: 56ch;
+}
+.sp-row-d a {
+  color: var(--ink-2);
+  text-decoration: none;
+  border-bottom: 1px solid var(--rule);
+  transition: color 0.3s ease, border-color 0.3s ease;
+}
+.sp-row-d a:hover {
+  color: var(--ochre);
+  border-bottom-color: var(--ochre);
 }
 .sp-row-arrow {
   font-family: var(--mono);

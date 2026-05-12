@@ -442,7 +442,7 @@
   }
   function nycGreeting() {
     const { h } = nycParts();
-    if (h < 5) return "Still up";
+    if (h < 5) return "Still up?";
     if (h < 12) return "Good morning";
     if (h < 17) return "Good afternoon";
     if (h < 21) return "Good evening";
