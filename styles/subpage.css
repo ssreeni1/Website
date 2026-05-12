@@ -148,6 +148,7 @@ body {
 .sp-row-title-link {
   text-decoration: none;
   color: inherit;
+  -webkit-tap-highlight-color: transparent;
 }
 .sp-row-d {
   font-size: 13.5px;
@@ -161,6 +162,7 @@ body {
   text-decoration: none;
   border-bottom: 1px solid var(--rule);
   transition: color 0.3s ease, border-color 0.3s ease;
+  -webkit-tap-highlight-color: transparent;
 }
 .sp-row-d a:hover {
   color: var(--ochre);
@@ -170,8 +172,10 @@ body {
   font-family: var(--mono);
   font-size: 14px;
   color: var(--ink-3);
+  text-decoration: none;
   transition: transform 0.4s ease, color 0.3s ease;
   align-self: center;
+  -webkit-tap-highlight-color: transparent;
 }
 .sp-row:hover .sp-row-arrow { color: var(--ochre); transform: translateX(4px); }
 
