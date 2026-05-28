@@ -1,0 +1,153 @@
+body {
+    margin: 0;
+    padding: 0;
+    font-family: 'Segoe UI', monospace;
+    background-color: black;
+    color: white;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.terminal {
+    width: 90%;
+    max-width: 800px;
+    height: 80vh;
+    background-color: #000;
+    border-radius: 8px;
+    box-shadow: 0 0 20px rgba(255, 69, 0, 0.3);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.terminal-header {
+    background-color: #333;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    padding: 0 10px;
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+}
+
+.terminal-buttons {
+    display: flex;
+    gap: 6px;
+}
+
+.terminal-button {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+}
+
+.close {
+    background-color: #ff5f56;
+}
+
+.minimize {
+    background-color: #ffbd2e;
+}
+
+.maximize {
+    background-color: #27c93f;
+}
+
+.terminal-title {
+    flex-grow: 1;
+    text-align: center;
+    font-size: 14px;
+    color: #ddd;
+}
+
+.terminal-content {
+    flex-grow: 1;
+    padding: 15px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+}
+
+#output {
+    flex-grow: 1;
+    margin-bottom: 10px;
+}
+
+.input-line {
+    display: flex;
+    align-items: center;
+}
+
+.prompt {
+    color: orangered;
+    margin-right: 8px;
+}
+
+#input {
+    background: transparent;
+    border: none;
+    outline: none;
+    color: white;
+    font-family: 'Segoe UI', monospace;
+    font-size: 16px;
+    flex-grow: 1;
+    min-width: 1px;
+}
+
+.cursor {
+    width: 10px;
+    height: 18px;
+    background-color: white;
+    display: inline-block;
+    animation: blink 1.25s step-end infinite;
+    margin-left: 2px;
+}
+
+@keyframes blink {
+    from, to { 
+        background-color: transparent; 
+    }
+    50% { 
+        background-color: white; 
+    }
+}
+
+.welcome-message {
+    color: white;
+    margin-bottom: 15px;
+}
+
+.command-output {
+    margin: 10px 0;
+    white-space: pre-wrap;
+}
+
+.links {
+    color: orangered;
+    text-decoration: none;
+}
+
+.links:hover {
+    text-decoration: underline;
+}
+
+.dropdown {
+    background-color: #222;
+    border: 1px solid #444;
+    border-radius: 4px;
+    padding: 10px;
+    margin: 10px 0;
+}
+
+.dropdown-item {
+    padding: 5px 0;
+}
+
+@media (max-width: 600px) {
+    .terminal {
+        width: 95%;
+        height: 90vh;
+    }
+}

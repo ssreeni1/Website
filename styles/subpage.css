@@ -1,0 +1,322 @@
+/* Subpage chrome — shared by work / writing / fun
+   Inherits tokens.css. Builds on atelier.css visual language. */
+
+html, body { height: 100%; }
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.55;
+  letter-spacing: -0.005em;
+  -webkit-font-smoothing: antialiased;
+}
+
+.sp-shell {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 40px 64px 96px;
+}
+
+.sp-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  padding-bottom: 80px;
+}
+.sp-back {
+  color: var(--ink-3);
+  text-decoration: none;
+  transition: color 0.4s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.sp-back:hover { color: var(--ochre); }
+.sp-back-arrow {
+  display: inline-block;
+  transition: transform 0.4s ease;
+}
+.sp-back:hover .sp-back-arrow { transform: translateX(-3px); }
+
+.sp-toggle {
+  background: none;
+  border: 1px solid var(--rule);
+  color: var(--ink-3);
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.3s ease;
+}
+.sp-toggle:hover { color: var(--ochre); border-color: var(--ochre); }
+
+.sp-eyebrow {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin: 0 0 24px;
+}
+.sp-title {
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: 52px;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  margin: 0 0 28px;
+  color: var(--ink);
+}
+.sp-title em { color: var(--ochre); }
+.sp-lede {
+  font-family: var(--serif);
+  font-size: 19px;
+  line-height: 1.55;
+  color: var(--ink-2);
+  margin: 0 0 80px;
+  max-width: 620px;
+  text-wrap: pretty;
+}
+
+.sp-section {
+  margin: 0 0 72px;
+}
+.sp-section-head {
+  display: flex;
+  align-items: baseline;
+  gap: 24px;
+  margin: 0 0 32px;
+  padding-top: 28px;
+  border-top: 1px solid var(--rule);
+}
+.sp-num {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  color: var(--ink-3);
+}
+.sp-section-head h2 {
+  font-family: var(--serif);
+  font-weight: 400;
+  font-style: italic;
+  font-size: 22px;
+  margin: 0;
+  color: var(--ochre);
+  letter-spacing: -0.01em;
+}
+
+.sp-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.sp-row {
+  display: grid;
+  grid-template-columns: 96px 1fr auto;
+  gap: 32px;
+  align-items: baseline;
+  padding: 22px 0;
+  border-top: 1px solid var(--rule);
+  text-decoration: none;
+  color: inherit;
+  transition: padding 0.4s ease;
+}
+.sp-row:hover { padding-left: 8px; }
+.sp-list .sp-row:last-child { border-bottom: 1px solid var(--rule); }
+.sp-meta {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.sp-row-body { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.sp-row-t {
+  font-family: var(--serif);
+  font-size: 21px;
+  color: var(--ink);
+  letter-spacing: -0.01em;
+  transition: color 0.3s ease, font-style 0.3s ease;
+}
+.sp-row:hover .sp-row-t { color: var(--ochre); font-style: italic; }
+.sp-row-title-link {
+  text-decoration: none;
+  color: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
+.sp-row-d {
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--ink-3);
+  text-wrap: pretty;
+  max-width: 56ch;
+}
+.sp-row-d a {
+  color: var(--ink-2);
+  text-decoration: none;
+  border-bottom: 1px solid var(--rule);
+  transition: color 0.3s ease, border-color 0.3s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.sp-row-d a:hover {
+  color: var(--ochre);
+  border-bottom-color: var(--ochre);
+}
+.sp-row-arrow {
+  font-family: var(--mono);
+  font-size: 14px;
+  color: var(--ink-3);
+  text-decoration: none;
+  transition: transform 0.4s ease, color 0.3s ease;
+  align-self: center;
+  -webkit-tap-highlight-color: transparent;
+}
+.sp-row:hover .sp-row-arrow { color: var(--ochre); transform: translateX(4px); }
+
+.sp-prose {
+  font-family: var(--serif);
+  font-size: 18px;
+  line-height: 1.65;
+  color: var(--ink-2);
+  max-width: 60ch;
+  text-wrap: pretty;
+}
+.sp-prose p { margin: 0 0 1.1em; }
+.sp-prose em { color: var(--ink); font-style: italic; }
+.sp-prose a {
+  color: var(--ink);
+  text-decoration: none;
+  border-bottom: 1px solid var(--rule);
+  transition: color 0.3s ease, border-color 0.3s ease;
+}
+.sp-prose a:hover { color: var(--ochre); border-color: var(--ochre); }
+
+.sp-foot {
+  margin-top: 80px;
+  padding-top: 24px;
+  border-top: 1px solid var(--rule);
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+/* Fun page — looser grid for misc cards */
+.sp-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1px;
+  background: var(--rule);
+  border: 1px solid var(--rule);
+  margin: 0 0 40px;
+}
+.sp-card {
+  background: var(--paper);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 140px;
+  transition: background 0.3s ease;
+}
+.sp-card:hover { background: var(--paper-2); }
+.sp-card-eye {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ochre);
+}
+.sp-card-t {
+  font-family: var(--serif);
+  font-size: 19px;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+.sp-card-d {
+  font-size: 13px;
+  color: var(--ink-3);
+  line-height: 1.5;
+  margin-top: auto;
+}
+
+/* Reveal animation — match Atelier */
+.sp-reveal {
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 1.0s ease, transform 1.0s ease;
+}
+.sp-reveal.is-in {
+  opacity: 1;
+  transform: translateY(0);
+}
+.sp-reveal-1 { transition-delay: 0.04s; }
+.sp-reveal-2 { transition-delay: 0.10s; }
+.sp-reveal-3 { transition-delay: 0.16s; }
+.sp-reveal-4 { transition-delay: 0.22s; }
+
+/* ============================================================
+   Responsive — phones & small tablets
+   ============================================================ */
+@media (max-width: 720px) {
+  .sp-shell { padding: 26px 22px 72px; }
+
+  /* Top bar — keep on a single tidy line */
+  .sp-top {
+    gap: 12px;
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    padding-bottom: 52px;
+  }
+  .sp-back { gap: 6px; white-space: nowrap; }
+  .sp-top > span { white-space: nowrap; text-align: center; }
+  .sp-toggle { flex: 0 0 auto; }
+
+  .sp-eyebrow { margin-bottom: 18px; }
+  .sp-title { font-size: 36px; margin-bottom: 22px; }
+  .sp-lede { font-size: 17px; margin-bottom: 52px; }
+
+  .sp-section { margin-bottom: 56px; }
+  .sp-section-head { gap: 14px; margin-bottom: 26px; padding-top: 24px; }
+  .sp-section-head h2 { font-size: 20px; }
+
+  /* List rows — stack the date above the title, arrow stays at right */
+  .sp-row {
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      "meta  arrow"
+      "body  arrow";
+    column-gap: 16px;
+    row-gap: 6px;
+    align-items: start;
+    padding: 20px 0;
+  }
+  .sp-row .sp-meta { grid-area: meta; }
+  .sp-row .sp-row-body { grid-area: body; }
+  .sp-row .sp-row-arrow { grid-area: arrow; align-self: center; }
+  .sp-row:hover { padding-left: 0; }
+  .sp-row-d { max-width: none; }
+
+  .sp-foot {
+    flex-direction: column;
+    gap: 10px;
+    text-align: center;
+    margin-top: 64px;
+  }
+}
+
+/* Very narrow phones */
+@media (max-width: 360px) {
+  .sp-shell { padding: 22px 16px 60px; }
+  .sp-title { font-size: 31px; }
+  .sp-top { font-size: 9.5px; gap: 8px; }
+}

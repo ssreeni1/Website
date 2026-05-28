@@ -1,0 +1,73 @@
+/**
+ * Fun Network Styles
+ * Prefix: .fun-network-*
+ */
+
+#tab-fun {
+    position: relative;
+    min-height: 700px;
+}
+
+/* Network visualization */
+.fun-network {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    min-height: 700px;
+}
+
+.fun-network__canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    min-height: 700px;
+}
+
+/* Tooltip */
+.fun-network__tooltip {
+    position: absolute;
+    background: rgba(20, 20, 20, 0.95);
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    padding: var(--spacing-sm) var(--spacing-md);
+    pointer-events: none;
+    opacity: 0;
+    transform: translateY(5px);
+    transition: opacity var(--transition-fast), transform var(--transition-fast);
+    max-width: 200px;
+    z-index: 100;
+}
+
+.fun-network__tooltip.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.fun-network__tooltip-title {
+    font-family: var(--font-primary);
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    color: var(--color-text);
+    text-transform: uppercase;
+    letter-spacing: var(--letter-spacing-wide);
+}
+
+/* Mobile adjustments */
+@media (max-width: 768px) {
+    .fun-network {
+        min-height: 500px;
+    }
+
+    .fun-network__canvas {
+        min-height: 500px;
+    }
+
+    .fun-network__tooltip {
+        max-width: 150px;
+        padding: var(--spacing-xs) var(--spacing-sm);
+    }
+
+    .fun-network__tooltip-title {
+        font-size: var(--font-size-xs);
+    }
+}

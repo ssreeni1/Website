@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Saneel Sreeni - Investor, builder, exploring AI, markets, and everything in between.">
+
+    <title>Saneel Sreeni</title>
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Electrolize&display=swap" rel="stylesheet">
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="/src/core/variables.css">
+    <link rel="stylesheet" href="/src/nav/tabs.css">
+    <link rel="stylesheet" href="/src/landing/landing.css">
+    <link rel="stylesheet" href="/src/work/timeline.css">
+    <link rel="stylesheet" href="/src/writing/writing.css">
+    <link rel="stylesheet" href="/src/fun/collage.css">
+    <link rel="stylesheet" href="/src/utils/utils.css">
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>S</text></svg>">
+</head>
+<body>
+    <main id="app-root">
+        <!-- Landing Container (accessed via SS button) -->
+        <section id="landing-container" data-view="landing" class="landing-hidden">
+            <!-- Landing canvas rendered by src/landing/landing.js -->
+        </section>
+
+        <!-- Content Container -->
+        <section id="content-container" data-view="content">
+            <!-- Tab Navigation -->
+            <nav id="tab-nav" aria-label="Main sections"></nav>
+
+            <!-- Work Tab -->
+            <div id="tab-work" class="tab-panel" data-tab="work" role="tabpanel" aria-labelledby="work-tab">
+                <div class="tab-panel__content">
+                    <!-- Timeline rendered by src/work/timeline.js -->
+                </div>
+            </div>
+
+            <!-- Writing Tab -->
+            <div id="tab-writing" class="tab-panel" data-tab="writing" role="tabpanel" aria-labelledby="writing-tab">
+                <div class="tab-panel__content">
+                    <!-- Writing list rendered by src/writing/network.js -->
+                </div>
+            </div>
+
+            <!-- Fun Tab -->
+            <div id="tab-fun" class="tab-panel" data-tab="fun" role="tabpanel" aria-labelledby="fun-tab">
+                <div class="tab-panel__content">
+                    <!-- Collage rendered by src/fun/collage.js -->
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Main Application Script -->
+    <a class="return-new-site" href="/" aria-label="Return to new site">Return to new site</a>
+
+    <style>
+      .return-new-site {
+        position: fixed;
+        right: 24px;
+        bottom: 24px;
+        z-index: 999;
+        font-family: var(--font-primary), monospace;
+        font-size: 12px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--color-bg);
+        background: var(--color-accent);
+        border: 1px solid var(--color-accent);
+        padding: 10px 14px;
+        opacity: 0.9;
+        text-decoration: none;
+        box-shadow: 0 0 18px rgba(255, 85, 0, 0.22);
+        transition: opacity 180ms ease, transform 180ms ease, box-shadow 180ms ease;
+      }
+      .return-new-site:hover {
+        opacity: 1;
+        transform: translateY(-1px);
+        box-shadow: 0 0 26px rgba(255, 85, 0, 0.35);
+      }
+    </style>
+
+    <script type="module" src="/src/core/app.js"></script>
+</body>
+</html>

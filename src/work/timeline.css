@@ -1,0 +1,102 @@
+/**
+ * Work About Styles
+ * Prefix: .work-about*
+ */
+
+.work-about {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: var(--spacing-2xl) var(--spacing-md);
+}
+
+.work-about p {
+    font-family: var(--font-primary);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+    line-height: var(--line-height-relaxed);
+    margin-bottom: var(--spacing-lg);
+}
+
+.work-about ul {
+    list-style: none;
+    padding: 0;
+}
+
+.work-about li {
+    font-family: var(--font-primary);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+    line-height: var(--line-height-relaxed);
+    padding-left: var(--spacing-md);
+    margin-bottom: var(--spacing-sm);
+    position: relative;
+}
+
+.work-about li::before {
+    content: '-';
+    position: absolute;
+    left: 0;
+    color: var(--color-text-subtle);
+}
+
+.work-about a {
+    color: var(--color-accent);
+    text-decoration: none;
+    border-bottom: 1px solid rgba(255, 69, 0, 0.3);
+    display: inline;
+    padding: 0 2px;
+    margin: 0 -2px;
+    border-radius: 2px;
+    animation: none;
+}
+
+.work-about.decrypt-done a {
+    animation: link-glow 2.5s ease-in-out infinite;
+}
+
+.work-about a:hover {
+    color: var(--color-accent-hover);
+    border-color: var(--color-accent);
+    box-shadow: 0 0 16px rgba(255, 69, 0, 0.6), 0 0 4px rgba(255, 69, 0, 0.3);
+    text-decoration: none;
+    animation: none;
+}
+
+@keyframes link-glow {
+    0%, 100% {
+        box-shadow: 0 0 6px rgba(255, 69, 0, 0.15), 0 0 2px rgba(255, 69, 0, 0.1);
+    }
+    50% {
+        box-shadow: 0 0 18px rgba(255, 69, 0, 0.55), 0 0 6px rgba(255, 69, 0, 0.3);
+    }
+}
+
+/* Scramble decode characters — opacity driven by JS custom property on parent */
+.scramble-glyph {
+    color: #ff4500;
+    opacity: var(--glyph-opacity, 0.8);
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+    .work-about {
+        padding: var(--spacing-xl) var(--spacing-lg);
+    }
+
+    .work-about p {
+        font-size: var(--font-size-xs);
+        line-height: 1.9;
+        margin-bottom: var(--spacing-xl);
+    }
+
+    .work-about li {
+        font-size: var(--font-size-xs);
+        line-height: 1.9;
+        padding-left: var(--spacing-sm);
+        margin-bottom: var(--spacing-md);
+    }
+
+    .work-about li::before {
+        left: -2px;
+    }
+}

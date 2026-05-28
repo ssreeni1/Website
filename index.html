@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>saneel.xyz</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;1,400;1,500&family=Inter+Tight:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+<link rel="stylesheet" href="styles/tokens.css" />
+<link rel="stylesheet" href="styles/atelier.css" />
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.88em' font-size='90'%3ES%3C/text%3E%3C/svg%3E" />
+
+<style>
+  html, body { height: 100%; margin: 0; background: var(--paper); }
+  body { font-family: "Inter Tight", system-ui, sans-serif; color: var(--ink); }
+  #root { min-height: 100%; }
+  .tweaks-panel { font-family: var(--mono), ui-monospace, monospace; }
+</style>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js" crossorigin="anonymous"></script>
+</head>
+
+<body>
+
+<div id="root"></div>
+
+<script src="variations/atelier.js"></script>
+
+<script>
+  const { useState, useEffect } = React;
+
+  const TWEAKS_DEFAULTS = {
+    "theme": "dark",
+    "serif": "EB Garamond",
+    "sans": "Inter Tight",
+    "accent": "#a47a3c"
+  };
+
+  function applyTweaks(t) {
+    const root = document.documentElement;
+    const serifMap = {
+      "EB Garamond": '"EB Garamond", Garamond, "Times New Roman", serif',
+      "Fraunces":    '"Fraunces", "EB Garamond", Garamond, serif',
+      "Iowan":       '"Iowan Old Style", "Apple Garamond", Garamond, serif',
+      "Cormorant":   '"Cormorant Garamond", "EB Garamond", Garamond, serif',
+    };
+    const sansMap = {
+      "Inter Tight": '"Inter Tight", "Inter", -apple-system, sans-serif',
+      "Söhne":       '"Söhne", "Inter Tight", "Inter", -apple-system, sans-serif',
+      "Helvetica":   'Helvetica, "Helvetica Neue", Arial, sans-serif',
+      "Geist":       '"Geist", "Inter Tight", -apple-system, sans-serif',
+    };
+    root.style.setProperty("--serif", serifMap[t.serif] || serifMap["EB Garamond"]);
+    root.style.setProperty("--sans",  sansMap[t.sans]   || sansMap["Inter Tight"]);
+    root.style.setProperty("--ochre", t.accent || "#c9a35a");
+  }
+
+  (function injectExtraFonts() {
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = "https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,400;0,500;1,400&family=Cormorant+Garamond:ital,wght@0,400;1,400&family=Geist:wght@300;400;500&display=swap";
+    document.head.appendChild(link);
+  })();
+
+  function getSavedTheme() {
+    return localStorage.getItem("saneel-theme") || TWEAKS_DEFAULTS.theme;
+  }
+
+  function App() {
+    const [theme, setThemeState] = useState(getSavedTheme);
+
+    useEffect(() => { applyTweaks(TWEAKS_DEFAULTS); }, []);
+    useEffect(() => {
+      document.documentElement.dataset.theme = theme;
+      localStorage.setItem("saneel-theme", theme);
+    }, [theme]);
+
+    function setTheme(nextTheme) {
+      setThemeState(nextTheme);
+    }
+
+    const Atelier = window.Atelier;
+    return React.createElement(Atelier, { theme, setTheme });
+  }
+
+  ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(App));
+</script>
+
+</body>
+</html>
