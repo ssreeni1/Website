@@ -13,7 +13,7 @@
       "id": "ritual",
       "company": "Ritual",
       "title": "Founding Team",
-      "dates": "2023",
+      "dates": "2023 - 2026",
       "description": "An applied AI lab building primitives in {AI, mechanism design, systems, cryptography} around autonomous intelligence",
       "url": "https://www.ritual.net/",
       "current": false
@@ -22,16 +22,25 @@
       "id": "anicca",
       "company": "Anicca Research",
       "title": "Founding Team",
-      "dates": "2021",
+      "dates": "2021 - 2023",
       "description": "Products for BTC Miners",
       "url": "https://www.alkimiya.io/",
+      "current": false
+    },
+    {
+      "id": "dragonfly",
+      "company": "Dragonfly",
+      "title": "Junior Partner",
+      "dates": "2021",
+      "description": "Investing in early-stage crypto companies.",
+      "url": "https://www.dragonfly.xyz/",
       "current": false
     },
     {
       "id": "polychain",
       "company": "Polychain Capital",
       "title": "Research Intern",
-      "dates": "2020",
+      "dates": "2020 - 2021",
       "description": "Investing in early-stage crypto companies + data science/engineering",
       "url": "https://www.polychain.capital/",
       "current": false
@@ -49,7 +58,7 @@
       "id": "contrary",
       "company": "Contrary",
       "title": "Venture Partner",
-      "dates": "2019",
+      "dates": "2019 - 2022",
       "description": "Early-stage venture capital",
       "url": "https://contrary.com/",
       "current": false
