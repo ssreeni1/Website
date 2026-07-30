@@ -360,22 +360,22 @@ main {
 .visual-shift-group {
   position: absolute;
   z-index: 4;
-  top: -12px;
+  top: -14px;
   left: 50%;
   display: flex;
   align-items: center;
-  gap: 3px;
+  gap: 4px;
   transform: translateX(-50%);
 }
 
 .visual-shift {
-  width: 32px;
-  height: 24px;
+  width: 36px;
+  height: 28px;
   display: grid;
   place-items: center;
   border-radius: 999px;
-  color: rgb(var(--ink-rgb) / 0.42);
-  font: 400 13px/1 var(--font-geist-mono), monospace;
+  color: rgb(var(--ink-rgb) / 0.66);
+  font: 500 17px/1 Arial, Helvetica, sans-serif;
   transition:
     color 160ms ease,
     background-color 160ms ease;

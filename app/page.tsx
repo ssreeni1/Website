@@ -18,16 +18,22 @@ const visualNames = {
   3: "symbol topology",
 } as const;
 
+const visualSequence: readonly VisualNumber[] = [2, 1, 3];
+
 function adjacentVisual(
   visual: VisualNumber,
   direction: -1 | 1,
 ): VisualNumber {
-  if (direction === -1) return visual === 1 ? 3 : ((visual - 1) as VisualNumber);
-  return visual === 3 ? 1 : ((visual + 1) as VisualNumber);
+  const currentIndex = visualSequence.indexOf(visual);
+  const nextIndex =
+    (currentIndex + direction + visualSequence.length) % visualSequence.length;
+  return visualSequence[nextIndex];
 }
 
 export default function Home() {
-  const [activeVisual, setActiveVisual] = useState<VisualNumber>(1);
+  const [activeVisual, setActiveVisual] = useState<VisualNumber>(
+    visualSequence[0],
+  );
   const [autoCycle, setAutoCycle] = useState(true);
 
   const shiftVisual = useCallback((direction: -1 | 1) => {
@@ -116,7 +122,7 @@ export default function Home() {
 
       <footer className="controls">
         <nav className="visual-selector" aria-label="Visual selector">
-          {([1, 2, 3] as const).map((number) => (
+          {visualSequence.map((number) => (
             <button
               className={number === activeVisual ? "is-active" : ""}
               type="button"

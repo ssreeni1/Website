@@ -35,12 +35,13 @@ test("server-renders the personal site shell", async () => {
   assert.doesNotMatch(html, /Formula \/ telemetry/);
   assert.match(
     html,
-    /Interactive Formula car replaying recorded Silverstone telemetry/,
+    /Interactive five-turn backgammon simulation with exact state analysis/,
   );
   assert.match(html, /DRAG \/ ORBIT · SCROLL \/ ZOOM/);
-  assert.match(html, />SILVERSTONE<\/strong>/);
+  assert.match(html, /PIP COUNT \/ EXACT BOARD STATE/);
+  assert.match(html, /Live dice roll/);
+  assert.doesNotMatch(html, />SILVERSTONE<\/strong>/);
   assert.doesNotMatch(html, /ANTONELLI #12/);
-  assert.match(html, /DATA \/ OPENF1/);
   assert.match(html, /Saneel Sreeni/);
   assert.match(html, /Home\s*<span>\[H\]<\/span>/);
   assert.match(html, /About\s*<span>\[A\]<\/span>/);
@@ -52,10 +53,14 @@ test("server-renders the personal site shell", async () => {
   assert.match(html, />Collection<\/span>\s*<i>\/collection<\/i>/);
   assert.doesNotMatch(html, />Formula system<\/span>/);
   assert.match(html, /Select backgammon probability visual/);
+  assert.match(
+    html,
+    /Select backgammon probability visual[\s\S]*Select Formula telemetry visual[\s\S]*Select symbol topology visual/,
+  );
   assert.match(html, /Select symbol topology visual/);
   assert.match(html, /Show previous visual: symbol topology/);
-  assert.match(html, /Show next visual: backgammon probability/);
-  assert.match(html, /FROM OLD, THE NEW/);
+  assert.match(html, /Show next visual: Formula telemetry/);
+  assert.match(html, /PEACE IN VARIANCE/);
   assert.doesNotMatch(html, /codex-preview|Building your site|Open menu \[M\]/i);
 });
 
