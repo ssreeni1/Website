@@ -145,6 +145,16 @@ main {
   margin-left: 4px;
 }
 
+.post-page {
+  min-height: 100svh;
+  overflow: visible;
+  background: var(--paper);
+}
+
+.post-page .topbar a {
+  text-decoration: none;
+}
+
 .blank-page h1 {
   position: absolute;
   width: 1px;

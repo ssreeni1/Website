@@ -27,7 +27,7 @@ function extractBody(document: string) {
 
 export const posts: readonly Post[] = [
   {
-    slug: "five_lines",
+    slug: "five-lines",
     title: "Five Lines to Infinity",
     description: "A brief on harness history and where we're going.",
     publishedAt: "2026-07-30",
@@ -46,7 +46,7 @@ if (duplicateSlug) {
 }
 
 for (const post of posts) {
-  if (!/^[a-z0-9]+(?:_[a-z0-9]+)*$/.test(post.slug)) {
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(post.slug)) {
     throw new Error(`Invalid post slug: ${post.slug}`);
   }
 }

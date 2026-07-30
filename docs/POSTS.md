@@ -1,8 +1,9 @@
 # Publishing posts
 
-Posts are first-class site routes. A post with the slug `five_lines` is
-published at `/five_lines/`, receives canonical and social metadata, and is
-listed automatically in Collection.
+Posts are first-class Collection subpages. A post with the slug `five-lines`
+is published at `/collections/five-lines/`, receives canonical and social
+metadata, shares the site's navigation, and is listed automatically in
+Collection.
 
 ## Add a post
 
@@ -23,12 +24,12 @@ listed automatically in Collection.
 
 ## Conventions
 
-- Slugs use lowercase words separated by underscores.
-- Routes are always rooted at `/<slug>/`.
+- Slugs use lowercase words separated by hyphens.
+- Routes live at `/collections/<slug>/`.
 - Collection entries are generated from the registry.
 - Each post owns its article-level HTML, CSS, diagrams, and optional runtime.
-- The site owns routing, canonical URLs, social metadata, publication dates,
-  and discovery through Collection.
+- The site owns navigation, routing, canonical URLs, social metadata,
+  publication dates, and discovery through Collection.
 - A full HTML document is accepted for easy migration from a standalone essay.
   The registry extracts its body and the site supplies the document shell.
 - Keep post scripts self-contained and make DOM queries specific to the post.
