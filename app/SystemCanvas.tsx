@@ -1,751 +1,577 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import * as THREE from "three";
 
 type VisualMode = 1 | 2;
-type PointerState = { x: number; y: number; active: boolean };
 
-const INK = "#161616";
-const PAPER = "#f6f6f3";
-const RED = "#f02b1d";
-const MUTED = "#8d8d87";
+const INK = 0x161616;
+const PAPER = 0xf6f6f3;
+const RED = 0xf02b1d;
 
-function label(
-  ctx: CanvasRenderingContext2D,
-  value: string,
-  x: number,
-  y: number,
-  align: CanvasTextAlign = "left",
+function wireObject(
+  geometry: THREE.BufferGeometry,
   color = INK,
-  size = 9,
+  opacity = 0.58,
+  fillOpacity = 0.025,
 ) {
-  ctx.save();
-  ctx.fillStyle = color;
-  ctx.textAlign = align;
-  ctx.font = `${size}px monospace`;
-  ctx.fillText(value, x, y);
-  ctx.restore();
+  const group = new THREE.Group();
+  const fill = new THREE.Mesh(
+    geometry,
+    new THREE.MeshBasicMaterial({
+      color,
+      transparent: true,
+      opacity: fillOpacity,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+    }),
+  );
+  const wires = new THREE.LineSegments(
+    new THREE.WireframeGeometry(geometry),
+    new THREE.LineBasicMaterial({
+      color,
+      transparent: true,
+      opacity,
+    }),
+  );
+  group.add(fill, wires);
+  return group;
 }
 
-function line(
-  ctx: CanvasRenderingContext2D,
-  x1: number,
-  y1: number,
-  x2: number,
-  y2: number,
-  alpha = 1,
-) {
-  ctx.save();
-  ctx.globalAlpha *= alpha;
-  ctx.beginPath();
-  ctx.moveTo(x1, y1);
-  ctx.lineTo(x2, y2);
-  ctx.stroke();
-  ctx.restore();
-}
-
-function grid(
-  ctx: CanvasRenderingContext2D,
-  width: number,
-  height: number,
-) {
-  ctx.save();
-  ctx.strokeStyle = INK;
-  ctx.lineWidth = 0.5;
-  ctx.globalAlpha = 0.045;
-  for (let x = 0.5; x < width; x += 40) line(ctx, x, 0, x, height);
-  for (let y = 0.5; y < height; y += 40) line(ctx, 0, y, width, y);
-  ctx.restore();
-}
-
-function sparkline(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-  time: number,
-  phase: number,
+function edgeObject(
+  geometry: THREE.BufferGeometry,
   color = INK,
+  opacity = 0.72,
+  fillOpacity = 0.035,
 ) {
-  ctx.save();
-  ctx.strokeStyle = color;
-  ctx.globalAlpha = color === RED ? 0.8 : 0.25;
-  ctx.strokeRect(x, y, width, height);
-  ctx.beginPath();
-  for (let i = 0; i <= 34; i++) {
-    const px = x + (i / 34) * width;
-    const wave =
-      Math.sin(i * 0.71 + time * 0.002 + phase) * 0.22 +
-      Math.sin(i * 0.17 + time * 0.0007) * 0.14;
-    const py = y + height * (0.5 + wave);
-    if (i === 0) ctx.moveTo(px, py);
-    else ctx.lineTo(px, py);
-  }
-  ctx.stroke();
-  ctx.restore();
+  const group = new THREE.Group();
+  group.add(
+    new THREE.Mesh(
+      geometry,
+      new THREE.MeshBasicMaterial({
+        color,
+        transparent: true,
+        opacity: fillOpacity,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+      }),
+    ),
+    new THREE.LineSegments(
+      new THREE.EdgesGeometry(geometry),
+      new THREE.LineBasicMaterial({
+        color,
+        transparent: true,
+        opacity,
+      }),
+    ),
+  );
+  return group;
 }
 
-function roundedRect(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-  radius: number,
+function lineBetween(
+  start: THREE.Vector3,
+  end: THREE.Vector3,
+  color = INK,
+  opacity = 0.42,
 ) {
-  const r = Math.min(radius, width / 2, height / 2);
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.lineTo(x + width - r, y);
-  ctx.quadraticCurveTo(x + width, y, x + width, y + r);
-  ctx.lineTo(x + width, y + height - r);
-  ctx.quadraticCurveTo(x + width, y + height, x + width - r, y + height);
-  ctx.lineTo(x + r, y + height);
-  ctx.quadraticCurveTo(x, y + height, x, y + height - r);
-  ctx.lineTo(x, y + r);
-  ctx.quadraticCurveTo(x, y, x + r, y);
-  ctx.closePath();
+  return new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints([start, end]),
+    new THREE.LineBasicMaterial({
+      color,
+      transparent: true,
+      opacity,
+    }),
+  );
 }
 
-function drawCarLayer(
-  ctx: CanvasRenderingContext2D,
-  time: number,
-  detail: boolean,
-) {
-  const treadOffset = (time * 0.032) % 13;
+function buildFormulaScene() {
+  const root = new THREE.Group();
+  const movingParts: THREE.Object3D[] = [];
+  const sensors: THREE.Mesh[] = [];
 
-  // Front and rear active aero assemblies.
-  ctx.strokeRect(-126, -246, 252, 16);
-  ctx.strokeRect(-102, -229, 204, 8);
-  ctx.strokeRect(-94, 222, 188, 18);
-  line(ctx, -108, -237, -76, -207);
-  line(ctx, 108, -237, 76, -207);
-  line(ctx, -68, 222, -48, 185);
-  line(ctx, 68, 222, 48, 185);
+  // Floor and primary survival cell.
+  const floor = edgeObject(new THREE.BoxGeometry(2.45, 0.1, 6.4), INK, 0.36, 0.018);
+  floor.position.y = 0.08;
+  root.add(floor);
 
-  const wheels = [
-    [-96, -164, 38, 78],
-    [58, -164, 38, 78],
-    [-101, 119, 43, 86],
-    [58, 119, 43, 86],
-  ];
+  const survivalCell = wireObject(
+    new THREE.CapsuleGeometry(0.62, 3.15, 7, 14),
+    INK,
+    0.62,
+    0.022,
+  );
+  survivalCell.rotation.x = Math.PI / 2;
+  survivalCell.position.set(0, 0.58, 0.05);
+  root.add(survivalCell);
 
-  wheels.forEach(([x, y, w, h]) => {
-    if (detail) {
-      ctx.save();
-      ctx.globalAlpha = 0.22;
-      roundedRect(ctx, x + 7, y + 9, w, h, 6);
-      ctx.stroke();
-      line(ctx, x, y + 6, x + 7, y + 15);
-      line(ctx, x + w, y + 6, x + w + 7, y + 15);
-      line(ctx, x, y + h - 6, x + 7, y + h + 3);
-      line(ctx, x + w, y + h - 6, x + w + 7, y + h + 3);
-      ctx.restore();
-    }
-    roundedRect(ctx, x, y, w, h, 6);
-    ctx.stroke();
-    if (detail) {
-      ctx.save();
-      ctx.globalAlpha = 0.14;
-      ctx.fillStyle = INK;
-      roundedRect(ctx, x + 4, y + 4, w - 8, h - 8, 4);
-      ctx.fill();
-      ctx.strokeStyle = PAPER;
-      ctx.globalAlpha = 0.5;
-      for (let ty = y - 10 + treadOffset; ty < y + h; ty += 13) {
-        line(ctx, x + 5, ty, x + w - 5, ty + 5);
-      }
-      ctx.restore();
-    }
-  });
+  const nose = wireObject(new THREE.ConeGeometry(0.48, 3.25, 12, 6), INK, 0.72, 0.02);
+  nose.rotation.x = Math.PI / 2;
+  nose.position.set(0, 0.45, -3.05);
+  root.add(nose);
 
-  // Suspension: upper/lower wishbones and pushrods.
-  const wishbones = [
-    [-37, -147, -76, -140],
-    [-39, -112, -76, -125],
-    [37, -147, 76, -140],
-    [39, -112, 76, -125],
-    [-45, 137, -80, 148],
-    [-43, 173, -80, 178],
-    [45, 137, 80, 148],
-    [43, 173, 80, 178],
-  ];
-  wishbones.forEach(([x1, y1, x2, y2], index) => {
-    line(ctx, x1, y1, x2, y2);
-    line(ctx, x1, y1 + (index < 4 ? 7 : -7), x2, y2);
-  });
-  line(ctx, -76, -140, -33, -91, 0.55);
-  line(ctx, 76, -140, 33, -91, 0.55);
-  line(ctx, -80, 148, -39, 102, 0.55);
-  line(ctx, 80, 148, 39, 102, 0.55);
+  const engineCover = wireObject(
+    new THREE.ConeGeometry(0.74, 2.8, 12, 7),
+    INK,
+    0.56,
+    0.024,
+  );
+  engineCover.rotation.x = -Math.PI / 2;
+  engineCover.scale.set(1, 1, 0.72);
+  engineCover.position.set(0, 0.72, 2.15);
+  root.add(engineCover);
 
-  // Chassis shell.
-  ctx.beginPath();
-  ctx.moveTo(0, -230);
-  ctx.bezierCurveTo(-17, -214, -25, -184, -29, -154);
-  ctx.bezierCurveTo(-34, -123, -58, -91, -55, -45);
-  ctx.bezierCurveTo(-52, -4, -39, 32, -46, 77);
-  ctx.bezierCurveTo(-53, 122, -43, 176, -27, 219);
-  ctx.lineTo(27, 219);
-  ctx.bezierCurveTo(43, 176, 53, 122, 46, 77);
-  ctx.bezierCurveTo(39, 32, 52, -4, 55, -45);
-  ctx.bezierCurveTo(58, -91, 34, -123, 29, -154);
-  ctx.bezierCurveTo(25, -184, 17, -214, 0, -230);
-  ctx.closePath();
-  ctx.stroke();
-
-  if (detail) {
-    // Longitudinal body facets give the shell an isometric wireframe volume.
-    ctx.save();
-    ctx.globalAlpha = 0.3;
-    ctx.beginPath();
-    ctx.moveTo(0, -230);
-    ctx.lineTo(-17, -154);
-    ctx.lineTo(-28, -43);
-    ctx.lineTo(-23, 93);
-    ctx.lineTo(-15, 219);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(0, -230);
-    ctx.lineTo(17, -154);
-    ctx.lineTo(28, -43);
-    ctx.lineTo(23, 93);
-    ctx.lineTo(15, 219);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(-29, -154);
-    ctx.quadraticCurveTo(0, -138, 29, -154);
-    ctx.moveTo(-53, -45);
-    ctx.quadraticCurveTo(0, -20, 53, -45);
-    ctx.moveTo(-46, 77);
-    ctx.quadraticCurveTo(0, 97, 46, 77);
-    ctx.stroke();
-    ctx.restore();
-  }
-
-  // Floor edge and venturi tunnels.
+  // Sidepods and venturi tunnels.
   [-1, 1].forEach((side) => {
-    ctx.beginPath();
-    ctx.moveTo(side * 29, -119);
-    ctx.lineTo(side * 66, -87);
-    ctx.lineTo(side * 79, 69);
-    ctx.lineTo(side * 51, 145);
-    ctx.lineTo(side * 43, 60);
-    ctx.lineTo(side * 52, -36);
-    ctx.closePath();
-    ctx.stroke();
-    ctx.save();
-    ctx.globalAlpha = 0.24;
-    ctx.setLineDash([2, 4]);
-    ctx.beginPath();
-    ctx.moveTo(side * 55, -68);
-    ctx.bezierCurveTo(side * 64, 8, side * 59, 81, side * 47, 137);
-    ctx.stroke();
-    ctx.restore();
-  });
+    const pod = wireObject(new THREE.BoxGeometry(1.05, 0.72, 2.55, 3, 2, 7), INK, 0.48, 0.018);
+    pod.position.set(side * 0.95, 0.46, 0.65);
+    pod.rotation.y = side * -0.06;
+    root.add(pod);
 
-  // Cockpit, halo and driver cell.
-  ctx.beginPath();
-  ctx.ellipse(0, -36, 23, 50, 0, 0, Math.PI * 2);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.ellipse(0, -44, 14, 29, 0, 0, Math.PI * 2);
-  ctx.stroke();
-  line(ctx, -23, -41, 23, -41);
-  line(ctx, 0, -74, 0, -11);
-  ctx.save();
-  ctx.globalAlpha = 0.24;
-  ctx.setLineDash([2, 3]);
-  ctx.strokeRect(-25, 35, 50, 62);
-  ctx.strokeRect(-21, 106, 42, 58);
-  ctx.strokeRect(-31, -109, 62, 27);
-  ctx.restore();
-  label(ctx, "ICE", 0, 69, "center", MUTED, 7);
-  label(ctx, "ES", 0, 137, "center", MUTED, 7);
-  label(ctx, "CELL", 0, -91, "center", MUTED, 7);
+    const tunnel = wireObject(new THREE.BoxGeometry(0.72, 0.22, 4.2, 2, 1, 10), INK, 0.28, 0);
+    tunnel.position.set(side * 0.9, 0.13, 0.65);
+    root.add(tunnel);
 
-  if (detail) {
-    // Cooling louvres and body reference stations.
-    [-1, 1].forEach((side) => {
-      for (let i = 0; i < 7; i++) {
-        line(ctx, side * 34, 7 + i * 7, side * (45 - i * 0.7), 10 + i * 7, 0.28);
-      }
-    });
-    for (let y = -200; y <= 190; y += 39) {
-      line(ctx, -6, y, 6, y, 0.24);
-    }
-  }
-}
-
-function drawFormula(
-  ctx: CanvasRenderingContext2D,
-  width: number,
-  height: number,
-  time: number,
-  pointer: PointerState,
-) {
-  const scale = Math.min(width / 1040, height / 660);
-  const cx = width * 0.5;
-  const cy = height * 0.53;
-  const pulse = (Math.sin(time * 0.003) + 1) / 2;
-  const simSpeed = 296 + Math.sin(time * 0.0011) * 18;
-  const simRpm = 10600 + pulse * 720;
-  const simBrake = 640 + Math.sin(time * 0.0017) * 42;
-
-  ctx.save();
-  ctx.strokeStyle = INK;
-  ctx.fillStyle = PAPER;
-  ctx.lineWidth = 1;
-
-  label(ctx, "FORMULA / 2026 TECHNICAL MODEL", 22, 27);
-  label(ctx, "REG  WHEELBASE 3400 MM", 22, 44);
-  label(ctx, "REG  WIDTH 1900 MM", 22, 57);
-  label(ctx, "REG  MINIMUM MASS 770 KG", 22, 70);
-  label(ctx, "REG  ERS-K 350 KW", 22, 83, "left", RED);
-
-  label(ctx, "SIMULATED LAP TRACE", width - 22, 27, "right");
-  label(ctx, `SIM  SPEED ${simSpeed.toFixed(0)} KM/H`, width - 22, 44, "right");
-  label(ctx, `SIM  ENGINE ${simRpm.toFixed(0)} RPM`, width - 22, 57, "right");
-  label(ctx, `SIM  BRAKE ${simBrake.toFixed(0)} °C`, width - 22, 70, "right");
-  label(ctx, "MOVE POINTER TO INSPECT", width - 22, 83, "right", RED);
-
-  sparkline(ctx, 22, 96, 145, 22, time, 0.2, RED);
-  sparkline(ctx, width - 167, 96, 145, 22, time, 2.3);
-
-  ctx.translate(cx, cy);
-  ctx.transform(1, -0.1, 0.23, 0.83, 0, 0);
-  ctx.scale(scale, scale);
-
-  // Isometric construction layer.
-  ctx.save();
-  ctx.translate(11, 16);
-  ctx.globalAlpha = 0.16;
-  drawCarLayer(ctx, time, false);
-  ctx.restore();
-
-  // Visible depth cage between the upper shell and lower construction layer.
-  ctx.save();
-  ctx.globalAlpha = 0.22;
-  const depth = { x: 11, y: 16 };
-  const depthAnchors = [
-    [-126, -246], [126, -246], [-94, 222], [94, 222],
-    [-96, -164], [96, -164], [-101, 205], [101, 205],
-    [0, -230], [-55, -45], [55, -45], [-27, 219], [27, 219],
-  ];
-  depthAnchors.forEach(([x, y]) => line(ctx, x, y, x + depth.x, y + depth.y));
-  ctx.beginPath();
-  ctx.moveTo(-126 + depth.x, -246 + depth.y);
-  ctx.lineTo(126 + depth.x, -246 + depth.y);
-  ctx.lineTo(126, -246);
-  ctx.moveTo(-94 + depth.x, 240 + depth.y);
-  ctx.lineTo(94 + depth.x, 240 + depth.y);
-  ctx.stroke();
-  ctx.restore();
-
-  // Datum ellipses and center axes.
-  ctx.save();
-  ctx.globalAlpha = 0.16;
-  ctx.setLineDash([4, 7]);
-  ctx.lineDashOffset = -(time * 0.012) % 11;
-  ctx.beginPath();
-  ctx.ellipse(0, 0, 292, 279, -0.1, 0, Math.PI * 2);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.ellipse(0, 0, 225, 304, 0.39, 0, Math.PI * 2);
-  ctx.stroke();
-  ctx.restore();
-  line(ctx, -355, 0, 355, 0, 0.12);
-  line(ctx, 0, -304, 0, 304, 0.12);
-
-  drawCarLayer(ctx, time, true);
-
-  // Moving airflow particles.
-  [-1, 1].forEach((side) => {
-    for (let i = 0; i < 5; i++) {
-      const progress = ((time * 0.00009 + i / 5) % 1);
-      const y = -230 + progress * 455;
-      const x = side * (118 - Math.sin(progress * Math.PI) * 29);
-      ctx.save();
-      ctx.fillStyle = RED;
-      ctx.globalAlpha = 0.18 + progress * 0.32;
-      ctx.fillRect(x - 1.5, y - 1.5, 3, 3);
-      ctx.restore();
-    }
-  });
-
-  // Pressure scan line.
-  const scanY = -225 + ((time * 0.072) % 450);
-  ctx.save();
-  ctx.strokeStyle = RED;
-  ctx.globalAlpha = 0.28;
-  line(ctx, -126, scanY, 126, scanY);
-  ctx.fillStyle = RED;
-  ctx.fillRect(-128, scanY - 2, 4, 4);
-  ctx.restore();
-
-  const sensors = [
-    { x: 0, y: -202, tag: "PITOT / P0" },
-    { x: -76, y: -132, tag: "FL WHEEL-SPEED" },
-    { x: 76, y: -132, tag: "FR WHEEL-SPEED" },
-    { x: -55, y: 72, tag: "DIFFERENTIAL" },
-    { x: 55, y: 72, tag: "HYDRAULIC" },
-    { x: 0, y: 194, tag: "REAR ACTIVE AERO" },
-  ];
-  const active = pointer.active
-    ? Math.max(0, Math.min(5, Math.floor(pointer.y * 6)))
-    : Math.floor(time / 1600) % sensors.length;
-
-  sensors.forEach((sensor, index) => {
-    const on = index === active;
-    const side = sensor.x <= 0 ? -1 : 1;
-    const elbowX = sensor.x + side * (92 + index * 5);
-    const endX = sensor.x + side * (154 + index * 7);
-    const endY = sensor.y + (index - 2.5) * 9;
-    ctx.save();
-    ctx.strokeStyle = on ? RED : INK;
-    ctx.fillStyle = on ? RED : PAPER;
-    ctx.globalAlpha = on ? 1 : 0.34;
-    ctx.fillRect(sensor.x - 3, sensor.y - 3, 6, 6);
-    ctx.strokeRect(sensor.x - 3, sensor.y - 3, 6, 6);
-    line(ctx, sensor.x, sensor.y, elbowX, endY);
-    line(ctx, elbowX, endY, endX, endY);
-    label(ctx, sensor.tag, endX + side * 5, endY + 3, side < 0 ? "right" : "left", on ? RED : INK, 8);
-    ctx.restore();
-  });
-
-  // Pointer-reactive reticle.
-  if (pointer.active) {
-    const px = (pointer.x * width - cx) / scale;
-    const py = (pointer.y * height - cy) / scale;
-    ctx.save();
-    ctx.strokeStyle = RED;
-    ctx.globalAlpha = 0.55;
-    ctx.setLineDash([2, 4]);
-    ctx.beginPath();
-    ctx.arc(px, py, 19 + Math.sin(time * 0.004) * 3, 0, Math.PI * 2);
-    ctx.stroke();
-    line(ctx, px - 31, py, px + 31, py);
-    line(ctx, px, py - 31, px, py + 31);
-    ctx.restore();
-  }
-
-  ctx.restore();
-  label(ctx, "REGULATORY VALUES: FIA 2026 / MOVING VALUES: LABELED SIM", width / 2, height - 18, "center");
-}
-
-function drawDie(
-  ctx: CanvasRenderingContext2D,
-  value: number,
-  x: number,
-  y: number,
-  size: number,
-  active: boolean,
-) {
-  const pips: Record<number, Array<[number, number]>> = {
-    1: [[0.5, 0.5]],
-    2: [[0.28, 0.28], [0.72, 0.72]],
-    3: [[0.28, 0.28], [0.5, 0.5], [0.72, 0.72]],
-    4: [[0.28, 0.28], [0.72, 0.28], [0.28, 0.72], [0.72, 0.72]],
-    5: [[0.28, 0.28], [0.72, 0.28], [0.5, 0.5], [0.28, 0.72], [0.72, 0.72]],
-    6: [[0.28, 0.22], [0.72, 0.22], [0.28, 0.5], [0.72, 0.5], [0.28, 0.78], [0.72, 0.78]],
-  };
-  roundedRect(ctx, x, y, size, size, 4);
-  ctx.stroke();
-  ctx.save();
-  ctx.fillStyle = active ? RED : INK;
-  for (const [px, py] of pips[value]) {
-    ctx.beginPath();
-    ctx.arc(x + px * size, y + py * size, Math.max(1.5, size * 0.055), 0, Math.PI * 2);
-    ctx.fill();
-  }
-  ctx.restore();
-}
-
-function drawChecker(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  radius: number,
-  dark: boolean,
-) {
-  ctx.save();
-  ctx.fillStyle = dark ? INK : PAPER;
-  ctx.strokeStyle = INK;
-  ctx.beginPath();
-  ctx.arc(x, y, radius, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.stroke();
-  ctx.globalAlpha = dark ? 0.18 : 0.24;
-  ctx.beginPath();
-  ctx.arc(x - radius * 0.18, y - radius * 0.18, radius * 0.63, 0, Math.PI * 2);
-  ctx.strokeStyle = dark ? PAPER : INK;
-  ctx.stroke();
-  ctx.restore();
-}
-
-function drawBackgammon(
-  ctx: CanvasRenderingContext2D,
-  width: number,
-  height: number,
-  time: number,
-  pointer: PointerState,
-) {
-  const scale = Math.min(width / 1060, height / 680);
-  const boardW = 560 * scale;
-  const boardH = 326 * scale;
-  const boardX = width / 2 - boardW * 0.56;
-  const boardY = height / 2 - boardH * 0.43;
-  const phase = Math.floor(time / 2700);
-  const diceSets = [[6, 2], [4, 3], [5, 1], [3, 3], [6, 6]];
-  const [dieA, dieB] = diceSets[phase % diceSets.length];
-  const isDouble = dieA === dieB;
-  const unorderedOutcomes = isDouble ? 1 : 2;
-  const rollProbability = (unorderedOutcomes / 36) * 100;
-  const sum = dieA + dieB;
-  const sumWays = [0, 0, 1, 2, 3, 4, 5, 6, 5, 4, 3, 2, 1][sum];
-
-  ctx.save();
-  ctx.strokeStyle = INK;
-  ctx.fillStyle = PAPER;
-  ctx.lineWidth = 1;
-
-  label(ctx, "BACKGAMMON / EXACT ROLL MODEL", 22, 27);
-  label(ctx, `CURRENT ROLL  ${dieA}-${dieB}`, 22, 44, "left", RED);
-  label(ctx, `UNORDERED P(ROLL)  ${unorderedOutcomes}/36 = ${rollProbability.toFixed(2)}%`, 22, 57);
-  label(ctx, `P(SUM ${sum})  ${sumWays}/36 = ${((sumWays / 36) * 100).toFixed(2)}%`, 22, 70);
-  label(ctx, "SAMPLE SPACE  36 EQUIPROBABLE OUTCOMES", 22, 83);
-
-  label(ctx, "EXACT NEXT-ROLL DISTRIBUTION", width - 22, 27, "right");
-  label(ctx, "P(DOUBLES)  6/36 = 16.67%", width - 22, 44, "right");
-  label(ctx, "P(NON-DOUBLE)  30/36 = 83.33%", width - 22, 57, "right");
-  label(ctx, "P(AT LEAST ONE 6)  11/36 = 30.56%", width - 22, 70, "right");
-  label(ctx, "MOVE POINTER TO SELECT LINE", width - 22, 83, "right", RED);
-
-  const fragments = [
-    ["POSITION", "given"],
-    ["ROLL", `${unorderedOutcomes}/36`],
-    ["ORDER", isDouble ? "4 uses" : "2 ways"],
-    ["LINE", "select"],
-    ["RESULT", "exact"],
-  ];
-  let fragmentX = width / 2 - 220;
-  fragments.forEach(([word, value], index) => {
-    const active = phase % fragments.length === index;
-    label(ctx, word, fragmentX, 103, "left", active ? RED : INK);
-    label(ctx, value, fragmentX + 7, 115, "left", MUTED);
-    if (index < fragments.length - 1) label(ctx, "→", fragmentX + 67, 104, "left", MUTED);
-    fragmentX += 92;
-  });
-
-  // Board projection produces restrained isometric depth.
-  ctx.save();
-  ctx.translate(boardX, boardY);
-  ctx.transform(1, -0.08, 0.2, 0.88, 0, 0);
-  const w = boardW;
-  const h = boardH;
-  const bar = Math.max(15, w * 0.035);
-  const slot = (w / 2 - bar / 2) / 6;
-
-  ctx.save();
-  ctx.translate(8, 12);
-  ctx.globalAlpha = 0.09;
-  ctx.fillStyle = INK;
-  ctx.fillRect(0, 0, w, h);
-  ctx.restore();
-
-  ctx.fillStyle = PAPER;
-  ctx.fillRect(0, 0, w, h);
-  ctx.strokeRect(0, 0, w, h);
-  ctx.save();
-  ctx.globalAlpha = 0.24;
-  ctx.strokeRect(5, 5, w - 10, h - 10);
-  ctx.restore();
-  ctx.strokeRect(w / 2 - bar / 2, 0, bar, h);
-  line(ctx, 0, h / 2, w, h / 2, 0.12);
-
-  for (let half = 0; half < 2; half++) {
     for (let i = 0; i < 6; i++) {
-      const x0 = half === 0 ? i * slot : w / 2 + bar / 2 + i * slot;
-      const center = x0 + slot / 2;
-      const pointHeight = h * 0.41;
-      ctx.save();
-      ctx.globalAlpha = (i + half) % 2 === 0 ? 0.085 : 0.025;
-      ctx.fillStyle = INK;
-      ctx.beginPath();
-      ctx.moveTo(x0, 0);
-      ctx.lineTo(x0 + slot, 0);
-      ctx.lineTo(center, pointHeight);
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(x0, h);
-      ctx.lineTo(x0 + slot, h);
-      ctx.lineTo(center, h - pointHeight);
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
-      ctx.restore();
-      label(ctx, String(half === 0 ? 13 + i : 19 + i), center, -7, "center", MUTED, 7);
-      label(ctx, String(half === 0 ? 12 - i : 6 - i), center, h + 13, "center", MUTED, 7);
+      root.add(
+        lineBetween(
+          new THREE.Vector3(side * 0.54, 0.8 + i * 0.035, 0.05 + i * 0.18),
+          new THREE.Vector3(side * 1.33, 0.74 + i * 0.02, 0.18 + i * 0.18),
+          INK,
+          0.22,
+        ),
+      );
+    }
+  });
+
+  // Wings and active aero flaps.
+  const frontWing = edgeObject(new THREE.BoxGeometry(4.5, 0.11, 0.48), INK, 0.75, 0.018);
+  frontWing.position.set(0, 0.25, -4.82);
+  root.add(frontWing);
+  for (let layer = 0; layer < 3; layer++) {
+    const flap = edgeObject(new THREE.BoxGeometry(4.0 - layer * 0.35, 0.055, 0.3), INK, 0.4, 0);
+    flap.position.set(0, 0.34 + layer * 0.09, -4.56 + layer * 0.12);
+    flap.rotation.x = -0.08 - layer * 0.04;
+    root.add(flap);
+  }
+
+  const rearWing = new THREE.Group();
+  const rearMain = edgeObject(new THREE.BoxGeometry(3.45, 0.12, 0.48), INK, 0.76, 0.02);
+  rearMain.position.y = 1.42;
+  rearWing.add(rearMain);
+  const rearFlap = edgeObject(new THREE.BoxGeometry(3.18, 0.08, 0.38), RED, 0.65, 0.012);
+  rearFlap.position.set(0, 1.68, -0.02);
+  rearWing.add(rearFlap);
+  [-1, 1].forEach((side) => {
+    const endplate = edgeObject(new THREE.BoxGeometry(0.08, 1.55, 0.92), INK, 0.55, 0);
+    endplate.position.set(side * 1.7, 0.92, 0);
+    rearWing.add(endplate);
+  });
+  rearWing.position.z = 4.0;
+  root.add(rearWing);
+  movingParts.push(rearFlap);
+
+  // Wheels, brake discs, hubs, and suspension.
+  const wheelPositions: Array<[number, number]> = [
+    [-1.62, -2.6],
+    [1.62, -2.6],
+    [-1.68, 2.62],
+    [1.68, 2.62],
+  ];
+  wheelPositions.forEach(([x, z], index) => {
+    const wheelGroup = new THREE.Group();
+    const tyre = wireObject(new THREE.CylinderGeometry(0.72, 0.72, 0.52, 20, 5), INK, 0.58, 0.045);
+    tyre.rotation.z = Math.PI / 2;
+    wheelGroup.add(tyre);
+
+    const hub = wireObject(new THREE.CylinderGeometry(0.31, 0.31, 0.58, 12, 2), index < 2 ? RED : INK, 0.48, 0.02);
+    hub.rotation.z = Math.PI / 2;
+    wheelGroup.add(hub);
+    wheelGroup.position.set(x, 0.63, z);
+    root.add(wheelGroup);
+    movingParts.push(wheelGroup);
+
+    const side = Math.sign(x);
+    const chassisX = side * (index < 2 ? 0.35 : 0.52);
+    const chassisZ = z + (index < 2 ? 0.38 : -0.42);
+    root.add(
+      lineBetween(new THREE.Vector3(chassisX, 0.34, chassisZ), new THREE.Vector3(x, 0.58, z - 0.24)),
+      lineBetween(new THREE.Vector3(chassisX, 0.67, chassisZ), new THREE.Vector3(x, 0.74, z + 0.22)),
+      lineBetween(new THREE.Vector3(chassisX, 0.45, chassisZ), new THREE.Vector3(x, 0.72, z)),
+    );
+  });
+
+  // Cockpit, halo, steering wheel, intake.
+  const cockpit = wireObject(new THREE.TorusGeometry(0.56, 0.055, 8, 24), INK, 0.76, 0);
+  cockpit.rotation.x = Math.PI / 2;
+  cockpit.scale.z = 1.35;
+  cockpit.position.set(0, 1.13, -0.55);
+  root.add(cockpit);
+  const haloPillar = edgeObject(new THREE.BoxGeometry(0.08, 0.62, 0.08), INK, 0.7, 0);
+  haloPillar.position.set(0, 1.22, -0.98);
+  haloPillar.rotation.x = -0.32;
+  root.add(haloPillar);
+  const intake = wireObject(new THREE.TorusGeometry(0.3, 0.07, 8, 18), INK, 0.7, 0);
+  intake.rotation.x = Math.PI / 2;
+  intake.position.set(0, 1.35, 0.68);
+  root.add(intake);
+
+  // Sensor array.
+  const sensorPositions = [
+    [0, 0.7, -4.34],
+    [-1.62, 1.0, -2.6],
+    [1.62, 1.0, -2.6],
+    [-0.9, 0.58, 0.72],
+    [0.9, 0.58, 0.72],
+    [0, 1.72, 4.0],
+  ];
+  sensorPositions.forEach(([x, y, z], index) => {
+    const sensor = new THREE.Mesh(
+      new THREE.SphereGeometry(index === 0 ? 0.1 : 0.075, 12, 8),
+      new THREE.MeshBasicMaterial({
+        color: RED,
+        transparent: true,
+        opacity: index === 0 ? 1 : 0.28,
+      }),
+    );
+    sensor.position.set(x, y, z);
+    root.add(sensor);
+    sensors.push(sensor);
+  });
+
+  // Animated aero-flow points.
+  const flowGeometry = new THREE.BufferGeometry();
+  const flowPositions = new Float32Array(80 * 3);
+  flowGeometry.setAttribute("position", new THREE.BufferAttribute(flowPositions, 3));
+  const flow = new THREE.Points(
+    flowGeometry,
+    new THREE.PointsMaterial({
+      color: RED,
+      size: 0.035,
+      transparent: true,
+      opacity: 0.48,
+    }),
+  );
+  root.add(flow);
+
+  return { root, movingParts, sensors, flow };
+}
+
+function addTriangleOutline(
+  group: THREE.Group,
+  x0: number,
+  x1: number,
+  zBase: number,
+  zTip: number,
+  opacity: number,
+) {
+  const geometry = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(x0, 0.22, zBase),
+    new THREE.Vector3(x1, 0.22, zBase),
+    new THREE.Vector3((x0 + x1) / 2, 0.22, zTip),
+    new THREE.Vector3(x0, 0.22, zBase),
+  ]);
+  group.add(
+    new THREE.Line(
+      geometry,
+      new THREE.LineBasicMaterial({
+        color: INK,
+        transparent: true,
+        opacity,
+      }),
+    ),
+  );
+}
+
+function buildBackgammonScene() {
+  const root = new THREE.Group();
+  const movingParts: THREE.Object3D[] = [];
+
+  const board = edgeObject(new THREE.BoxGeometry(8.4, 0.34, 5.3), INK, 0.74, 0.022);
+  root.add(board);
+  const inner = edgeObject(new THREE.BoxGeometry(8.05, 0.09, 4.95), INK, 0.32, 0);
+  inner.position.y = 0.21;
+  root.add(inner);
+  const bar = edgeObject(new THREE.BoxGeometry(0.25, 0.16, 4.95), INK, 0.38, 0.012);
+  bar.position.y = 0.28;
+  root.add(bar);
+
+  const slot = 0.63;
+  for (let side = 0; side < 2; side++) {
+    for (let i = 0; i < 6; i++) {
+      const center = (side === 0 ? -3.82 : 0.36) + i * slot;
+      addTriangleOutline(root, center, center + slot, -2.42, -0.48, i % 2 === 0 ? 0.42 : 0.18);
+      addTriangleOutline(root, center, center + slot, 2.42, 0.48, i % 2 === 0 ? 0.18 : 0.42);
     }
   }
+
+  const checkerMaterialDark = new THREE.MeshBasicMaterial({ color: INK, transparent: true, opacity: 0.72 });
+  const checkerMaterialLight = new THREE.MeshBasicMaterial({ color: PAPER, transparent: true, opacity: 0.9 });
+  const checkerGeometry = new THREE.CylinderGeometry(0.27, 0.27, 0.13, 20, 2);
+  const edgeGeometry = new THREE.EdgesGeometry(checkerGeometry);
+  const edgeMaterial = new THREE.LineBasicMaterial({ color: INK, transparent: true, opacity: 0.68 });
 
   const stacks = [
-    { half: 0, column: 0, top: true, count: 2, dark: true },
-    { half: 0, column: 5, top: false, count: 5, dark: true },
-    { half: 1, column: 1, top: false, count: 3, dark: true },
-    { half: 1, column: 5, top: true, count: 5, dark: true },
-    { half: 0, column: 0, top: false, count: 5, dark: false },
-    { half: 0, column: 4, top: true, count: 3, dark: false },
-    { half: 1, column: 0, top: true, count: 5, dark: false },
-    { half: 1, column: 5, top: false, count: 2, dark: false },
-  ];
+    [-3.45, -2.1, 2, true],
+    [-0.3, 2.1, 5, true],
+    [0.68, 2.1, 3, true],
+    [3.82, -2.1, 5, true],
+    [-3.45, 2.1, 5, false],
+    [-0.93, -2.1, 3, false],
+    [0.68, -2.1, 5, false],
+    [3.82, 2.1, 2, false],
+  ] as const;
 
-  stacks.forEach((stack) => {
-    const x0 = stack.half === 0 ? stack.column * slot : w / 2 + bar / 2 + stack.column * slot;
-    const x = x0 + slot / 2;
-    const radius = Math.min(12 * scale, slot * 0.34);
-    for (let i = 0; i < stack.count; i++) {
-      const y = stack.top
-        ? 16 + i * radius * 1.62
-        : h - 16 - i * radius * 1.62;
-      drawChecker(ctx, x, y, radius, stack.dark);
+  stacks.forEach(([x, z, count, dark]) => {
+    for (let i = 0; i < count; i++) {
+      const checker = new THREE.Group();
+      checker.add(
+        new THREE.Mesh(checkerGeometry, dark ? checkerMaterialDark : checkerMaterialLight),
+        new THREE.LineSegments(edgeGeometry, edgeMaterial),
+      );
+      const direction = z < 0 ? 1 : -1;
+      checker.position.set(x, 0.35 + i * 0.015, z + direction * i * 0.47);
+      root.add(checker);
     }
   });
 
-  const dieSize = 32 * scale;
-  drawDie(ctx, dieA, w / 2 - dieSize - 5, h / 2 - dieSize / 2, dieSize, true);
-  drawDie(ctx, dieB, w / 2 + 5, h / 2 - dieSize / 2, dieSize, false);
-
-  // Smooth legal-line animation.
-  const progress = (time % 2700) / 2700;
-  const eased = 0.5 - Math.cos(progress * Math.PI) / 2;
-  const sx = w * 0.82;
-  const sy = h * 0.22;
-  const ex = w * 0.69;
-  const ey = h * 0.78;
-  const cpx = w * 0.94;
-  const cpy = h * 0.48;
-  const inv = 1 - eased;
-  const mx = inv * inv * sx + 2 * inv * eased * cpx + eased * eased * ex;
-  const my = inv * inv * sy + 2 * inv * eased * cpy + eased * eased * ey;
-  ctx.save();
-  ctx.strokeStyle = RED;
-  ctx.setLineDash([3, 5]);
-  ctx.beginPath();
-  ctx.moveTo(sx, sy);
-  ctx.quadraticCurveTo(cpx, cpy, ex, ey);
-  ctx.stroke();
-  ctx.setLineDash([]);
-  ctx.fillStyle = PAPER;
-  ctx.beginPath();
-  ctx.arc(mx, my, Math.max(8, 11 * scale), 0, Math.PI * 2);
-  ctx.fill();
-  ctx.stroke();
-  ctx.fillStyle = RED;
-  ctx.beginPath();
-  ctx.arc(mx, my, 2.5, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.restore();
-  ctx.restore();
-
-  const selectedLine = pointer.active
-    ? Math.max(0, Math.min(2, Math.floor(pointer.y * 3)))
-    : phase % 3;
-  const lines = isDouble
-    ? [`USE 4 × ${dieA}`, `2 × (${dieA} + ${dieA})`, `SPLIT FOUR MOVES`]
-    : [
-        `USE ${dieA} THEN ${dieB}`,
-        `USE ${dieB} THEN ${dieA}`,
-        `SPLIT CHECKERS`,
-      ];
-  const panelX = boardX + boardW + 38;
-  const panelY = boardY + 38;
-  const panelW = Math.max(120, Math.min(182, width - panelX - 20));
-  ctx.save();
-  ctx.globalAlpha = 0.25;
-  ctx.strokeRect(panelX - 11, panelY - 24, panelW + 22, 154);
-  ctx.restore();
-  label(ctx, "MOVE ORDER / POSITION-DEPENDENT", panelX, panelY - 9, "left", INK, 8);
-  lines.forEach((move, index) => {
-    const active = index === selectedLine;
-    label(ctx, `0${index + 1}  ${move}`, panelX, panelY + index * 42, "left", active ? RED : INK, 8);
-    ctx.save();
-    ctx.fillStyle = active ? RED : INK;
-    ctx.globalAlpha = active ? 1 : 0.16;
-    ctx.fillRect(panelX, panelY + 10 + index * 42, panelW, 1.5);
-    ctx.restore();
+  const dice: THREE.Group[] = [];
+  const dieValues = [6, 2];
+  const diePips: Record<number, Array<[number, number]>> = {
+    2: [[-0.16, -0.16], [0.16, 0.16]],
+    6: [
+      [-0.16, -0.18], [0.16, -0.18],
+      [-0.16, 0], [0.16, 0],
+      [-0.16, 0.18], [0.16, 0.18],
+    ],
+  };
+  [-0.48, 0.48].forEach((x, index) => {
+    const die = edgeObject(new THREE.BoxGeometry(0.62, 0.62, 0.62), index === 0 ? RED : INK, 0.8, 0.02);
+    diePips[dieValues[index]].forEach(([px, pz]) => {
+      const pip = new THREE.Mesh(
+        new THREE.SphereGeometry(0.045, 8, 6),
+        new THREE.MeshBasicMaterial({ color: index === 0 ? RED : INK }),
+      );
+      pip.position.set(px, 0.325, pz);
+      die.add(pip);
+    });
+    die.position.set(x, 0.63, 0);
+    die.rotation.set(0.18, index === 0 ? 0.4 : -0.35, 0.08);
+    root.add(die);
+    dice.push(die);
   });
 
-  ctx.restore();
-  label(ctx, "ALL DISPLAYED PROBABILITIES DERIVE FROM 36 TWO-DIE OUTCOMES", width / 2, height - 18, "center");
+  const movingChecker = wireObject(new THREE.CylinderGeometry(0.31, 0.31, 0.16, 22, 2), RED, 0.95, 0.04);
+  movingChecker.position.set(3.18, 0.68, -1.82);
+  root.add(movingChecker);
+  movingParts.push(movingChecker, ...dice);
+
+  const path = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(3.18, 0.68, -1.82),
+    new THREE.Vector3(3.6, 1.35, -0.6),
+    new THREE.Vector3(2.9, 1.2, 0.65),
+    new THREE.Vector3(2.25, 0.68, 1.72),
+  ]);
+  root.add(
+    new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints(path.getPoints(42)),
+      new THREE.LineDashedMaterial({
+        color: RED,
+        dashSize: 0.12,
+        gapSize: 0.1,
+        transparent: true,
+        opacity: 0.7,
+      }),
+    ),
+  );
+  const pathLine = root.children[root.children.length - 1] as THREE.Line;
+  pathLine.computeLineDistances();
+
+  return { root, movingParts, movingChecker, path };
+}
+
+function sceneHud(mode: VisualMode) {
+  if (mode === 1) {
+    return (
+      <>
+        <div className="scene-hud scene-hud-left">
+          <strong>FORMULA / 2026 MODEL</strong>
+          <span>WHEELBASE&nbsp;&nbsp;3400 MM</span>
+          <span>WIDTH&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1900 MM</span>
+          <span>MIN MASS&nbsp;&nbsp;&nbsp;770 KG</span>
+          <span className="signal-copy">ERS-K&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;350 KW</span>
+        </div>
+        <div className="scene-hud scene-hud-right">
+          <strong>LIVE 3D WIREFRAME</strong>
+          <span>POINTER&nbsp;&nbsp;ORBIT / INSPECT</span>
+          <span>SENSORS&nbsp;&nbsp;6 NODES</span>
+          <span>TRACE&nbsp;&nbsp;&nbsp;&nbsp;SIMULATED</span>
+        </div>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <div className="scene-hud scene-hud-left">
+        <strong>BACKGAMMON / EXACT ROLL</strong>
+        <span>CURRENT&nbsp;&nbsp;&nbsp;&nbsp;6–2</span>
+        <span>P(6–2)&nbsp;&nbsp;&nbsp;&nbsp;2/36 = 5.56%</span>
+        <span>P(SUM 8)&nbsp;&nbsp;5/36 = 13.89%</span>
+        <span className="signal-copy">36 ORDERED OUTCOMES</span>
+      </div>
+      <div className="scene-hud scene-hud-right">
+        <strong>EXACT DISTRIBUTION</strong>
+        <span>DOUBLES&nbsp;&nbsp;&nbsp;6/36 = 16.67%</span>
+        <span>NON-DOUBLE&nbsp;30/36 = 83.33%</span>
+        <span>≥ ONE 6&nbsp;&nbsp;&nbsp;11/36 = 30.56%</span>
+      </div>
+    </>
+  );
 }
 
 export function SystemCanvas({ mode }: { mode: VisualMode }) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const pointerRef = useRef<PointerState>({ x: 0.5, y: 0.5, active: false });
+  const mountRef = useRef<HTMLDivElement>(null);
+  const pointerRef = useRef({ x: 0, y: 0 });
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const context = canvas.getContext("2d");
-    if (!context) return;
-    let animationFrame = 0;
-    let width = 0;
-    let height = 0;
+    const mount = mountRef.current;
+    if (!mount) return;
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(30, 1, 0.1, 100);
+    const renderer = new THREE.WebGLRenderer({
+      alpha: true,
+      antialias: true,
+      powerPreference: "high-performance",
+    });
+    renderer.setClearColor(PAPER, 0);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.75));
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    mount.appendChild(renderer.domElement);
+
+    const built =
+      mode === 1 ? buildFormulaScene() : buildBackgammonScene();
+    const root = built.root;
+    scene.add(root);
+
+    const grid = new THREE.GridHelper(18, 36, INK, INK);
+    grid.material.transparent = true;
+    grid.material.opacity = 0.055;
+    grid.position.y = -0.26;
+    scene.add(grid);
+
+    const baseScale = mode === 1 ? 1.06 : 1.04;
+
+    if (mode === 1) {
+      camera.position.set(7.7, 6.5, 9.6);
+      root.rotation.y = -0.12;
+    } else {
+      camera.position.set(8.2, 7.5, 9.4);
+      root.rotation.y = -0.08;
+    }
+    root.scale.setScalar(baseScale);
+    camera.lookAt(0, 0.45, 0);
+
+    let frame = 0;
+    let elapsed = 0;
+    const clock = new THREE.Clock();
 
     const resize = () => {
-      const rect = canvas.getBoundingClientRect();
-      const ratio = Math.min(window.devicePixelRatio || 1, 2);
-      width = rect.width;
-      height = rect.height;
-      canvas.width = Math.round(width * ratio);
-      canvas.height = Math.round(height * ratio);
-      context.setTransform(ratio, 0, 0, ratio, 0, 0);
+      const rect = mount.getBoundingClientRect();
+      renderer.setSize(rect.width, rect.height, false);
+      camera.aspect = rect.width / Math.max(rect.height, 1);
+      const responsiveScale = THREE.MathUtils.clamp(camera.aspect / 1.22, 0.52, 1);
+      root.scale.setScalar(baseScale * responsiveScale);
+      camera.updateProjectionMatrix();
     };
 
-    const draw = (time: number) => {
-      context.clearRect(0, 0, width, height);
-      grid(context, width, height);
-      if (mode === 1) drawFormula(context, width, height, time, pointerRef.current);
-      else drawBackgammon(context, width, height, time, pointerRef.current);
-      animationFrame = window.requestAnimationFrame(draw);
-    };
-
-    resize();
     const observer = new ResizeObserver(resize);
-    observer.observe(canvas);
-    animationFrame = window.requestAnimationFrame(draw);
+    observer.observe(mount);
+    resize();
+
+    const animate = () => {
+      elapsed += clock.getDelta();
+      const targetY = pointerRef.current.x * 0.36 + Math.sin(elapsed * 0.18) * 0.05;
+      const targetX = pointerRef.current.y * 0.16;
+      root.rotation.y += (targetY - root.rotation.y) * 0.035;
+      root.rotation.x += (targetX - root.rotation.x) * 0.035;
+      root.position.y = Math.sin(elapsed * 0.7) * 0.035;
+
+      if (mode === 1) {
+        const formula = built as ReturnType<typeof buildFormulaScene>;
+        formula.movingParts.forEach((part, index) => {
+          if (index < 4) part.rotation.x = elapsed * 1.8;
+        });
+        formula.sensors.forEach((sensor, index) => {
+          const active = Math.floor(elapsed / 1.2) % formula.sensors.length === index;
+          const material = sensor.material as THREE.MeshBasicMaterial;
+          material.opacity += ((active ? 1 : 0.22) - material.opacity) * 0.08;
+          sensor.scale.setScalar(active ? 1.35 : 1);
+        });
+        const positions = formula.flow.geometry.attributes.position as THREE.BufferAttribute;
+        for (let i = 0; i < positions.count; i++) {
+          const lane = i % 8;
+          const progress = (elapsed * 0.16 + i / positions.count) % 1;
+          const side = lane < 4 ? -1 : 1;
+          positions.setXYZ(
+            i,
+            side * (2.45 - Math.sin(progress * Math.PI) * 0.62) + (lane % 4) * 0.12,
+            0.34 + (lane % 3) * 0.12,
+            -5.5 + progress * 11,
+          );
+        }
+        positions.needsUpdate = true;
+      } else {
+        const backgammon = built as ReturnType<typeof buildBackgammonScene>;
+        const progress = (Math.sin(elapsed * 0.72) + 1) / 2;
+        backgammon.movingChecker.position.copy(backgammon.path.getPoint(progress));
+        backgammon.movingParts.slice(1).forEach((die, index) => {
+          die.rotation.y = elapsed * (index === 0 ? 0.24 : -0.2);
+        });
+      }
+
+      renderer.render(scene, camera);
+      frame = window.requestAnimationFrame(animate);
+    };
+    frame = window.requestAnimationFrame(animate);
 
     return () => {
       observer.disconnect();
-      window.cancelAnimationFrame(animationFrame);
+      window.cancelAnimationFrame(frame);
+      scene.traverse((object) => {
+        const mesh = object as THREE.Mesh;
+        if (mesh.geometry) mesh.geometry.dispose();
+        const material = (mesh as THREE.Mesh).material;
+        if (Array.isArray(material)) material.forEach((item) => item.dispose());
+        else if (material) material.dispose();
+      });
+      renderer.dispose();
+      renderer.domElement.remove();
     };
   }, [mode]);
 
   return (
-    <canvas
-      className="system-canvas"
-      ref={canvasRef}
+    <div
+      className="system-scene"
+      ref={mountRef}
       onPointerMove={(event) => {
         const bounds = event.currentTarget.getBoundingClientRect();
         pointerRef.current = {
-          x: (event.clientX - bounds.left) / bounds.width,
-          y: (event.clientY - bounds.top) / bounds.height,
-          active: true,
+          x: ((event.clientX - bounds.left) / bounds.width - 0.5) * 2,
+          y: ((event.clientY - bounds.top) / bounds.height - 0.5) * 2,
         };
       }}
       onPointerLeave={() => {
-        pointerRef.current = { x: 0.5, y: 0.5, active: false };
+        pointerRef.current = { x: 0, y: 0 };
       }}
       aria-label={
         mode === 1
-          ? "Interactive isometric Formula One technical diagram with sourced 2026 specifications and simulated telemetry"
-          : "Interactive isometric backgammon position with exact two-dice probabilities and animated legal lines"
+          ? "Interactive three-dimensional Formula wireframe model"
+          : "Interactive three-dimensional backgammon probability model"
       }
       role="img"
-    />
+    >
+      {sceneHud(mode)}
+    </div>
   );
 }
