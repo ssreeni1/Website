@@ -80,36 +80,6 @@ main {
   white-space: nowrap;
 }
 
-.system-intro {
-  position: absolute;
-  z-index: 3;
-  top: 5%;
-  left: 24px;
-  margin: 0;
-  font: 400 10px/1.35 var(--font-geist-mono), monospace;
-  letter-spacing: -0.03em;
-}
-
-.mode-title {
-  position: absolute;
-  z-index: 3;
-  top: 5%;
-  right: 24px;
-  display: flex;
-  align-items: baseline;
-  gap: 9px;
-  font: 400 9px/1 var(--font-geist-mono), monospace;
-  text-transform: uppercase;
-}
-
-.mode-title span {
-  color: var(--red);
-}
-
-.mode-title strong {
-  font-weight: 400;
-}
-
 .canvas-shell {
   width: min(96vw, 1500px);
   height: min(71vh, 700px);
@@ -1042,21 +1012,6 @@ main {
     min-height: calc(100svh - 54px);
     height: auto;
     padding: 86px 0 74px;
-  }
-
-  .system-intro {
-    top: 6%;
-    left: 16px;
-    font-size: 8px;
-  }
-
-  .mode-title {
-    top: 6%;
-    right: 16px;
-  }
-
-  .mode-title strong {
-    display: none;
   }
 
   .canvas-shell {

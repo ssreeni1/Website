@@ -75,24 +75,8 @@ export default function Home() {
         </Link>
       </header>
 
-      <section className="system" aria-labelledby="system-title">
+      <section className="system" id="about" aria-labelledby="system-title">
         <h1 id="system-title">Saneel</h1>
-        <p className="system-intro" id="about">
-          I build software, interfaces, and systems
-          <br />
-          for a more interesting world.
-        </p>
-
-        <div className="mode-title" aria-live="polite">
-          <span>0{activeVisual}</span>
-          <strong>
-            {activeVisual === 1
-              ? "Formula / telemetry"
-              : activeVisual === 2
-                ? "Backgammon / probability"
-                : "Symbols / topology"}
-          </strong>
-        </div>
 
         <div
           className="canvas-shell"

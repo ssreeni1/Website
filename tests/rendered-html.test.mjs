@@ -30,8 +30,8 @@ test("server-renders the personal site shell", async () => {
 
   const html = await response.text();
   assert.match(html, /<title>Saneel — Independent Builder<\/title>/i);
-  assert.match(html, /I build software, interfaces, and systems/);
-  assert.match(html, /Formula \/ telemetry/);
+  assert.doesNotMatch(html, /I build software, interfaces, and systems/);
+  assert.doesNotMatch(html, /Formula \/ telemetry/);
   assert.match(
     html,
     /Interactive Formula car replaying recorded Silverstone telemetry/,
