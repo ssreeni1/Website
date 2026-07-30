@@ -35,7 +35,7 @@ export default function Home() {
   useEffect(() => {
     const interval = window.setInterval(() => {
       setActiveVisual((visual) => (visual === 1 ? 2 : 1));
-    }, 14000);
+    }, 26000);
 
     return () => window.clearInterval(interval);
   }, []);
