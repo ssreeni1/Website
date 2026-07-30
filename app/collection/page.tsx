@@ -5,6 +5,9 @@ import { CollectionList } from "./CollectionList";
 export const metadata: Metadata = {
   title: "Collection — Saneel Sreeni",
   description: "A collection of projects, research, and writing.",
+  alternates: {
+    canonical: "/collection/",
+  },
 };
 
 const entries = [

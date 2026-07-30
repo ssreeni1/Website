@@ -5,6 +5,9 @@ export const metadata: Metadata = {
   title: "About — Saneel Sreeni",
   description:
     "Saneel Sreeni works with companies to implement frontier agentic systems.",
+  alternates: {
+    canonical: "/about/",
+  },
 };
 
 const externalLinkProps = {

@@ -56,7 +56,7 @@ test("server-renders the personal site shell", async () => {
 });
 
 test("serves the linked About page", async () => {
-  for (const path of ["/about"]) {
+  for (const path of ["/about/"]) {
     const response = await render(path);
     assert.equal(response.status, 200);
     const html = await response.text();
@@ -84,7 +84,7 @@ test("serves the linked About page", async () => {
 });
 
 test("serves the linked Collection archive without descriptions", async () => {
-  const response = await render("/collection");
+  const response = await render("/collection/");
   assert.equal(response.status, 200);
   const html = await response.text();
   assert.match(html, /<title>Collection — Saneel Sreeni<\/title>/i);
@@ -104,6 +104,25 @@ test("serves the linked Collection archive without descriptions", async () => {
   assert.match(html, /https:\/\/observablehq\.com\/@ssreeni1\/picklerick/);
   assert.match(html, /Collection entries/);
   assert.doesNotMatch(html, /Investing in early-stage|Products for BTC Miners/);
+});
+
+test("exports the complete GitHub Pages artifact", async () => {
+  const [home, about, collection] = await Promise.all([
+    readFile(new URL("../dist/client/index.html", import.meta.url), "utf8"),
+    readFile(
+      new URL("../dist/client/about/index.html", import.meta.url),
+      "utf8",
+    ),
+    readFile(
+      new URL("../dist/client/collection/index.html", import.meta.url),
+      "utf8",
+    ),
+  ]);
+
+  assert.match(home, /<title>Saneel — Independent Builder<\/title>/);
+  assert.match(home, /href="https:\/\/saneel\.xyz\/"/);
+  assert.match(about, /href="https:\/\/saneel\.xyz\/about\/"/);
+  assert.match(collection, /href="https:\/\/saneel\.xyz\/collection\/"/);
 });
 
 test("ships bounded model assets and recorded telemetry", async () => {
