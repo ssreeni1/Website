@@ -175,7 +175,7 @@ main {
   display: flex;
   flex-direction: column;
   gap: 18px;
-  padding: 12px 0;
+  padding: 0;
   pointer-events: none;
 }
 
@@ -516,9 +516,16 @@ main {
   transform: translateY(2px);
 }
 
+.die-flight {
+  width: 30px;
+  height: 30px;
+  position: relative;
+  transform-style: preserve-3d;
+}
+
 .die-cube {
-  --settle-x: -12deg;
-  --settle-y: 18deg;
+  --settle-x: 1080deg;
+  --settle-y: 1080deg;
   width: 30px;
   height: 30px;
   position: relative;
@@ -526,42 +533,50 @@ main {
   transform: rotateX(var(--settle-x)) rotateY(var(--settle-y));
 }
 
-.die-cube[data-value="1"] {
-  --settle-x: -12deg;
-  --settle-y: 18deg;
+.die-flight[data-value="1"] .die-cube {
+  --settle-x: 1080deg;
+  --settle-y: 1080deg;
 }
 
-.die-cube[data-value="2"] {
-  --settle-x: -12deg;
-  --settle-y: -72deg;
+.die-flight[data-value="2"] .die-cube {
+  --settle-x: 1080deg;
+  --settle-y: 990deg;
 }
 
-.die-cube[data-value="3"] {
-  --settle-x: -102deg;
-  --settle-y: 18deg;
+.die-flight[data-value="3"] .die-cube {
+  --settle-x: 990deg;
+  --settle-y: 1080deg;
 }
 
-.die-cube[data-value="4"] {
-  --settle-x: 78deg;
-  --settle-y: 18deg;
+.die-flight[data-value="4"] .die-cube {
+  --settle-x: 1170deg;
+  --settle-y: 1080deg;
 }
 
-.die-cube[data-value="5"] {
-  --settle-x: -12deg;
-  --settle-y: 108deg;
+.die-flight[data-value="5"] .die-cube {
+  --settle-x: 1080deg;
+  --settle-y: 1170deg;
 }
 
-.die-cube[data-value="6"] {
-  --settle-x: -12deg;
-  --settle-y: 198deg;
+.die-flight[data-value="6"] .die-cube {
+  --settle-x: 1080deg;
+  --settle-y: 1260deg;
 }
 
-.die-cube.is-rolling {
-  animation: die-tumble-a 980ms cubic-bezier(0.2, 0.78, 0.22, 1) both;
+.die-flight.is-rolling {
+  animation: die-flight-a 1180ms cubic-bezier(0.18, 0.72, 0.2, 1) both;
 }
 
-.die-cube.is-rolling[data-die-index="1"] {
-  animation-name: die-tumble-b;
+.die-flight.is-rolling[data-die-index="1"] {
+  animation-name: die-flight-b;
+}
+
+.die-flight.is-rolling .die-cube {
+  animation: die-spin-a 1180ms cubic-bezier(0.16, 0.66, 0.18, 1) both;
+}
+
+.die-flight.is-rolling[data-die-index="1"] .die-cube {
+  animation-name: die-spin-b;
 }
 
 .die-face {
@@ -589,7 +604,7 @@ main {
   background: var(--ink);
 }
 
-.die-cube[data-die-index="0"] .die-face i.is-pip {
+.die-flight[data-die-index="0"] .die-face i.is-pip {
   background: var(--red);
 }
 
@@ -617,41 +632,77 @@ main {
   transform: rotateX(-90deg) translateZ(15px);
 }
 
-@keyframes die-tumble-a {
+@keyframes die-flight-a {
   0% {
-    transform: translate3d(-18px, -13px, 26px) rotateX(-18deg)
-      rotateY(-24deg) rotateZ(-18deg);
+    transform: translate3d(-20px, 10px, 0) rotateZ(-14deg);
   }
-  42% {
-    transform: translate3d(8px, 4px, 44px) rotateX(286deg)
-      rotateY(228deg) rotateZ(66deg);
+  30% {
+    transform: translate3d(-8px, -10px, 34px) rotateZ(8deg);
   }
-  74% {
-    transform: translate3d(-3px, -5px, 12px) rotateX(414deg)
-      rotateY(382deg) rotateZ(104deg);
+  60% {
+    transform: translate3d(7px, -5px, 20px) rotateZ(-7deg);
+  }
+  84% {
+    transform: translate3d(2px, 0, 4px) rotateZ(-2deg);
   }
   100% {
-    transform: translate3d(0, 0, 0) rotateX(var(--settle-x))
-      rotateY(var(--settle-y)) rotateZ(0);
+    transform: translate3d(0, 0, 0) rotateZ(-4deg);
   }
 }
 
-@keyframes die-tumble-b {
+@keyframes die-flight-b {
   0% {
-    transform: translate3d(18px, -8px, 22px) rotateX(28deg)
-      rotateY(42deg) rotateZ(22deg);
+    transform: translate3d(20px, 8px, 0) rotateZ(16deg);
   }
-  46% {
-    transform: translate3d(-10px, 2px, 38px) rotateX(-248deg)
-      rotateY(306deg) rotateZ(-74deg);
+  32% {
+    transform: translate3d(8px, -12px, 31px) rotateZ(-9deg);
   }
-  78% {
-    transform: translate3d(4px, -4px, 10px) rotateX(-388deg)
-      rotateY(438deg) rotateZ(-98deg);
+  62% {
+    transform: translate3d(-7px, -4px, 18px) rotateZ(8deg);
+  }
+  85% {
+    transform: translate3d(-2px, 0, 4px) rotateZ(2deg);
   }
   100% {
-    transform: translate3d(0, 0, 0) rotateX(var(--settle-x))
-      rotateY(var(--settle-y)) rotateZ(0);
+    transform: translate3d(0, 0, 0) rotateZ(4deg);
+  }
+}
+
+@keyframes die-spin-a {
+  0% {
+    transform: rotateX(12deg) rotateY(24deg) rotateZ(-10deg);
+  }
+  28% {
+    transform: rotateX(292deg) rotateY(326deg) rotateZ(48deg);
+  }
+  58% {
+    transform: rotateX(594deg) rotateY(652deg) rotateZ(92deg);
+  }
+  82% {
+    transform: rotateX(856deg) rotateY(912deg) rotateZ(118deg);
+  }
+  100% {
+    transform: rotateX(var(--settle-x)) rotateY(var(--settle-y))
+      rotateZ(0);
+  }
+}
+
+@keyframes die-spin-b {
+  0% {
+    transform: rotateX(-18deg) rotateY(38deg) rotateZ(12deg);
+  }
+  30% {
+    transform: rotateX(278deg) rotateY(344deg) rotateZ(-42deg);
+  }
+  60% {
+    transform: rotateX(586deg) rotateY(668deg) rotateZ(-88deg);
+  }
+  84% {
+    transform: rotateX(848deg) rotateY(918deg) rotateZ(-112deg);
+  }
+  100% {
+    transform: rotateX(var(--settle-x)) rotateY(var(--settle-y))
+      rotateZ(0);
   }
 }
 

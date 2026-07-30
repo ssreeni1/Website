@@ -524,6 +524,11 @@ async function buildFormulaScene(
       sourceWheelMesh?.geometry.getAttribute("position");
     if (sourceWheelMesh && sourceIndex && sourcePositions) {
       sourceWheelMesh.updateMatrix();
+      const axleBounds =
+        sourceWheelMesh.geometry.boundingBox
+          ?.clone()
+          .applyMatrix4(sourceWheelMesh.matrix) ??
+        new THREE.Box3().setFromObject(sourceWheelMesh);
       const axleGeometry = sourceWheelMesh.geometry.clone();
       axleGeometry.applyMatrix4(sourceWheelMesh.matrix);
       const axlePositions = axleGeometry.getAttribute("position");
@@ -552,19 +557,28 @@ async function buildFormulaScene(
             vertex.fromBufferAttribute(axlePositions, vertexIndex);
             sideBounds.expandByPoint(vertex);
           });
-          const wheelCenter = sideBounds.getCenter(new THREE.Vector3());
+          const sourceWheelCenter = sideBounds.getCenter(
+            new THREE.Vector3(),
+          );
+          const wheelSize = sideBounds.getSize(new THREE.Vector3());
+          const axleEndCenterX =
+            side < 0
+              ? axleBounds.min.x + wheelSize.x / 2
+              : axleBounds.max.x - wheelSize.x / 2;
+          const steeringPivot = sourceWheelCenter.clone();
+          steeringPivot.x = axleEndCenterX;
           const wheelGeometry = axleGeometry.clone();
           wheelGeometry.setIndex(sideIndices);
           wheelGeometry.translate(
-            -wheelCenter.x,
-            -wheelCenter.y,
-            -wheelCenter.z,
+            -sourceWheelCenter.x,
+            -sourceWheelCenter.y,
+            -sourceWheelCenter.z,
           );
           wheelGeometry.computeBoundingBox();
 
           const yaw = new THREE.Group();
           yaw.name = `front_${side < 0 ? "left" : "right"}_steering`;
-          yaw.position.copy(wheelCenter);
+          yaw.position.copy(steeringPivot);
           const spin = new THREE.Mesh(
             wheelGeometry,
             sourceWheelMesh.material,
@@ -715,7 +729,7 @@ async function buildFormulaScene(
     });
   };
   addWheelTelemetry(rearWheels);
-  frontSteeringRigs.forEach(({ side, yaw, spin }) => {
+  frontSteeringRigs.forEach(({ side, spin }) => {
     spin.geometry.computeBoundingBox();
     const wheelBounds = spin.geometry.boundingBox;
     if (!wheelBounds) return;
@@ -761,23 +775,6 @@ async function buildFormulaScene(
     disc.rotation.y = Math.PI / 2;
     spin.add(disc);
     brakeMaterials.push(brakeMaterial);
-
-    const steeringRay = new THREE.Line(
-      new THREE.BufferGeometry().setFromPoints([
-        new THREE.Vector3(0, -radius * 0.54, 0.08),
-        new THREE.Vector3(0, -radius * 0.54, 1.18),
-      ]),
-      new THREE.LineDashedMaterial({
-        color: RED,
-        dashSize: 0.11,
-        gapSize: 0.085,
-        transparent: true,
-        opacity: 0.34,
-        depthWrite: false,
-      }),
-    );
-    steeringRay.computeLineDistances();
-    yaw.add(steeringRay);
   });
 
   const internals = new THREE.Group();
@@ -2184,14 +2181,16 @@ function DiceVignette() {
       <div className="dice-vignette-stage">
         {[6, 1].map((initialValue, dieIndex) => (
           <div
-            className="die-cube is-rolling"
+            className="die-flight is-rolling"
             data-die-index={dieIndex}
             data-value={initialValue}
             key={dieIndex}
           >
-            {Array.from({ length: 6 }, (_, face) => (
-              <DieFace value={face + 1} key={face} />
-            ))}
+            <div className="die-cube">
+              {Array.from({ length: 6 }, (_, face) => (
+                <DieFace value={face + 1} key={face} />
+              ))}
+            </div>
           </div>
         ))}
       </div>
