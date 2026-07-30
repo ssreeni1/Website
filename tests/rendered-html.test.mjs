@@ -72,7 +72,13 @@ test("serves the linked Collection archive without descriptions", async () => {
   assert.equal(response.status, 200);
   const html = await response.text();
   assert.match(html, /<title>Collection — Saneel Sreeni<\/title>/i);
-  assert.match(html, /11(?:<!-- -->)? ENTRIES/);
+  assert.match(html, /12(?:<!-- -->)? ENTRIES/);
+  assert.match(html, /Tracebase/);
+  assert.match(html, /2026\.05\.27/);
+  assert.match(
+    html,
+    /https:\/\/x\.com\/sanlsrni\/status\/2059710155881677025/,
+  );
   assert.match(html, /Eternal Atlas/);
   assert.match(html, /2026\.05\.08/);
   assert.match(html, /https:\/\/atlaseternal\.xyz/);

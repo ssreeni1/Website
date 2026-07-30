@@ -9,6 +9,11 @@ export const metadata: Metadata = {
 
 const entries = [
   {
+    title: "Tracebase",
+    date: "2026-05-27",
+    url: "https://x.com/sanlsrni/status/2059710155881677025",
+  },
+  {
     title: "Eternal Atlas",
     date: "2026-05-08",
     url: "https://atlaseternal.xyz",
