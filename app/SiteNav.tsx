@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 const routes = [
   { name: "Home", path: "/", href: "/" },
   { name: "About", path: "/about", href: "/about" },
-  { name: "Contact", path: "/contact", href: "/contact" },
+  { name: "Collection", path: "/collection", href: "/collection" },
 ] as const;
 
 export function SiteNav() {
@@ -46,7 +46,7 @@ export function SiteNav() {
 
       if (key === "c") {
         event.preventDefault();
-        router.push("/contact");
+        router.push("/collection");
       }
 
       if (key === "f") {
@@ -81,8 +81,8 @@ export function SiteNav() {
           <Link href="/about">
             About <span>[A]</span>
           </Link>
-          <Link href="/contact">
-            Contact <span>[C]</span>
+          <Link href="/collection">
+            Collection <span>[C]</span>
           </Link>
           <button
             type="button"

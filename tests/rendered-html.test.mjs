@@ -42,11 +42,11 @@ test("server-renders the personal site shell", async () => {
   assert.match(html, /Saneel Sreeni/);
   assert.match(html, /Home\s*<span>\[H\]<\/span>/);
   assert.match(html, /About\s*<span>\[A\]<\/span>/);
-  assert.match(html, /Contact\s*<span>\[C\]<\/span>/);
+  assert.match(html, /Collection\s*<span>\[C\]<\/span>/);
   assert.match(html, /Find\s*<span>\[F\]<\/span>/);
   assert.match(html, />Home<\/span>\s*<i>\/<\/i>/);
   assert.match(html, />About<\/span>\s*<i>\/about<\/i>/);
-  assert.match(html, />Contact<\/span>\s*<i>\/contact<\/i>/);
+  assert.match(html, />Collection<\/span>\s*<i>\/collection<\/i>/);
   assert.doesNotMatch(html, />Formula system<\/span>/);
   assert.match(html, /Select backgammon probability visual/);
   assert.match(html, /Select symbol topology visual/);
@@ -54,17 +54,32 @@ test("server-renders the personal site shell", async () => {
   assert.doesNotMatch(html, /codex-preview|Building your site|Open menu \[M\]/i);
 });
 
-test("serves blank About and Contact page shells", async () => {
-  for (const path of ["/about", "/contact"]) {
+test("serves the blank About page shell", async () => {
+  for (const path of ["/about"]) {
     const response = await render(path);
     assert.equal(response.status, 200);
     const html = await response.text();
     assert.match(html, /Saneel Sreeni/);
     assert.match(html, /Home\s*<span>\[H\]<\/span>/);
     assert.match(html, /About\s*<span>\[A\]<\/span>/);
-    assert.match(html, /Contact\s*<span>\[C\]<\/span>/);
+    assert.match(html, /Collection\s*<span>\[C\]<\/span>/);
     assert.doesNotMatch(html, /Interactive Formula car/);
   }
+});
+
+test("serves the linked Collection archive without descriptions", async () => {
+  const response = await render("/collection");
+  assert.equal(response.status, 200);
+  const html = await response.text();
+  assert.match(html, /<title>Collection — Saneel Sreeni<\/title>/i);
+  assert.match(html, /11(?:<!-- -->)? ENTRIES/);
+  assert.match(html, /Eternal Atlas/);
+  assert.match(html, /2026\.05\.08/);
+  assert.match(html, /https:\/\/atlaseternal\.xyz/);
+  assert.match(html, /RICKS Mechanism Analysis/);
+  assert.match(html, /https:\/\/observablehq\.com\/@ssreeni1\/picklerick/);
+  assert.match(html, /Collection entries/);
+  assert.doesNotMatch(html, /Investing in early-stage|Products for BTC Miners/);
 });
 
 test("ships bounded model assets and recorded telemetry", async () => {
