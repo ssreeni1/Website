@@ -126,7 +126,7 @@ main {
   touch-action: pan-y;
 }
 
-.system-scene canvas {
+.system-scene > .scene-webgl {
   position: absolute;
   inset: 0;
   display: block;
@@ -134,38 +134,287 @@ main {
   height: 100%;
 }
 
-.scene-hud {
+.scene-overlay {
   position: absolute;
   z-index: 2;
-  top: 12px;
-  width: 200px;
-  display: grid;
-  gap: 4px;
-  padding: 10px 11px 9px;
-  border-top: 1px solid var(--ink);
-  background: rgba(246, 246, 243, 0.88);
-  backdrop-filter: blur(5px);
+  inset: 0;
   pointer-events: none;
-  font: 400 8px/1.1 var(--font-geist-mono), monospace;
-  letter-spacing: 0.01em;
+  font: 400 10px/1.25 var(--font-geist-mono), monospace;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
 }
 
-.scene-hud-left {
-  left: 12px;
+.scene-overlay section {
+  position: absolute;
+  background: rgba(246, 246, 243, 0.84);
+  backdrop-filter: blur(6px);
 }
 
-.scene-hud-right {
-  right: 12px;
-  text-align: right;
-}
-
-.scene-hud strong {
-  margin-bottom: 4px;
+.scene-overlay b,
+.scene-overlay strong {
   font-weight: 500;
 }
 
 .signal-copy {
   color: var(--red);
+}
+
+.formula-primary {
+  left: 12px;
+  bottom: 22px;
+  width: 398px;
+  min-height: 92px;
+  display: grid;
+  grid-template-columns: 72px 110px 1fr;
+  gap: 15px;
+  padding: 10px 12px 9px;
+  border-top: 1px solid var(--ink);
+}
+
+.formula-primary > div {
+  display: grid;
+  align-content: end;
+}
+
+.gear-stack,
+.speed-stack {
+  border-right: 1px solid rgba(22, 22, 22, 0.16);
+}
+
+.gear-stack strong {
+  color: var(--red);
+  font: 400 56px/0.76 Arial, Helvetica, sans-serif;
+  letter-spacing: -0.08em;
+}
+
+.speed-stack strong {
+  font: 400 32px/0.94 Arial, Helvetica, sans-serif;
+  letter-spacing: -0.07em;
+}
+
+.gear-stack span,
+.speed-stack span {
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 8px;
+  letter-spacing: 0.04em;
+}
+
+.channel-stack {
+  gap: 4px;
+  padding-right: 2px;
+}
+
+.channel-stack span {
+  display: flex;
+  justify-content: space-between;
+}
+
+.channel-stack i {
+  position: relative;
+  height: 2px;
+  margin-top: 3px;
+  overflow: hidden;
+  background: rgba(22, 22, 22, 0.12);
+}
+
+.channel-stack em {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 0;
+  background: var(--red);
+}
+
+.formula-source,
+.formula-derived {
+  width: 260px;
+  border-top: 1px solid var(--ink);
+  display: grid;
+  gap: 4px;
+  padding: 9px 10px 8px;
+}
+
+.formula-source {
+  top: 16px;
+  left: 12px;
+}
+
+.formula-derived {
+  right: 12px;
+  bottom: 22px;
+  text-align: right;
+}
+
+.formula-source strong,
+.formula-derived strong {
+  margin-bottom: 3px;
+  letter-spacing: 0.02em;
+}
+
+.track-inset {
+  top: 16px;
+  right: 12px;
+  width: 180px;
+  height: 142px;
+  border-top: 1px solid var(--ink);
+}
+
+.track-inset canvas {
+  position: absolute;
+  inset: 6px 0 15px;
+  width: 100%;
+  height: calc(100% - 21px);
+}
+
+.track-inset span {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  color: var(--muted);
+  font-size: 8px;
+}
+
+.scene-credits {
+  position: absolute;
+  right: 12px;
+  bottom: 9px;
+  display: flex;
+  gap: 10px;
+  pointer-events: auto;
+  color: var(--muted);
+  font-size: 8px;
+}
+
+.scene-credits a:hover {
+  color: var(--red);
+}
+
+.board-primary {
+  top: 34px;
+  left: 12px;
+  width: 190px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  padding: 9px 10px;
+  border-top: 1px solid var(--ink);
+}
+
+.board-primary div {
+  display: grid;
+  gap: 3px;
+}
+
+.board-primary div span {
+  color: var(--muted);
+  font-size: 8px;
+}
+
+.board-primary p,
+.board-primary small {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+.board-primary p {
+  margin-top: 4px;
+  color: var(--red);
+  font-size: 12px;
+}
+
+.board-primary small {
+  color: var(--muted);
+  font-size: 8px;
+}
+
+.pip-panel {
+  top: 34px;
+  right: 12px;
+  width: 205px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px 12px;
+  padding: 9px 10px;
+  border-top: 1px solid var(--ink);
+  text-align: right;
+}
+
+.pip-panel strong,
+.pip-panel small {
+  grid-column: 1 / -1;
+}
+
+.pip-panel strong {
+  margin-bottom: 3px;
+}
+
+.pip-panel span {
+  display: contents;
+}
+
+.pip-panel span b {
+  color: var(--red);
+}
+
+.pip-panel small {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 8px;
+}
+
+.dice-analysis {
+  right: 12px;
+  bottom: 28px;
+  width: 232px;
+  display: grid;
+  grid-template-columns: 1fr 76px;
+  gap: 12px;
+  padding: 9px 10px;
+  border-top: 1px solid var(--ink);
+}
+
+.dice-analysis-copy {
+  display: grid;
+  align-content: center;
+  gap: 5px;
+}
+
+.dice-analysis-copy span {
+  font-size: 9px;
+}
+
+.dice-lattice {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 4px;
+  width: 76px;
+  aspect-ratio: 1;
+  padding: 4px;
+  border: 1px solid rgba(22, 22, 22, 0.18);
+}
+
+.dice-lattice i {
+  border: 1px solid rgba(22, 22, 22, 0.3);
+  border-radius: 50%;
+}
+
+.dice-lattice i.is-active {
+  border-color: var(--red);
+  background: var(--red);
+  box-shadow: 0 0 0 2px rgba(240, 43, 29, 0.11);
+}
+
+.board-proof {
+  position: absolute;
+  left: 12px;
+  bottom: 28px;
+  margin: 0;
+  padding: 7px 9px;
+  border-top: 1px solid var(--ink);
+  background: rgba(246, 246, 243, 0.82);
+  color: var(--muted);
+  backdrop-filter: blur(5px);
+  font-size: 8px;
 }
 
 .controls {
@@ -296,7 +545,8 @@ main {
   font: 400 11px/1 var(--font-geist-mono), monospace;
 }
 
-.finder nav a:hover {
+.finder nav a:hover,
+.finder nav a.is-selected {
   color: var(--red);
   background: rgba(240, 43, 29, 0.04);
 }
@@ -306,6 +556,14 @@ main {
   font-style: normal;
   font-weight: 400;
   color: var(--muted);
+}
+
+.finder-empty {
+  margin: 0;
+  padding: 18px 13px;
+  border-bottom: 1px solid rgba(22, 22, 22, 0.14);
+  color: var(--muted);
+  font: 400 11px/1 var(--font-geist-mono), monospace;
 }
 
 .finder-help {
@@ -369,24 +627,114 @@ main {
 
   .canvas-shell {
     width: 100vw;
-    height: 65vh;
+    height: 67vh;
     margin-top: 7vh;
   }
 
-  .scene-hud {
+  .scene-overlay {
+    font-size: 9px;
+  }
+
+  .formula-source {
     top: 2px;
-    width: 154px;
-    gap: 3px;
-    padding: 7px 8px;
-    font-size: 6px;
-  }
-
-  .scene-hud-left {
     left: 8px;
+    width: 198px;
+    padding: 7px 8px;
   }
 
-  .scene-hud-right {
+  .formula-source span:nth-of-type(2),
+  .formula-source span:nth-of-type(3) {
+    display: none;
+  }
+
+  .track-inset {
+    top: 2px;
     right: 8px;
+    width: 104px;
+    height: 88px;
+  }
+
+  .track-inset span {
+    font-size: 7px;
+  }
+
+  .formula-primary {
+    left: 8px;
+    right: 8px;
+    bottom: 8px;
+    width: auto;
+    min-height: 78px;
+    grid-template-columns: 55px 82px 1fr;
+    gap: 9px;
+    padding: 8px;
+  }
+
+  .gear-stack strong {
+    font-size: 44px;
+  }
+
+  .speed-stack strong {
+    font-size: 26px;
+  }
+
+  .formula-derived {
+    display: none;
+  }
+
+  .scene-credits {
+    right: 8px;
+    bottom: 0;
+    font-size: 7px;
+    transform: translateY(100%);
+  }
+
+  .board-primary {
+    top: 2px;
+    left: 8px;
+    width: 178px;
+    padding: 7px 8px;
+  }
+
+  .pip-panel {
+    top: 2px;
+    right: 8px;
+    width: 154px;
+    padding: 7px 8px;
+    gap: 3px 8px;
+  }
+
+  .pip-panel strong {
+    font-size: 8px;
+  }
+
+  .dice-analysis {
+    right: 8px;
+    bottom: 8px;
+    width: 196px;
+    grid-template-columns: 1fr 66px;
+    gap: 8px;
+    padding: 7px 8px;
+  }
+
+  .dice-lattice {
+    width: 66px;
+    gap: 3px;
+  }
+
+  .dice-analysis-copy strong {
+    font-size: 8px;
+  }
+
+  .dice-analysis-copy span {
+    font-size: 8px;
+  }
+
+  .board-proof {
+    left: 8px;
+    bottom: 8px;
+    max-width: 145px;
+    padding: 6px 7px;
+    font-size: 7px;
   }
 
   .controls {

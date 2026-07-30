@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { SystemCanvas } from "./SystemCanvas";
 
 const routes = [
@@ -13,6 +14,14 @@ const routes = [
 export default function Home() {
   const [finderOpen, setFinderOpen] = useState(false);
   const [activeVisual, setActiveVisual] = useState<1 | 2>(1);
+  const [finderQuery, setFinderQuery] = useState("");
+  const [finderIndex, setFinderIndex] = useState(0);
+  const finderInputRef = useRef<HTMLInputElement>(null);
+  const filteredRoutes = routes.filter((route) =>
+    `${route.name} ${route.path}`
+      .toLowerCase()
+      .includes(finderQuery.trim().toLowerCase()),
+  );
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -22,6 +31,7 @@ export default function Home() {
 
       if (event.key.toLowerCase() === "f" && !isTyping) {
         event.preventDefault();
+        setFinderIndex(0);
         setFinderOpen((open) => !open);
       }
 
@@ -31,6 +41,11 @@ export default function Home() {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
+
+  useEffect(() => {
+    if (!finderOpen) return;
+    window.requestAnimationFrame(() => finderInputRef.current?.focus());
+  }, [finderOpen]);
 
   useEffect(() => {
     const interval = window.setInterval(() => {
@@ -43,9 +58,9 @@ export default function Home() {
   return (
     <main>
       <header className="topbar">
-        <a className="mark" href="/" aria-label="Saneel, home">
+        <Link className="mark" href="/" aria-label="Saneel, home">
           Saneel
-        </a>
+        </Link>
       </header>
 
       <section className="system" aria-labelledby="system-title">
@@ -94,7 +109,10 @@ export default function Home() {
         <button
           className="find-control"
           type="button"
-          onClick={() => setFinderOpen(true)}
+          onClick={() => {
+            setFinderIndex(0);
+            setFinderOpen(true);
+          }}
           aria-label="Open directory"
         >
           Find <span>[F]</span>
@@ -119,16 +137,41 @@ export default function Home() {
           <div className="finder-input">
             <span>saneel/</span>
             <input
+              ref={finderInputRef}
               aria-label="Search Saneel"
-              autoFocus={finderOpen}
               placeholder="find"
               tabIndex={finderOpen ? 0 : -1}
+              value={finderQuery}
+              onChange={(event) => {
+                setFinderQuery(event.target.value);
+                setFinderIndex(0);
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "ArrowDown") {
+                  event.preventDefault();
+                  setFinderIndex((index) =>
+                    Math.min(
+                      Math.max(0, filteredRoutes.length - 1),
+                      index + 1,
+                    ),
+                  );
+                }
+                if (event.key === "ArrowUp") {
+                  event.preventDefault();
+                  setFinderIndex((index) => Math.max(0, index - 1));
+                }
+                if (event.key === "Enter" && filteredRoutes[finderIndex]) {
+                  window.location.href = filteredRoutes[finderIndex].path;
+                  setFinderOpen(false);
+                }
+              }}
             />
           </div>
 
           <nav aria-label="Directory navigation">
-            {routes.map((route, index) => (
+            {filteredRoutes.map((route, index) => (
               <a
+                className={index === finderIndex ? "is-selected" : ""}
                 href={route.path}
                 key={route.name}
                 tabIndex={finderOpen ? 0 : -1}
@@ -139,6 +182,9 @@ export default function Home() {
                 <b>{String(index + 1).padStart(2, "0")}</b>
               </a>
             ))}
+            {filteredRoutes.length === 0 && (
+              <p className="finder-empty">No matching route</p>
+            )}
           </nav>
 
           <div className="finder-help">
