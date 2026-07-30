@@ -2946,7 +2946,7 @@ function FormulaRail({
     return (
       <>
         <section className="formula-source">
-          <strong>ANTONELLI #12 / SILVERSTONE</strong>
+          <strong>SILVERSTONE</strong>
           <span>SESSION 11322 · LAP 18 · 04 JUL 2026</span>
           <span>
             LAP TIME <b data-hud="lap-time">00:00.000</b>

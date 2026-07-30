@@ -37,7 +37,8 @@ test("server-renders the personal site shell", async () => {
     /Interactive Formula car replaying recorded Silverstone telemetry/,
   );
   assert.match(html, /DRAG \/ ORBIT · SCROLL \/ ZOOM/);
-  assert.match(html, /ANTONELLI #12 \/ SILVERSTONE/);
+  assert.match(html, />SILVERSTONE<\/strong>/);
+  assert.doesNotMatch(html, /ANTONELLI #12/);
   assert.match(html, /DATA \/ OPENF1/);
   assert.match(html, /Saneel Sreeni/);
   assert.match(html, /Home\s*<span>\[H\]<\/span>/);
