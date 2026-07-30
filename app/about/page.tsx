@@ -41,8 +41,8 @@ export default function AboutPage() {
 
         <p>
           In a previous life, I worked on derivative markets for BTC miners,
-          assortment of investing/data science at a few venture/liquid funds,
-          and graduated from{" "}
+          an assortment of investing/data science at a few venture/liquid
+          funds, and graduated from{" "}
           <a href="https://met.berkeley.edu/" {...externalLinkProps}>
             UC Berkeley&apos;s M.E.T.
           </a>{" "}

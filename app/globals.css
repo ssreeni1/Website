@@ -174,7 +174,7 @@ main {
 
 .about-socials {
   display: flex;
-  gap: 0.45em;
+  gap: 0.85em;
   padding-top: clamp(16px, 2vh, 28px);
   font: inherit;
   letter-spacing: inherit;
@@ -1267,7 +1267,7 @@ main {
   }
 
   .about-socials {
-    gap: 0.45em;
+    gap: 0.85em;
     padding-top: 12px;
   }
 
