@@ -22,8 +22,8 @@ export default function AboutPage() {
 
         <p>
           Currently, I&apos;m exploring while independently working with
-          companies to implement frontier agentic systems. My work there spans
-          both legacy and technology-forward industries.
+          companies to implement frontier agentic systems. My work spans both
+          legacy and technology-forward industries.
         </p>
 
         <p>

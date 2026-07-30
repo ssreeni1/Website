@@ -62,6 +62,8 @@ test("serves the linked About page", async () => {
     assert.match(html, /<title>About — Saneel Sreeni<\/title>/i);
     assert.match(html, /Saneel Sreeni/);
     assert.match(html, /frontier agentic systems/);
+    assert.match(html, /My work spans both legacy/);
+    assert.doesNotMatch(html, /My work there spans/);
     assert.match(html, /an assortment of investing\/data science/);
     assert.match(html, /https:\/\/ritual\.net/);
     assert.match(html, /https:\/\/accomplice\.co/);
