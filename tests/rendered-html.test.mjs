@@ -76,6 +76,8 @@ test("serves the linked Collection archive without descriptions", async () => {
   assert.match(html, /Eternal Atlas/);
   assert.match(html, /2026\.05\.08/);
   assert.match(html, /https:\/\/atlaseternal\.xyz/);
+  assert.match(html, /GENESIS I/);
+  assert.doesNotMatch(html, /GENESIS Pt\. I/);
   assert.match(html, /RICKS Mechanism Analysis/);
   assert.match(html, /https:\/\/observablehq\.com\/@ssreeni1\/picklerick/);
   assert.match(html, /Collection entries/);

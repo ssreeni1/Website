@@ -39,7 +39,7 @@ const entries = [
     url: "https://x.com/sanlsrni/status/1952427934779859450",
   },
   {
-    title: "GENESIS Pt. I: What The F*ck Happened to Crypto x AI?",
+    title: "GENESIS I",
     date: "2025-07-24",
     url: "https://x.com/sanlsrni/status/1948422534803652829",
   },
