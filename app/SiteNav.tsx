@@ -14,12 +14,6 @@ type SiteTheme = "light" | "dark";
 
 const THEME_STORAGE_KEY = "saneel-theme";
 
-function getSystemTheme(): SiteTheme {
-  return window.matchMedia("(prefers-color-scheme: dark)").matches
-    ? "dark"
-    : "light";
-}
-
 function applySiteTheme(theme: SiteTheme) {
   document.documentElement.dataset.theme = theme;
   document.documentElement.style.colorScheme = theme;
@@ -33,10 +27,9 @@ export function SiteNav() {
   const [finderOpen, setFinderOpen] = useState(false);
   const [finderQuery, setFinderQuery] = useState("");
   const [finderIndex, setFinderIndex] = useState(0);
-  const [theme, setTheme] = useState<SiteTheme>("light");
+  const [theme, setTheme] = useState<SiteTheme>("dark");
   const finderInputRef = useRef<HTMLInputElement>(null);
-  const themeRef = useRef<SiteTheme>("light");
-  const themeOverrideRef = useRef<SiteTheme | null>(null);
+  const themeRef = useRef<SiteTheme>("dark");
   const filteredRoutes = routes.filter((route) =>
     `${route.name} ${route.path}`
       .toLowerCase()
@@ -46,7 +39,6 @@ export function SiteNav() {
   const toggleTheme = useCallback(() => {
     const nextTheme = themeRef.current === "dark" ? "light" : "dark";
     themeRef.current = nextTheme;
-    themeOverrideRef.current = nextTheme;
     setTheme(nextTheme);
     window.localStorage.setItem(THEME_STORAGE_KEY, nextTheme);
     applySiteTheme(nextTheme);
@@ -98,27 +90,15 @@ export function SiteNav() {
   }, [router, toggleTheme]);
 
   useEffect(() => {
-    const media = window.matchMedia("(prefers-color-scheme: dark)");
     const storedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
-    const override =
+    const initialTheme =
       storedTheme === "light" || storedTheme === "dark"
         ? storedTheme
-        : null;
-    themeOverrideRef.current = override;
-
-    const syncTheme = () => {
-      const theme = themeOverrideRef.current ?? getSystemTheme();
-      themeRef.current = theme;
-      setTheme(theme);
-      applySiteTheme(theme);
-    };
-    const onSystemThemeChange = () => {
-      if (!themeOverrideRef.current) syncTheme();
-    };
-
-    syncTheme();
-    media.addEventListener("change", onSystemThemeChange);
-    return () => media.removeEventListener("change", onSystemThemeChange);
+        : "dark";
+    themeRef.current = initialTheme;
+    applySiteTheme(initialTheme);
+    const frame = window.requestAnimationFrame(() => setTheme(initialTheme));
+    return () => window.cancelAnimationFrame(frame);
   }, []);
 
   useEffect(() => {

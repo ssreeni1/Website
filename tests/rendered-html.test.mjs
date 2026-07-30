@@ -29,6 +29,7 @@ test("server-renders the personal site shell", async () => {
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
+  assert.match(html, /<html[^>]*data-theme="dark"/i);
   assert.match(html, /<title>Saneel — Independent Builder<\/title>/i);
   assert.doesNotMatch(html, /I build software, interfaces, and systems/);
   assert.doesNotMatch(html, /Formula \/ telemetry/);

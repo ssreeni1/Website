@@ -20,10 +20,10 @@ const themeBootstrap = `
   (() => {
     try {
       const theme = window.localStorage.getItem("saneel-theme");
-      if (theme === "light" || theme === "dark") {
-        document.documentElement.dataset.theme = theme;
-        document.documentElement.style.colorScheme = theme;
-      }
+      const resolvedTheme =
+        theme === "light" || theme === "dark" ? theme : "dark";
+      document.documentElement.dataset.theme = resolvedTheme;
+      document.documentElement.style.colorScheme = resolvedTheme;
     } catch {}
   })();
 `;
@@ -59,7 +59,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" data-theme="dark" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeBootstrap }} />
       </head>
