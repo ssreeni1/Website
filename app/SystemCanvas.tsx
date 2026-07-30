@@ -222,6 +222,56 @@ function smoothLocation(
   };
 }
 
+function buildSmoothTrackLocations(
+  samples: LocationSample[],
+  lapDuration: number,
+) {
+  const smoothingWindow = 520;
+  const filtered = samples.map((sample) => {
+    let totalWeight = 0;
+    let x = 0;
+    let y = 0;
+    let z = 0;
+
+    samples.forEach((candidate) => {
+      const directDistance = Math.abs(candidate.t - sample.t);
+      const timeDistance = Math.min(
+        directDistance,
+        lapDuration - directDistance,
+      );
+      if (timeDistance > smoothingWindow) return;
+      const weight = Math.pow(1 - timeDistance / smoothingWindow, 2);
+      totalWeight += weight;
+      x += candidate.x * weight;
+      y += candidate.y * weight;
+      z += candidate.z * weight;
+    });
+
+    return {
+      ...sample,
+      x: x / Math.max(totalWeight, 1),
+      y: y / Math.max(totalWeight, 1),
+      z: z / Math.max(totalWeight, 1),
+    };
+  });
+  const sampleCount = Math.max(
+    samples.length * 4,
+    Math.ceil(lapDuration / 55),
+  );
+
+  return Array.from({ length: sampleCount }, (_, index) => {
+    const t = (index / sampleCount) * lapDuration;
+    const position = smoothLocation(filtered, t, lapDuration);
+    const rawWindow = sampleWindow(filtered, t);
+    return {
+      t,
+      x: position.x,
+      y: position.y,
+      z: lerp(rawWindow.a.z, rawWindow.b.z, rawWindow.mix),
+    };
+  });
+}
+
 function lineFromPoints(
   points: THREE.Vector3[],
   color = INK,
@@ -493,6 +543,11 @@ async function buildFormulaScene(
       (response) => response.json() as Promise<TelemetryData>,
     ),
   ]);
+  const motionDuration = telemetry.source.lapDurationMs;
+  const trackLocations = buildSmoothTrackLocations(
+    telemetry.location,
+    motionDuration,
+  );
 
   const root = new THREE.Group();
   const carRig = new THREE.Group();
@@ -524,11 +579,6 @@ async function buildFormulaScene(
       sourceWheelMesh?.geometry.getAttribute("position");
     if (sourceWheelMesh && sourceIndex && sourcePositions) {
       sourceWheelMesh.updateMatrix();
-      const axleBounds =
-        sourceWheelMesh.geometry.boundingBox
-          ?.clone()
-          .applyMatrix4(sourceWheelMesh.matrix) ??
-        new THREE.Box3().setFromObject(sourceWheelMesh);
       const axleGeometry = sourceWheelMesh.geometry.clone();
       axleGeometry.applyMatrix4(sourceWheelMesh.matrix);
       const axlePositions = axleGeometry.getAttribute("position");
@@ -560,13 +610,8 @@ async function buildFormulaScene(
           const sourceWheelCenter = sideBounds.getCenter(
             new THREE.Vector3(),
           );
-          const wheelSize = sideBounds.getSize(new THREE.Vector3());
-          const axleEndCenterX =
-            side < 0
-              ? axleBounds.min.x + wheelSize.x / 2
-              : axleBounds.max.x - wheelSize.x / 2;
           const steeringPivot = sourceWheelCenter.clone();
-          steeringPivot.x = axleEndCenterX;
+          steeringPivot.x = side * 1.441;
           const wheelGeometry = axleGeometry.clone();
           wheelGeometry.setIndex(sideIndices);
           wheelGeometry.translate(
@@ -687,26 +732,6 @@ async function buildFormulaScene(
     const outerX = Math.max(Math.abs(bounds.min.x), Math.abs(bounds.max.x));
 
     [-1, 1].forEach((side) => {
-      const register = new THREE.Mesh(
-        new THREE.BoxGeometry(
-          Math.max(0.018, outerX * 0.012),
-          radius * 0.27,
-          radius * 0.085,
-        ),
-        new THREE.MeshBasicMaterial({
-          color: RED,
-          transparent: true,
-          opacity: 0.86,
-          depthWrite: false,
-        }),
-      );
-      register.position.set(
-        side * (outerX + 0.012),
-        0,
-        radius * 0.72,
-      );
-      wheelObject.add(register);
-
       const brakeMaterial = new THREE.MeshBasicMaterial({
         color: RED,
         transparent: true,
@@ -729,34 +754,12 @@ async function buildFormulaScene(
     });
   };
   addWheelTelemetry(rearWheels);
-  frontSteeringRigs.forEach(({ side, spin }) => {
+  frontSteeringRigs.forEach(({ spin }) => {
     spin.geometry.computeBoundingBox();
     const wheelBounds = spin.geometry.boundingBox;
     if (!wheelBounds) return;
     const size = wheelBounds.getSize(new THREE.Vector3());
     const radius = Math.max(size.y, size.z) / 2;
-    const outerX = side < 0 ? wheelBounds.min.x : wheelBounds.max.x;
-
-    const register = new THREE.Mesh(
-      new THREE.BoxGeometry(
-        Math.max(0.018, size.x * 0.025),
-        radius * 0.27,
-        radius * 0.085,
-      ),
-      new THREE.MeshBasicMaterial({
-        color: RED,
-        transparent: true,
-        opacity: 0.86,
-        depthWrite: false,
-      }),
-    );
-    register.position.set(
-      outerX + side * 0.012,
-      0,
-      radius * 0.72,
-    );
-    spin.add(register);
-
     const brakeMaterial = new THREE.MeshBasicMaterial({
       color: RED,
       transparent: true,
@@ -832,7 +835,7 @@ async function buildFormulaScene(
   scanPlane.position.y = 0.85;
   carRig.add(scanPlane);
 
-  const road = buildRoadRibbon(telemetry.location);
+  const road = buildRoadRibbon(trackLocations);
   root.add(
     road.mesh,
     road.left,
@@ -961,8 +964,8 @@ async function buildFormulaScene(
 
   carRig.scale.setScalar(0.78);
 
-  const firstLocation = telemetry.location[0];
-  const firstDirectionTarget = telemetry.location[3] ?? firstLocation;
+  const firstLocation = trackLocations[0];
+  const firstDirectionTarget = trackLocations[3] ?? firstLocation;
   const carPosition = new THREE.Vector3(
     (firstLocation.x - road.originX) * 0.1,
     0.03,
@@ -999,10 +1002,6 @@ async function buildFormulaScene(
   let hudFrame = 0;
   const playbackRate = 1.5;
   const lapDuration = telemetry.source.lapDurationMs;
-  const motionDuration = Math.max(
-    lapDuration,
-    telemetry.location[telemetry.location.length - 1].t + 360,
-  );
   const lastCarPosition = displayCarPosition.clone();
   const carTranslation = new THREE.Vector3();
   return {
@@ -1013,7 +1012,7 @@ async function buildFormulaScene(
       const replayTime = Math.min(motionTime, lapDuration);
       const car = sampleWindow(telemetry.car, replayTime);
       const location = smoothLocation(
-        telemetry.location,
+        trackLocations,
         motionTime,
         motionDuration,
       );
@@ -1021,13 +1020,13 @@ async function buildFormulaScene(
       const rpm = lerp(car.a.rpm, car.b.rpm, car.mix);
       const throttle = lerp(car.a.throttle, car.b.throttle, car.mix);
       const previousLocation = smoothLocation(
-        telemetry.location,
-        (motionTime - 140 + motionDuration) % motionDuration,
+        trackLocations,
+        (motionTime - 260 + motionDuration) % motionDuration,
         motionDuration,
       );
       const nextLocation = smoothLocation(
-        telemetry.location,
-        (motionTime + 140) % motionDuration,
+        trackLocations,
+        (motionTime + 260) % motionDuration,
         motionDuration,
       );
       const incomingLength = Math.max(
@@ -1073,9 +1072,12 @@ async function buildFormulaScene(
         0.03,
         (location.y - road.originY) * 0.1,
       );
-      const targetHeading = Math.atan2(location.dx, location.dy);
+      const targetHeading = Math.atan2(
+        nextLocation.x - previousLocation.x,
+        nextLocation.y - previousLocation.y,
+      );
       const positionDamping = 1 - Math.exp(-delta * 22);
-      const headingDamping = 1 - Math.exp(-delta * 12);
+      const headingDamping = 1 - Math.exp(-delta * 9);
       displayCarPosition.lerp(carPosition, positionDamping);
       const headingDelta = Math.atan2(
         Math.sin(targetHeading - displayHeading),
@@ -1228,14 +1230,19 @@ async function buildFormulaScene(
       const longitudinalAcceleration =
         ((speed - previousCar.speed) / 3.6) /
         Math.max(0.08, (car.a.t - previousCar.t) / 1000);
+      const chassisDamping = 1 - Math.exp(-delta * 4.2);
       carRig.rotation.z +=
         (THREE.MathUtils.clamp(-steering * 0.00075, -0.014, 0.014) -
           carRig.rotation.z) *
-        0.06;
+        chassisDamping;
       carRig.rotation.x +=
-        (THREE.MathUtils.clamp(longitudinalAcceleration * -0.002, -0.016, 0.016) -
+        (THREE.MathUtils.clamp(
+          longitudinalAcceleration * -0.002,
+          -0.016,
+          0.016,
+        ) -
           carRig.rotation.x) *
-        0.06;
+        chassisDamping;
 
       hudFrame += 1;
       if (hudFrame % 3 === 0) {
@@ -1287,7 +1294,7 @@ async function buildFormulaScene(
 
       mapFrame += 1;
       if (mapFrame % 6 === 0) {
-        drawTrackMap(trackCanvas, telemetry.location, location.index);
+        drawTrackMap(trackCanvas, trackLocations, location.index);
       }
     },
   };
@@ -1643,9 +1650,14 @@ function buildBackgammonScene(
     },
   ];
 
-  const simulatedPoints = new Map<BackgammonPiece, number>(
-    pieces.map((piece) => [piece, piece.initialPoint]),
-  );
+  const stackKey = (player: Player, point: number) => `${player}:${point}`;
+  const simulatedStacks = new Map<string, BackgammonPiece[]>();
+  pieces.forEach((piece) => {
+    const key = stackKey(piece.player, piece.initialPoint);
+    const stack = simulatedStacks.get(key) ?? [];
+    stack.push(piece);
+    simulatedStacks.set(key, stack);
+  });
   const turnDuration = 5;
   const cycleDuration = turnDuration * turnSequence.length;
   const timeline: Array<{
@@ -1661,19 +1673,18 @@ function buildBackgammonScene(
   }> = [];
   turnSequence.forEach((turn, turnIndex) => {
     turn.moves.forEach((move, moveIndex) => {
-      const source = pieces.filter(
-        (piece) =>
-          piece.player === turn.player &&
-          simulatedPoints.get(piece) === move.from,
-      );
-      const piece = source[source.length - 1];
-      const targetCount = pieces.filter(
-        (candidate) =>
-          candidate.player === turn.player &&
-          simulatedPoints.get(candidate) === move.to,
-      ).length;
-      const start = pointPosition(move.from, source.length - 1);
-      const end = pointPosition(move.to, targetCount);
+      const sourceKey = stackKey(turn.player, move.from);
+      const targetKey = stackKey(turn.player, move.to);
+      const sourceStack = simulatedStacks.get(sourceKey) ?? [];
+      const targetStack = simulatedStacks.get(targetKey) ?? [];
+      const piece = sourceStack[sourceStack.length - 1];
+      if (!piece) {
+        throw new Error(
+          `Invalid backgammon move ${move.from}/${move.to}: empty source`,
+        );
+      }
+      const start = pointPosition(move.from, sourceStack.length - 1);
+      const end = pointPosition(move.to, targetStack.length);
       const midpoint = start.clone().lerp(end, 0.5);
       midpoint.y = 1.25 + Math.min(0.68, start.distanceTo(end) * 0.075);
       const startsAt =
@@ -1691,7 +1702,10 @@ function buildBackgammonScene(
         startsAt,
         endsAt: startsAt + (turn.moves.length === 4 ? 0.78 : 1.02),
       });
-      simulatedPoints.set(piece, move.to);
+      sourceStack.pop();
+      targetStack.push(piece);
+      simulatedStacks.set(sourceKey, sourceStack);
+      simulatedStacks.set(targetKey, targetStack);
     });
   });
 
