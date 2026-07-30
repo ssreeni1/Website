@@ -509,6 +509,75 @@ async function buildFormulaScene(
   const rearWheels = model.getObjectByName("back_wheels_1");
   const frontWheelBaseRotation = frontWheels?.rotation.x ?? 0;
   const rearWheelBaseRotation = rearWheels?.rotation.x ?? 0;
+  const frontSteeringRigs: Array<{
+    side: -1 | 1;
+    yaw: THREE.Group;
+    spin: THREE.Mesh;
+  }> = [];
+
+  if (frontWheels) {
+    const sourceWheelMesh = frontWheels.children.find(
+      (child) => (child as THREE.Mesh).isMesh,
+    ) as THREE.Mesh | undefined;
+    const sourceIndex = sourceWheelMesh?.geometry.index;
+    const sourcePositions =
+      sourceWheelMesh?.geometry.getAttribute("position");
+    if (sourceWheelMesh && sourceIndex && sourcePositions) {
+      sourceWheelMesh.updateMatrix();
+      const axleGeometry = sourceWheelMesh.geometry.clone();
+      axleGeometry.applyMatrix4(sourceWheelMesh.matrix);
+      const axlePositions = axleGeometry.getAttribute("position");
+      const axleIndex = axleGeometry.index;
+      if (axleIndex) {
+        ([-1, 1] as const).forEach((side) => {
+          const sideIndices: number[] = [];
+          for (let index = 0; index < axleIndex.count; index += 3) {
+            const a = axleIndex.getX(index);
+            const b = axleIndex.getX(index + 1);
+            const c = axleIndex.getX(index + 2);
+            const centerX =
+              (axlePositions.getX(a) +
+                axlePositions.getX(b) +
+                axlePositions.getX(c)) /
+              3;
+            if ((side < 0 && centerX < 0) || (side > 0 && centerX >= 0)) {
+              sideIndices.push(a, b, c);
+            }
+          }
+          if (sideIndices.length === 0) return;
+
+          const sideBounds = new THREE.Box3();
+          const vertex = new THREE.Vector3();
+          sideIndices.forEach((vertexIndex) => {
+            vertex.fromBufferAttribute(axlePositions, vertexIndex);
+            sideBounds.expandByPoint(vertex);
+          });
+          const wheelCenter = sideBounds.getCenter(new THREE.Vector3());
+          const wheelGeometry = axleGeometry.clone();
+          wheelGeometry.setIndex(sideIndices);
+          wheelGeometry.translate(
+            -wheelCenter.x,
+            -wheelCenter.y,
+            -wheelCenter.z,
+          );
+          wheelGeometry.computeBoundingBox();
+
+          const yaw = new THREE.Group();
+          yaw.name = `front_${side < 0 ? "left" : "right"}_steering`;
+          yaw.position.copy(wheelCenter);
+          const spin = new THREE.Mesh(
+            wheelGeometry,
+            sourceWheelMesh.material,
+          );
+          spin.name = `front_${side < 0 ? "left" : "right"}_wheel`;
+          yaw.add(spin);
+          frontWheels.add(yaw);
+          frontSteeringRigs.push({ side, yaw, spin });
+        });
+        sourceWheelMesh.removeFromParent();
+      }
+    }
+  }
 
   const shellMaterials: Array<{
     material: THREE.MeshStandardMaterial;
@@ -645,8 +714,71 @@ async function buildFormulaScene(
       brakeMaterials.push(brakeMaterial);
     });
   };
-  addWheelTelemetry(frontWheels);
   addWheelTelemetry(rearWheels);
+  frontSteeringRigs.forEach(({ side, yaw, spin }) => {
+    spin.geometry.computeBoundingBox();
+    const wheelBounds = spin.geometry.boundingBox;
+    if (!wheelBounds) return;
+    const size = wheelBounds.getSize(new THREE.Vector3());
+    const radius = Math.max(size.y, size.z) / 2;
+    const outerX = side < 0 ? wheelBounds.min.x : wheelBounds.max.x;
+
+    const register = new THREE.Mesh(
+      new THREE.BoxGeometry(
+        Math.max(0.018, size.x * 0.025),
+        radius * 0.27,
+        radius * 0.085,
+      ),
+      new THREE.MeshBasicMaterial({
+        color: RED,
+        transparent: true,
+        opacity: 0.86,
+        depthWrite: false,
+      }),
+    );
+    register.position.set(
+      outerX + side * 0.012,
+      0,
+      radius * 0.72,
+    );
+    spin.add(register);
+
+    const brakeMaterial = new THREE.MeshBasicMaterial({
+      color: RED,
+      transparent: true,
+      opacity: 0.02,
+      depthWrite: false,
+    });
+    const disc = new THREE.Mesh(
+      new THREE.TorusGeometry(
+        radius * 0.5,
+        radius * 0.035,
+        7,
+        32,
+      ),
+      brakeMaterial,
+    );
+    disc.rotation.y = Math.PI / 2;
+    spin.add(disc);
+    brakeMaterials.push(brakeMaterial);
+
+    const steeringRay = new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(0, -radius * 0.54, 0.08),
+        new THREE.Vector3(0, -radius * 0.54, 1.18),
+      ]),
+      new THREE.LineDashedMaterial({
+        color: RED,
+        dashSize: 0.11,
+        gapSize: 0.085,
+        transparent: true,
+        opacity: 0.34,
+        depthWrite: false,
+      }),
+    );
+    steeringRay.computeLineDistances();
+    yaw.add(steeringRay);
+  });
 
   const internals = new THREE.Group();
   const component = (
@@ -863,6 +995,7 @@ async function buildFormulaScene(
   setHud(hudRoot, "model-state", "MODEL / READY · 125K VTX");
 
   let smoothedBrakeTemperature = 320;
+  let displayedSteering = 0;
   let wheelAngle = 0;
   let mapFrame = 0;
   let vectorFrame = 0;
@@ -962,8 +1095,19 @@ async function buildFormulaScene(
       lastCarPosition.copy(displayCarPosition);
       wheelAngle -=
         ((speed / 3.6) / 0.36) * delta * playbackRate;
-      if (frontWheels) {
+      displayedSteering +=
+        (steering - displayedSteering) * (1 - Math.exp(-delta * 10));
+      if (frontSteeringRigs.length > 0) {
+        const steeringYaw = -THREE.MathUtils.degToRad(displayedSteering);
+        const insideSide = steeringYaw >= 0 ? 1 : -1;
+        frontSteeringRigs.forEach(({ side, yaw, spin }) => {
+          const ackermannFactor = side === insideSide ? 1.08 : 0.92;
+          yaw.rotation.y = steeringYaw * ackermannFactor;
+          spin.rotation.x = wheelAngle;
+        });
+      } else if (frontWheels) {
         frontWheels.rotation.x = frontWheelBaseRotation + wheelAngle;
+        frontWheels.rotation.y = -THREE.MathUtils.degToRad(displayedSteering);
       }
       if (rearWheels) {
         rearWheels.rotation.x = rearWheelBaseRotation + wheelAngle;
@@ -1696,6 +1840,19 @@ function buildBackgammonScene(
         const probability = ((orderedWays / 36) * 100).toFixed(2);
         setHud(
           hudRoot,
+          "dice-caption",
+          `${turn.dice[0]}—${turn.dice[1]}`,
+        );
+        hudRoot
+          ?.querySelectorAll<HTMLElement>("[data-die-index]")
+          .forEach((die, index) => {
+            die.dataset.value = String(turn.dice[index] ?? 1);
+            die.classList.remove("is-rolling");
+            void die.offsetWidth;
+            die.classList.add("is-rolling");
+          });
+        setHud(
+          hudRoot,
           "probability",
           `P({${turn.dice[0]},${turn.dice[1]}}) = ${orderedWays} / 36 = ${probability}%`,
         );
@@ -1797,53 +1954,66 @@ function buildBackgammonScene(
   };
 }
 
-function FormulaHud({
+function FormulaRail({
+  side,
   trackCanvasRef,
 }: {
+  side: "left" | "right";
   trackCanvasRef: RefObject<HTMLCanvasElement | null>;
 }) {
+  if (side === "left") {
+    return (
+      <>
+        <section className="formula-source">
+          <strong>ANTONELLI #12 / SILVERSTONE</strong>
+          <span>SESSION 11322 · LAP 18 · 04 JUL 2026</span>
+          <span>
+            LAP TIME <b data-hud="lap-time">00:00.000</b>
+          </span>
+          <span>
+            PROGRESS <b data-hud="lap-progress">0.0%</b> · REPLAY 1.5×
+          </span>
+          <span className="signal-copy" data-hud="phase">
+            REAL-LAP REPLAY
+          </span>
+        </section>
+
+        <section className="formula-primary" aria-label="Recorded telemetry">
+          <div className="gear-stack">
+            <strong data-hud="gear">–</strong>
+            <span>GEAR</span>
+          </div>
+          <div className="speed-stack">
+            <strong data-hud="speed">–––</strong>
+            <span>KM/H · RECORDED</span>
+          </div>
+          <div className="channel-stack">
+            <span>
+              RPM <b data-hud="rpm">–––––</b>
+            </span>
+            <i className="rpm-trace">
+              <em data-hud="rpm-bar" />
+            </i>
+            <span>
+              BRAKE <b data-hud="brake">OFF</b>
+            </span>
+            <span>
+              THROTTLE <b data-hud="throttle">––%</b>
+            </span>
+            <i className="throttle-trace">
+              <em data-hud="throttle-bar" />
+            </i>
+          </div>
+        </section>
+      </>
+    );
+  }
+
   return (
     <>
-      <section className="formula-primary" aria-label="Recorded telemetry">
-        <div className="gear-stack">
-          <strong data-hud="gear">–</strong>
-          <span>GEAR</span>
-        </div>
-        <div className="speed-stack">
-          <strong data-hud="speed">–––</strong>
-          <span>KM/H · RECORDED</span>
-        </div>
-        <div className="channel-stack">
-          <span>
-            RPM <b data-hud="rpm">–––––</b>
-          </span>
-          <i className="rpm-trace">
-            <em data-hud="rpm-bar" />
-          </i>
-          <span>
-            BRAKE <b data-hud="brake">OFF</b>
-          </span>
-          <span>
-            THROTTLE <b data-hud="throttle">––%</b>
-          </span>
-          <i className="throttle-trace">
-            <em data-hud="throttle-bar" />
-          </i>
-        </div>
-      </section>
-
-      <section className="formula-source">
-        <strong>ANTONELLI #12 / SILVERSTONE</strong>
-        <span>SESSION 11322 · LAP 18 · 04 JUL 2026</span>
-        <span>
-          LAP TIME <b data-hud="lap-time">00:00.000</b>
-        </span>
-        <span>
-          PROGRESS <b data-hud="lap-progress">0.0%</b> · REPLAY 1.5×
-        </span>
-        <span className="signal-copy" data-hud="phase">
-          REAL-LAP REPLAY
-        </span>
+      <section className="track-inset" aria-label="Recorded lap position">
+        <canvas ref={trackCanvasRef} />
+        <span>SILVERSTONE / RECORDED XY</span>
       </section>
 
       <section className="formula-derived">
@@ -1853,17 +2023,8 @@ function FormulaHud({
         <span data-hud="model-state">LOADING / GEOMETRY + LAP</span>
       </section>
 
-      <section className="track-inset" aria-label="Recorded lap position">
-        <canvas ref={trackCanvasRef} />
-        <span>SILVERSTONE / RECORDED XY</span>
-      </section>
-
       <div className="scene-credits">
-        <a
-          href="https://openf1.org/"
-          target="_blank"
-          rel="noreferrer"
-        >
+        <a href="https://openf1.org/" target="_blank" rel="noreferrer">
           DATA / OPENF1
         </a>
         <a
@@ -1878,28 +2039,38 @@ function FormulaHud({
   );
 }
 
-function BackgammonHud() {
+function BackgammonRail({ side }: { side: "left" | "right" }) {
+  if (side === "left") {
+    return (
+      <>
+        <section className="board-primary">
+          <div>
+            <span>TURN</span>
+            <strong data-hud="turn">1 / 5</strong>
+          </div>
+          <div>
+            <span>ON ROLL</span>
+            <strong data-hud="player">WHITE</strong>
+          </div>
+          <div>
+            <span>ROLL</span>
+            <strong className="signal-copy" data-hud="roll">
+              6–1
+            </strong>
+          </div>
+          <p data-hud="move">13/7 · 8/7</p>
+          <small data-hud="move-state">ROLL RESOLVED</small>
+        </section>
+
+        <p className="board-proof">
+          FIVE LEGAL TURNS · ONE DOUBLE · STATE RECALCULATED AFTER EVERY MOVE
+        </p>
+      </>
+    );
+  }
+
   return (
     <>
-      <section className="board-primary">
-        <div>
-          <span>TURN</span>
-          <strong data-hud="turn">1 / 5</strong>
-        </div>
-        <div>
-          <span>ON ROLL</span>
-          <strong data-hud="player">WHITE</strong>
-        </div>
-        <div>
-          <span>ROLL</span>
-          <strong className="signal-copy" data-hud="roll">
-            6–1
-          </strong>
-        </div>
-        <p data-hud="move">13/7 · 8/7</p>
-        <small data-hud="move-state">ROLL RESOLVED</small>
-      </section>
-
       <section className="pip-panel">
         <strong>PIP COUNT / EXACT BOARD STATE</strong>
         <span>
@@ -1977,11 +2148,69 @@ function BackgammonHud() {
           )}
         </div>
       </section>
-
-      <p className="board-proof">
-        FIVE LEGAL TURNS · ONE DOUBLE · STATE RECALCULATED AFTER EVERY MOVE
-      </p>
     </>
+  );
+}
+
+const DIE_PIPS: Record<number, number[]> = {
+  1: [5],
+  2: [1, 9],
+  3: [1, 5, 9],
+  4: [1, 3, 7, 9],
+  5: [1, 3, 5, 7, 9],
+  6: [1, 3, 4, 6, 7, 9],
+};
+
+function DieFace({ value }: { value: number }) {
+  return (
+    <div className={`die-face die-face-${value}`} aria-hidden="true">
+      {Array.from({ length: 9 }, (_, index) => (
+        <i
+          className={DIE_PIPS[value].includes(index + 1) ? "is-pip" : ""}
+          key={index}
+        />
+      ))}
+    </div>
+  );
+}
+
+function DiceVignette() {
+  return (
+    <section className="dice-roll-vignette" aria-label="Live dice roll">
+      <div className="dice-vignette-heading">
+        <span>ROLL / LIVE</span>
+        <strong data-hud="dice-caption">6—1</strong>
+      </div>
+      <div className="dice-vignette-stage">
+        {[6, 1].map((initialValue, dieIndex) => (
+          <div
+            className="die-cube is-rolling"
+            data-die-index={dieIndex}
+            data-value={initialValue}
+            key={dieIndex}
+          >
+            {Array.from({ length: 6 }, (_, face) => (
+              <DieFace value={face + 1} key={face} />
+            ))}
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/*
+ * Telemetry lives in rails outside the WebGL viewport. The center overlay is
+ * deliberately limited to interaction guidance and the dice roll vignette.
+ */
+function SceneOverlay({ mode }: { mode: VisualMode }) {
+  return (
+    <div className="scene-overlay">
+      {mode === 2 && <DiceVignette />}
+      <p className="view-hint">
+        DRAG / ORBIT · SCROLL / ZOOM · DOUBLE-CLICK / RESET
+      </p>
+    </div>
   );
 }
 
@@ -1992,7 +2221,7 @@ export function SystemCanvas({ mode }: { mode: VisualMode }) {
   const viewRef = useRef<SceneView>(
     mode === 1
       ? { yaw: 0.92, pitch: 0.45, distance: 8.35 }
-      : { yaw: 0.676, pitch: 0.79, distance: 12.1 },
+      : { yaw: 0.676, pitch: 0.79, distance: 13.15 },
   );
   const dragRef = useRef({
     active: false,
@@ -2004,7 +2233,7 @@ export function SystemCanvas({ mode }: { mode: VisualMode }) {
     viewRef.current =
       mode === 1
         ? { yaw: 0.92, pitch: 0.45, distance: 8.35 }
-        : { yaw: 0.676, pitch: 0.79, distance: 12.1 };
+        : { yaw: 0.676, pitch: 0.79, distance: 13.15 };
   };
 
   useEffect(() => {
@@ -2107,121 +2336,129 @@ export function SystemCanvas({ mode }: { mode: VisualMode }) {
   }, [mode]);
 
   return (
-    <div
-      className={`system-scene mode-${mode}`}
-      ref={mountRef}
-      tabIndex={0}
-      onPointerDown={(event) => {
-        if ((event.target as HTMLElement).closest("a, button")) return;
-        dragRef.current = {
-          active: true,
-          pointerId: event.pointerId,
-          x: event.clientX,
-          y: event.clientY,
-        };
-        event.currentTarget.setPointerCapture(event.pointerId);
-        event.currentTarget.style.cursor = "grabbing";
-      }}
-      onPointerMove={(event) => {
-        const drag = dragRef.current;
-        if (!drag.active || drag.pointerId !== event.pointerId) return;
-        const deltaX = event.clientX - drag.x;
-        const deltaY = event.clientY - drag.y;
-        viewRef.current.yaw -= deltaX * 0.0065;
-        viewRef.current.pitch = THREE.MathUtils.clamp(
-          viewRef.current.pitch - deltaY * 0.0055,
-          mode === 1 ? 0.12 : 0.28,
-          1.3,
-        );
-        drag.x = event.clientX;
-        drag.y = event.clientY;
-      }}
-      onPointerUp={(event) => {
-        if (dragRef.current.pointerId === event.pointerId) {
+    <div className={`system-frame mode-${mode}`} ref={hudRootRef}>
+      <aside className="telemetry-rail telemetry-rail-left">
+        {mode === 1 ? (
+          <FormulaRail side="left" trackCanvasRef={trackCanvasRef} />
+        ) : (
+          <BackgammonRail side="left" />
+        )}
+      </aside>
+
+      <div
+        className="system-scene"
+        ref={mountRef}
+        tabIndex={0}
+        onPointerDown={(event) => {
+          if ((event.target as HTMLElement).closest("a, button")) return;
+          dragRef.current = {
+            active: true,
+            pointerId: event.pointerId,
+            x: event.clientX,
+            y: event.clientY,
+          };
+          event.currentTarget.setPointerCapture(event.pointerId);
+          event.currentTarget.style.cursor = "grabbing";
+        }}
+        onPointerMove={(event) => {
+          const drag = dragRef.current;
+          if (!drag.active || drag.pointerId !== event.pointerId) return;
+          const deltaX = event.clientX - drag.x;
+          const deltaY = event.clientY - drag.y;
+          viewRef.current.yaw -= deltaX * 0.0065;
+          viewRef.current.pitch = THREE.MathUtils.clamp(
+            viewRef.current.pitch - deltaY * 0.0055,
+            mode === 1 ? 0.12 : 0.28,
+            1.3,
+          );
+          drag.x = event.clientX;
+          drag.y = event.clientY;
+        }}
+        onPointerUp={(event) => {
+          if (dragRef.current.pointerId !== event.pointerId) return;
           dragRef.current.active = false;
           dragRef.current.pointerId = -1;
           if (event.currentTarget.hasPointerCapture(event.pointerId)) {
             event.currentTarget.releasePointerCapture(event.pointerId);
           }
           event.currentTarget.style.cursor = "grab";
-        }
-      }}
-      onPointerCancel={(event) => {
-        dragRef.current.active = false;
-        dragRef.current.pointerId = -1;
-        event.currentTarget.style.cursor = "grab";
-      }}
-      onWheel={(event) => {
-        event.preventDefault();
-        const next =
-          viewRef.current.distance * Math.exp(event.deltaY * 0.001);
-        viewRef.current.distance = THREE.MathUtils.clamp(
-          next,
-          mode === 1 ? 6.4 : 8.5,
-          mode === 1 ? 17 : 21,
-        );
-      }}
-      onDoubleClick={resetView}
-      onKeyDown={(event) => {
-        if (
-          [
-            "ArrowLeft",
-            "ArrowRight",
-            "ArrowUp",
-            "ArrowDown",
-            "+",
-            "=",
-            "-",
-            "0",
-          ].includes(event.key)
-        ) {
+        }}
+        onPointerCancel={(event) => {
+          dragRef.current.active = false;
+          dragRef.current.pointerId = -1;
+          event.currentTarget.style.cursor = "grab";
+        }}
+        onWheel={(event) => {
           event.preventDefault();
-        }
-        if (event.key === "ArrowLeft") viewRef.current.yaw += 0.12;
-        if (event.key === "ArrowRight") viewRef.current.yaw -= 0.12;
-        if (event.key === "ArrowUp") {
-          viewRef.current.pitch = Math.min(
-            1.3,
-            viewRef.current.pitch + 0.08,
-          );
-        }
-        if (event.key === "ArrowDown") {
-          viewRef.current.pitch = Math.max(
-            mode === 1 ? 0.12 : 0.28,
-            viewRef.current.pitch - 0.08,
-          );
-        }
-        if (event.key === "+" || event.key === "=") {
-          viewRef.current.distance = Math.max(
+          const next =
+            viewRef.current.distance * Math.exp(event.deltaY * 0.001);
+          viewRef.current.distance = THREE.MathUtils.clamp(
+            next,
             mode === 1 ? 6.4 : 8.5,
-            viewRef.current.distance - 0.8,
-          );
-        }
-        if (event.key === "-") {
-          viewRef.current.distance = Math.min(
             mode === 1 ? 17 : 21,
-            viewRef.current.distance + 0.8,
           );
+        }}
+        onDoubleClick={resetView}
+        onKeyDown={(event) => {
+          if (
+            [
+              "ArrowLeft",
+              "ArrowRight",
+              "ArrowUp",
+              "ArrowDown",
+              "+",
+              "=",
+              "-",
+              "0",
+            ].includes(event.key)
+          ) {
+            event.preventDefault();
+          }
+          if (event.key === "ArrowLeft") viewRef.current.yaw += 0.12;
+          if (event.key === "ArrowRight") viewRef.current.yaw -= 0.12;
+          if (event.key === "ArrowUp") {
+            viewRef.current.pitch = Math.min(
+              1.3,
+              viewRef.current.pitch + 0.08,
+            );
+          }
+          if (event.key === "ArrowDown") {
+            viewRef.current.pitch = Math.max(
+              mode === 1 ? 0.12 : 0.28,
+              viewRef.current.pitch - 0.08,
+            );
+          }
+          if (event.key === "+" || event.key === "=") {
+            viewRef.current.distance = Math.max(
+              mode === 1 ? 6.4 : 8.5,
+              viewRef.current.distance - 0.8,
+            );
+          }
+          if (event.key === "-") {
+            viewRef.current.distance = Math.min(
+              mode === 1 ? 17 : 21,
+              viewRef.current.distance + 0.8,
+            );
+          }
+          if (event.key === "0") resetView();
+        }}
+        aria-label={
+          mode === 1
+            ? "Interactive Formula car replaying recorded Silverstone telemetry. Drag to orbit and scroll to zoom."
+            : "Interactive five-turn backgammon simulation with exact state analysis. Drag to orbit and scroll to zoom."
         }
-        if (event.key === "0") resetView();
-      }}
-      aria-label={
-        mode === 1
-          ? "Interactive Formula car replaying recorded Silverstone telemetry. Drag to orbit and scroll to zoom."
-          : "Interactive five-turn backgammon simulation with exact state analysis. Drag to orbit and scroll to zoom."
-      }
-      role="application"
-    >
-      <div className="scene-overlay" ref={hudRootRef}>
-        {mode === 1 ? (
-          <FormulaHud trackCanvasRef={trackCanvasRef} />
-        ) : (
-          <BackgammonHud />
-        )}
-        <p className="view-hint">
-          DRAG / ORBIT · SCROLL / ZOOM · DOUBLE-CLICK / RESET
-        </p>
+        role="application"
+      >
+        <SceneOverlay mode={mode} />
       </div>
+
+      <aside className="telemetry-rail telemetry-rail-right">
+        {mode === 1 ? (
+          <FormulaRail side="right" trackCanvasRef={trackCanvasRef} />
+        ) : (
+          <BackgammonRail side="right" />
+        )}
+      </aside>
     </div>
   );
 }
