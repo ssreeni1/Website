@@ -114,7 +114,8 @@ main {
 }
 
 .topbar-nav a,
-.topbar-nav button {
+.topbar-nav button,
+.topbar-back {
   min-width: 78px;
   height: 30px;
   padding: 0 12px;
@@ -135,13 +136,25 @@ main {
 .topbar-nav a:hover,
 .topbar-nav button:hover,
 .topbar-nav a:focus-visible,
-.topbar-nav button:focus-visible {
+.topbar-nav button:focus-visible,
+.topbar-back:hover,
+.topbar-back:focus-visible {
   color: var(--red);
   border-color: var(--red);
   outline: 0;
 }
 
 .topbar-nav span {
+  margin-left: 4px;
+}
+
+.topbar-back {
+  position: absolute;
+  top: 15px;
+  right: 0;
+}
+
+.topbar-back span {
   margin-left: 4px;
 }
 
@@ -1317,7 +1330,8 @@ main {
   }
 
   .topbar-nav a,
-  .topbar-nav button {
+  .topbar-nav button,
+  .topbar-back {
     min-width: 0;
     height: 28px;
     padding: 0 7px;
@@ -1325,6 +1339,14 @@ main {
   }
 
   .topbar-nav span {
+    margin-left: 2px;
+  }
+
+  .topbar-back {
+    top: 15px;
+  }
+
+  .topbar-back span {
     margin-left: 2px;
   }
 
