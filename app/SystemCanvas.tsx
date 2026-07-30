@@ -917,21 +917,6 @@ async function buildFormulaScene(
   );
   root.add(trajectoryPrediction, predictionSamples);
 
-  const velocityGeometry = new THREE.BufferGeometry().setFromPoints([
-    new THREE.Vector3(0, 1.02, 0),
-    new THREE.Vector3(0, 1.02, 2.7),
-  ]);
-  const velocityVector = new THREE.Line(
-    velocityGeometry,
-    new THREE.LineBasicMaterial({
-      color: RED,
-      transparent: true,
-      opacity: 0.72,
-      depthWrite: false,
-    }),
-  );
-  carRig.add(velocityVector);
-
   const lateralGeometry = new THREE.BufferGeometry().setFromPoints([
     new THREE.Vector3(0, 0.88, 0),
     new THREE.Vector3(0, 0.88, 0),
@@ -1157,11 +1142,6 @@ async function buildFormulaScene(
         trajectoryPrediction.computeLineDistances();
       }
 
-      const velocityPositions = velocityGeometry.getAttribute(
-        "position",
-      ) as THREE.BufferAttribute;
-      velocityPositions.setXYZ(1, 0, 1.02, 1.55 + speed / 92);
-      velocityPositions.needsUpdate = true;
       const lateralPositions = lateralGeometry.getAttribute(
         "position",
       ) as THREE.BufferAttribute;
