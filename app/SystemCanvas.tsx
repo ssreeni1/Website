@@ -50,8 +50,22 @@ type SceneController = {
   update: (
     elapsed: number,
     delta: number,
-    pointer: { x: number; y: number },
+    view: SceneView,
   ) => void;
+};
+
+type SceneView = {
+  yaw: number;
+  pitch: number;
+  distance: number;
+};
+
+type SmoothLocation = {
+  x: number;
+  y: number;
+  dx: number;
+  dy: number;
+  index: number;
 };
 
 const INK = 0x171717;
@@ -104,6 +118,108 @@ function sampleWindow<T extends { t: number }>(
 
 function lerp(a: number, b: number, amount: number) {
   return a + (b - a) * amount;
+}
+
+function smoothLocation(
+  samples: LocationSample[],
+  time: number,
+  lapDuration: number,
+): SmoothLocation {
+  const first = samples[0];
+  const last = samples[samples.length - 1];
+  if (time <= first.t) {
+    const next = samples[1] ?? first;
+    return {
+      x: first.x,
+      y: first.y,
+      dx: next.x - first.x,
+      dy: next.y - first.y,
+      index: 0,
+    };
+  }
+
+  let index: number;
+  let p0: LocationSample;
+  let p1: LocationSample;
+  let p2: LocationSample;
+  let p3: LocationSample;
+  let segmentStart: number;
+  let segmentEnd: number;
+
+  if (time >= last.t) {
+    index = samples.length - 1;
+    p0 = samples[Math.max(0, samples.length - 2)];
+    p1 = last;
+    p2 = { ...first, t: lapDuration };
+    const second = samples[1] ?? first;
+    p3 = {
+      ...second,
+      t: lapDuration + Math.max(1, second.t - first.t),
+    };
+    segmentStart = last.t;
+    segmentEnd = lapDuration;
+  } else {
+    const window = sampleWindow(samples, time);
+    index = window.index;
+    p0 = samples[Math.max(0, index - 1)];
+    p1 = samples[index];
+    p2 = samples[index + 1];
+    p3 =
+      index + 2 < samples.length
+        ? samples[index + 2]
+        : { ...first, t: lapDuration };
+    segmentStart = p1.t;
+    segmentEnd = p2.t;
+  }
+
+  const duration = Math.max(1, segmentEnd - segmentStart);
+  const amount = THREE.MathUtils.clamp(
+    (time - segmentStart) / duration,
+    0,
+    1,
+  );
+  const amount2 = amount * amount;
+  const amount3 = amount2 * amount;
+  const h00 = 2 * amount3 - 3 * amount2 + 1;
+  const h10 = amount3 - 2 * amount2 + amount;
+  const h01 = -2 * amount3 + 3 * amount2;
+  const h11 = amount3 - amount2;
+  const dh00 = 6 * amount2 - 6 * amount;
+  const dh10 = 3 * amount2 - 4 * amount + 1;
+  const dh01 = -6 * amount2 + 6 * amount;
+  const dh11 = 3 * amount2 - 2 * amount;
+  const p0Time = p0.t > p1.t ? p0.t - lapDuration : p0.t;
+  const p3Time = p3.t < p2.t ? p3.t + lapDuration : p3.t;
+  const tangent1Scale = Math.max(1, p2.t - p0Time);
+  const tangent2Scale = Math.max(1, p3Time - p1.t);
+  const tangent1X = (p2.x - p0.x) / tangent1Scale;
+  const tangent1Y = (p2.y - p0.y) / tangent1Scale;
+  const tangent2X = (p3.x - p1.x) / tangent2Scale;
+  const tangent2Y = (p3.y - p1.y) / tangent2Scale;
+
+  return {
+    x:
+      h00 * p1.x +
+      h10 * duration * tangent1X +
+      h01 * p2.x +
+      h11 * duration * tangent2X,
+    y:
+      h00 * p1.y +
+      h10 * duration * tangent1Y +
+      h01 * p2.y +
+      h11 * duration * tangent2Y,
+    dx:
+      dh00 * p1.x +
+      dh10 * duration * tangent1X +
+      dh01 * p2.x +
+      dh11 * duration * tangent2X,
+    dy:
+      dh00 * p1.y +
+      dh10 * duration * tangent1Y +
+      dh01 * p2.y +
+      dh11 * duration * tangent2Y,
+    index,
+  };
 }
 
 function lineFromPoints(
@@ -198,8 +314,9 @@ function buildRoadRibbon(locations: LocationSample[]) {
   const leftPoints: THREE.Vector3[] = [];
   const rightPoints: THREE.Vector3[] = [];
   centerPoints.forEach((point, index) => {
-    const previous = centerPoints[Math.max(0, index - 1)];
-    const next = centerPoints[Math.min(centerPoints.length - 1, index + 1)];
+    const previous =
+      centerPoints[(index - 1 + centerPoints.length) % centerPoints.length];
+    const next = centerPoints[(index + 1) % centerPoints.length];
     const tangentX = next.x - previous.x;
     const tangentZ = next.z - previous.z;
     const length = Math.max(0.001, Math.hypot(tangentX, tangentZ));
@@ -225,6 +342,8 @@ function buildRoadRibbon(locations: LocationSample[]) {
     const base = i * 2;
     indices.push(base, base + 1, base + 2, base + 1, base + 3, base + 2);
   }
+  const finalBase = (sampleCount - 1) * 2;
+  indices.push(finalBase, finalBase + 1, 0, finalBase + 1, 1, 0);
   geometry.setIndex(indices);
   geometry.computeVertexNormals();
 
@@ -240,10 +359,13 @@ function buildRoadRibbon(locations: LocationSample[]) {
       depthWrite: false,
     }),
   );
-  const left = lineFromPoints(leftPoints, INK, 0.34);
-  const right = lineFromPoints(rightPoints, INK, 0.34);
+  const left = lineFromPoints([...leftPoints, leftPoints[0]], INK, 0.34);
+  const right = lineFromPoints([...rightPoints, rightPoints[0]], INK, 0.34);
   const center = new THREE.Line(
-    new THREE.BufferGeometry().setFromPoints(centerPoints),
+    new THREE.BufferGeometry().setFromPoints([
+      ...centerPoints,
+      centerPoints[0],
+    ]),
     new THREE.LineDashedMaterial({
       color: RED,
       dashSize: 3.2,
@@ -558,8 +680,7 @@ async function buildFormulaScene(
   const desiredLook = new THREE.Vector3();
   const cameraLook = carPosition
     .clone()
-    .addScaledVector(forward, 1.65)
-    .add(new THREE.Vector3(0, 0.72, 0));
+    .add(new THREE.Vector3(0, 0.62, 0));
   carRig.position.copy(carPosition);
   carRig.rotation.y = Math.atan2(forward.x, forward.z);
   camera.position
@@ -573,43 +694,64 @@ async function buildFormulaScene(
   let smoothedBrakeTemperature = 320;
   let wheelAngle = 0;
   let mapFrame = 0;
+  let hudFrame = 0;
+  const lapDuration = telemetry.source.lapDurationMs;
+  const motionDuration = Math.max(
+    lapDuration,
+    telemetry.location[telemetry.location.length - 1].t + 360,
+  );
+  const lastCarPosition = carPosition.clone();
+  const carTranslation = new THREE.Vector3();
   return {
     root,
-    update: (elapsed, delta, pointer) => {
-      const lapDuration = telemetry.source.lapDurationMs;
-      const replayTime =
-        (elapsed * 1000 * telemetry.source.replayRate) % lapDuration;
+    update: (elapsed, delta, view) => {
+      const motionTime =
+        (elapsed * 1000 * telemetry.source.replayRate) % motionDuration;
+      const replayTime = Math.min(motionTime, lapDuration);
       const car = sampleWindow(telemetry.car, replayTime);
-      const location = sampleWindow(telemetry.location, replayTime);
+      const location = smoothLocation(
+        telemetry.location,
+        motionTime,
+        motionDuration,
+      );
       const speed = lerp(car.a.speed, car.b.speed, car.mix);
       const rpm = lerp(car.a.rpm, car.b.rpm, car.mix);
       const throttle = lerp(car.a.throttle, car.b.throttle, car.mix);
-      const currentX = lerp(location.a.x, location.b.x, location.mix);
-      const currentY = lerp(location.a.y, location.b.y, location.mix);
-
-      const locations = telemetry.location;
-      const before = locations[Math.max(0, location.index - 3)];
-      const middle = locations[location.index];
-      const after =
-        locations[Math.min(locations.length - 1, location.index + 3)];
-      const incoming = new THREE.Vector2(
-        middle.x - before.x,
-        middle.y - before.y,
-      ).normalize();
-      const outgoing = new THREE.Vector2(
-        after.x - middle.x,
-        after.y - middle.y,
-      ).normalize();
-      const signedTurn =
-        Math.atan2(incoming.x * outgoing.y - incoming.y * outgoing.x,
-          incoming.dot(outgoing));
-      const incomingLengthMeters =
-        Math.hypot(middle.x - before.x, middle.y - before.y) * 0.1;
-      const outgoingLengthMeters =
-        Math.hypot(after.x - middle.x, after.y - middle.y) * 0.1;
+      const previousLocation = smoothLocation(
+        telemetry.location,
+        (motionTime - 140 + motionDuration) % motionDuration,
+        motionDuration,
+      );
+      const nextLocation = smoothLocation(
+        telemetry.location,
+        (motionTime + 140) % motionDuration,
+        motionDuration,
+      );
+      const incomingLength = Math.max(
+        0.001,
+        Math.hypot(
+          location.x - previousLocation.x,
+          location.y - previousLocation.y,
+        ),
+      );
+      const outgoingLength = Math.max(
+        0.001,
+        Math.hypot(
+          nextLocation.x - location.x,
+          nextLocation.y - location.y,
+        ),
+      );
+      const incomingX = (location.x - previousLocation.x) / incomingLength;
+      const incomingY = (location.y - previousLocation.y) / incomingLength;
+      const outgoingX = (nextLocation.x - location.x) / outgoingLength;
+      const outgoingY = (nextLocation.y - location.y) / outgoingLength;
+      const signedTurn = Math.atan2(
+        incomingX * outgoingY - incomingY * outgoingX,
+        incomingX * outgoingX + incomingY * outgoingY,
+      );
       const localArcLengthMeters = Math.max(
         1,
-        (incomingLengthMeters + outgoingLengthMeters) / 2,
+        ((incomingLength + outgoingLength) * 0.1) / 2,
       );
       const curvature = signedTurn / localArcLengthMeters;
       const steering = THREE.MathUtils.clamp(
@@ -624,16 +766,18 @@ async function buildFormulaScene(
       );
 
       carPosition.set(
-        (currentX - road.originX) * 0.1,
+        (location.x - road.originX) * 0.1,
         0.03,
-        (currentY - road.originY) * 0.1,
+        (location.y - road.originY) * 0.1,
       );
-      forward
-        .set(after.x - before.x, 0, after.y - before.y)
-        .normalize();
+      forward.set(location.dx, 0, location.dy).normalize();
       right.set(forward.z, 0, -forward.x);
       carRig.position.copy(carPosition);
       carRig.rotation.y = Math.atan2(forward.x, forward.z);
+      carTranslation.copy(carPosition).sub(lastCarPosition);
+      camera.position.add(carTranslation);
+      cameraLook.add(carTranslation);
+      lastCarPosition.copy(carPosition);
       wheelAngle -=
         ((speed / 3.6) / 0.36) * delta * telemetry.source.replayRate;
       if (frontWheels) {
@@ -643,16 +787,22 @@ async function buildFormulaScene(
         rearWheels.rotation.x = rearWheelBaseRotation + wheelAngle;
       }
 
+      const horizontalDistance =
+        view.distance * Math.cos(view.pitch);
       desiredCamera
         .copy(carPosition)
-        .addScaledVector(forward, -7.5)
-        .addScaledVector(right, 4.15 + pointer.x * 1.2);
-      desiredCamera.y += 2.75 + pointer.y * 0.55;
-      desiredLook
-        .copy(carPosition)
-        .addScaledVector(forward, 1.65);
-      desiredLook.y += 0.72;
-      const cameraDamping = 1 - Math.exp(-delta * 48);
+        .addScaledVector(
+          forward,
+          -Math.cos(view.yaw) * horizontalDistance,
+        )
+        .addScaledVector(
+          right,
+          Math.sin(view.yaw) * horizontalDistance,
+        );
+      desiredCamera.y += Math.sin(view.pitch) * view.distance;
+      desiredLook.copy(carPosition);
+      desiredLook.y += 0.62;
+      const cameraDamping = 1 - Math.exp(-delta * 36);
       camera.position.lerp(desiredCamera, cameraDamping);
       cameraLook.lerp(desiredLook, cameraDamping);
       camera.lookAt(cameraLook);
@@ -707,53 +857,56 @@ async function buildFormulaScene(
           carRig.rotation.x) *
         0.06;
 
-      setHud(hudRoot, "gear", String(car.a.gear));
-      setHud(hudRoot, "speed", `${Math.round(speed)}`);
-      setHud(hudRoot, "rpm", `${Math.round(rpm / 10) * 10}`);
-      setHudWidth(hudRoot, "rpm-bar", ((rpm - 5000) / 10000) * 100);
-      setHud(hudRoot, "throttle", `${Math.round(throttle)}%`);
-      setHudWidth(hudRoot, "throttle-bar", throttle);
-      setHud(hudRoot, "brake", braking ? "ON" : "OFF");
-      setHud(
-        hudRoot,
-        "lap-time",
-        `${Math.floor(replayTime / 60000)
-          .toString()
-          .padStart(2, "0")}:${((replayTime % 60000) / 1000)
-          .toFixed(3)
-          .padStart(6, "0")}`,
-      );
-      setHud(
-        hudRoot,
-        "lap-progress",
-        `${((replayTime / lapDuration) * 100).toFixed(1)}%`,
-      );
-      setHud(
-        hudRoot,
-        "derived",
-        `${steering >= 0 ? "+" : ""}${steering.toFixed(1)}° STEER · ${lateralG.toFixed(1)}G LAT`,
-      );
-      setHud(
-        hudRoot,
-        "temperature",
-        `${Math.round(smoothedBrakeTemperature)}°C / SIM`,
-      );
-      setHud(
-        hudRoot,
-        "phase",
-        scanActive
-          ? scanProgress < 0.33
-            ? "SCAN / FRONT SUSPENSION"
-            : scanProgress < 0.67
-              ? "SCAN / ENERGY STORE"
-              : "SCAN / GEARBOX CASING"
-          : braking
-            ? "BRAKING EVENT"
-            : "REAL-LAP REPLAY",
-      );
+      hudFrame += 1;
+      if (hudFrame % 3 === 0) {
+        setHud(hudRoot, "gear", String(car.a.gear));
+        setHud(hudRoot, "speed", `${Math.round(speed)}`);
+        setHud(hudRoot, "rpm", `${Math.round(rpm / 10) * 10}`);
+        setHudWidth(hudRoot, "rpm-bar", ((rpm - 5000) / 10000) * 100);
+        setHud(hudRoot, "throttle", `${Math.round(throttle)}%`);
+        setHudWidth(hudRoot, "throttle-bar", throttle);
+        setHud(hudRoot, "brake", braking ? "ON" : "OFF");
+        setHud(
+          hudRoot,
+          "lap-time",
+          `${Math.floor(replayTime / 60000)
+            .toString()
+            .padStart(2, "0")}:${((replayTime % 60000) / 1000)
+            .toFixed(3)
+            .padStart(6, "0")}`,
+        );
+        setHud(
+          hudRoot,
+          "lap-progress",
+          `${((motionTime / motionDuration) * 100).toFixed(1)}%`,
+        );
+        setHud(
+          hudRoot,
+          "derived",
+          `${steering >= 0 ? "+" : ""}${steering.toFixed(1)}° STEER · ${lateralG.toFixed(1)}G LAT`,
+        );
+        setHud(
+          hudRoot,
+          "temperature",
+          `${Math.round(smoothedBrakeTemperature)}°C / SIM`,
+        );
+        setHud(
+          hudRoot,
+          "phase",
+          scanActive
+            ? scanProgress < 0.33
+              ? "SCAN / FRONT SUSPENSION"
+              : scanProgress < 0.67
+                ? "SCAN / ENERGY STORE"
+                : "SCAN / GEARBOX CASING"
+            : braking
+              ? "BRAKING EVENT"
+              : "REAL-LAP REPLAY",
+        );
+      }
 
       mapFrame += 1;
-      if (mapFrame % 3 === 0) {
+      if (mapFrame % 6 === 0) {
         drawTrackMap(trackCanvas, telemetry.location, location.index);
       }
     },
@@ -776,6 +929,46 @@ type BackgammonTurn = {
   notation: string;
   moves: Array<{ from: number; to: number; die: number }>;
 };
+
+function getBoardMetrics(
+  player: Player,
+  pieces: BackgammonPiece[],
+  currentPoints: Map<BackgammonPiece, number>,
+) {
+  const counts = new Map<number, number>();
+  pieces
+    .filter((piece) => piece.player === player)
+    .forEach((piece) => {
+      const point = currentPoints.get(piece) ?? piece.initialPoint;
+      counts.set(point, (counts.get(point) ?? 0) + 1);
+    });
+  const made = [...counts.values()].filter((count) => count >= 2).length;
+  const blots = [...counts.values()].filter((count) => count === 1).length;
+  const stacks = [...counts.values()].filter((count) => count >= 3).length;
+  const home = [...counts.entries()].reduce(
+    (total, [point, count]) =>
+      total +
+      (player === "WHITE"
+        ? point <= 6
+          ? count
+          : 0
+        : point >= 19
+          ? count
+          : 0),
+    0,
+  );
+  let prime = 0;
+  let run = 0;
+  for (let point = 1; point <= 24; point += 1) {
+    if ((counts.get(point) ?? 0) >= 2) {
+      run += 1;
+      prime = Math.max(prime, run);
+    } else {
+      run = 0;
+    }
+  }
+  return { made, blots, stacks, home, prime };
+}
 
 function buildBackgammonScene(
   scene: THREE.Scene,
@@ -804,22 +997,77 @@ function buildBackgammonScene(
 
   const board = technicalSolid(new THREE.BoxGeometry(8.55, 0.3, 5.4), {
     color: 0xededE8,
-    edgeOpacity: 0.72,
+    opacity: 0.12,
+    edgeOpacity: 0.78,
   });
   root.add(board);
   const surface = technicalSolid(new THREE.BoxGeometry(8.1, 0.075, 4.95), {
     color: PAPER,
-    edgeOpacity: 0.24,
+    opacity: 0.08,
+    edgeOpacity: 0.38,
   });
   surface.position.y = 0.19;
   root.add(surface);
 
   const bar = technicalSolid(new THREE.BoxGeometry(0.24, 0.16, 4.95), {
     color: 0xe6e6e0,
-    edgeOpacity: 0.46,
+    opacity: 0.1,
+    edgeOpacity: 0.64,
   });
   bar.position.y = 0.28;
   root.add(bar);
+
+  const surfaceGrid = new THREE.GridHelper(8.1, 24, RED, INK);
+  surfaceGrid.position.y = 0.242;
+  surfaceGrid.scale.z = 0.61;
+  const surfaceGridMaterials = Array.isArray(surfaceGrid.material)
+    ? surfaceGrid.material
+    : [surfaceGrid.material];
+  surfaceGridMaterials.forEach((material, index) => {
+    material.transparent = true;
+    material.opacity = index === 0 ? 0.16 : 0.075;
+    material.depthWrite = false;
+  });
+  root.add(surfaceGrid);
+
+  const instrumentFrame = new THREE.LineSegments(
+    new THREE.EdgesGeometry(new THREE.BoxGeometry(9.15, 0.9, 5.95)),
+    new THREE.LineBasicMaterial({
+      color: INK,
+      transparent: true,
+      opacity: 0.12,
+      depthWrite: false,
+    }),
+  );
+  instrumentFrame.position.y = 0.28;
+  root.add(instrumentFrame);
+
+  [
+    [-4.28, -2.67],
+    [-4.28, 2.67],
+    [4.28, -2.67],
+    [4.28, 2.67],
+  ].forEach(([x, z], index) => {
+    const mast = lineFromPoints(
+      [
+        new THREE.Vector3(x, 0.22, z),
+        new THREE.Vector3(x, 0.83, z),
+      ],
+      index === 3 ? RED : INK,
+      index === 3 ? 0.64 : 0.22,
+    );
+    const node = new THREE.Mesh(
+      new THREE.SphereGeometry(0.045, 9, 7),
+      new THREE.MeshBasicMaterial({
+        color: index === 3 ? RED : INK,
+        transparent: true,
+        opacity: index === 3 ? 0.92 : 0.42,
+        depthWrite: false,
+      }),
+    );
+    node.position.set(x, 0.83, z);
+    root.add(mast, node);
+  });
 
   const pointGeometry = (
     x0: number,
@@ -855,8 +1103,8 @@ function buildBackgammonScene(
         pointGeometry(center, center + slot, -2.42, -0.48),
         {
           color: index % 2 === 0 ? 0xd8d8d1 : 0xebebe6,
-          opacity: 0.58,
-          edgeOpacity: index % 2 === 0 ? 0.46 : 0.24,
+          opacity: index % 2 === 0 ? 0.14 : 0.07,
+          edgeOpacity: index % 2 === 0 ? 0.54 : 0.28,
           threshold: 1,
         },
       );
@@ -864,8 +1112,8 @@ function buildBackgammonScene(
         pointGeometry(center, center + slot, 2.42, 0.48),
         {
           color: index % 2 === 0 ? 0xebebe6 : 0xd8d8d1,
-          opacity: 0.58,
-          edgeOpacity: index % 2 === 0 ? 0.24 : 0.46,
+          opacity: index % 2 === 0 ? 0.07 : 0.14,
+          edgeOpacity: index % 2 === 0 ? 0.28 : 0.54,
           threshold: 1,
         },
       );
@@ -891,6 +1139,27 @@ function buildBackgammonScene(
     );
   };
 
+  for (let point = 1; point <= 24; point += 1) {
+    const position = pointPosition(point, 0);
+    const outerZ = point >= 13 ? 2.54 : -2.54;
+    const inwardZ = outerZ + (point >= 13 ? -0.16 : 0.16);
+    const tick = new THREE.LineSegments(
+      new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(position.x - 0.1, 0.29, outerZ),
+        new THREE.Vector3(position.x + 0.1, 0.29, outerZ),
+        new THREE.Vector3(position.x, 0.29, outerZ),
+        new THREE.Vector3(position.x, 0.29, inwardZ),
+      ]),
+      new THREE.LineBasicMaterial({
+        color: point % 6 === 0 ? RED : INK,
+        transparent: true,
+        opacity: point % 6 === 0 ? 0.62 : 0.3,
+        depthWrite: false,
+      }),
+    );
+    root.add(tick);
+  }
+
   const initialPoints: Record<Player, number[]> = {
     WHITE: [24, 24, 13, 13, 13, 13, 13, 8, 8, 8, 6, 6, 6, 6, 6],
     BLACK: [1, 1, 12, 12, 12, 12, 12, 17, 17, 17, 19, 19, 19, 19, 19],
@@ -904,6 +1173,9 @@ function buildBackgammonScene(
         color: player === "BLACK" ? INK : 0xe4e4de,
         roughness: player === "BLACK" ? 0.72 : 0.9,
         metalness: player === "BLACK" ? 0.08 : 0,
+        transparent: true,
+        opacity: player === "BLACK" ? 0.72 : 0.34,
+        depthWrite: player === "BLACK",
       });
       const checker = new THREE.Group();
       checker.add(
@@ -917,6 +1189,18 @@ function buildBackgammonScene(
           }),
         ),
       );
+      const registerRing = new THREE.Mesh(
+        new THREE.TorusGeometry(0.135, 0.008, 5, 28),
+        new THREE.MeshBasicMaterial({
+          color: player === "BLACK" ? RED : INK,
+          transparent: true,
+          opacity: player === "BLACK" ? 0.42 : 0.48,
+          depthWrite: false,
+        }),
+      );
+      registerRing.rotation.x = Math.PI / 2;
+      registerRing.position.y = 0.068;
+      checker.add(registerRing);
       const stackIndex = allPoints
         .slice(0, pieceIndex)
         .filter((value) => value === point).length;
@@ -953,11 +1237,13 @@ function buildBackgammonScene(
     },
     {
       player: "WHITE",
-      dice: [4, 2],
-      notation: "24/20 · 13/11",
+      dice: [4, 4],
+      notation: "24/20(2) · 13/9(2)",
       moves: [
         { from: 24, to: 20, die: 4 },
-        { from: 13, to: 11, die: 2 },
+        { from: 24, to: 20, die: 4 },
+        { from: 13, to: 9, die: 4 },
+        { from: 13, to: 9, die: 4 },
       ],
     },
     {
@@ -983,6 +1269,8 @@ function buildBackgammonScene(
   const simulatedPoints = new Map<BackgammonPiece, number>(
     pieces.map((piece) => [piece, piece.initialPoint]),
   );
+  const turnDuration = 5;
+  const cycleDuration = turnDuration * turnSequence.length;
   const timeline: Array<{
     turn: number;
     piece: BackgammonPiece;
@@ -1011,7 +1299,10 @@ function buildBackgammonScene(
       const end = pointPosition(move.to, targetCount);
       const midpoint = start.clone().lerp(end, 0.5);
       midpoint.y = 1.25 + Math.min(0.68, start.distanceTo(end) * 0.075);
-      const startsAt = turnIndex * 4.35 + 0.78 + moveIndex * 1.38;
+      const startsAt =
+        turnIndex * turnDuration +
+        0.62 +
+        moveIndex * (turn.moves.length === 4 ? 0.96 : 1.32);
       timeline.push({
         turn: turnIndex,
         piece,
@@ -1021,7 +1312,7 @@ function buildBackgammonScene(
         end,
         curve: new THREE.CatmullRomCurve3([start, midpoint, end]),
         startsAt,
-        endsAt: startsAt + 1.04,
+        endsAt: startsAt + (turn.moves.length === 4 ? 0.78 : 1.02),
       });
       simulatedPoints.set(piece, move.to);
     });
@@ -1048,6 +1339,7 @@ function buildBackgammonScene(
     new THREE.BoxGeometry(1.55, 0.08, 1.04),
     {
       color: 0xe8e8e2,
+      opacity: 0.1,
       edgeOpacity: 0.58,
     },
   );
@@ -1058,6 +1350,7 @@ function buildBackgammonScene(
     const die = technicalSolid(new THREE.BoxGeometry(0.5, 0.5, 0.5), {
       color: PAPER,
       edgeColor: index === 0 ? RED : INK,
+      opacity: 0.22,
       edgeOpacity: 0.82,
     });
     const pips = pipPositions.map(([px, pz]) => {
@@ -1121,7 +1414,7 @@ function buildBackgammonScene(
   );
   root.add(scanLine);
 
-  const targetMarkers = [0, 1].map(() => {
+  const targetMarkers = [0, 1, 2, 3].map(() => {
     const marker = technicalSolid(
       new THREE.TorusGeometry(0.29, 0.014, 6, 30),
       {
@@ -1137,7 +1430,9 @@ function buildBackgammonScene(
   });
 
   camera.position.set(5.9, 9.35, 7.35);
-  camera.lookAt(0.35, 0.2, 0);
+  const boardTarget = new THREE.Vector3(0.35, 0.2, 0);
+  const desiredBoardCamera = new THREE.Vector3();
+  camera.lookAt(boardTarget);
 
   let lastTurnIndex = -1;
   let lastMoveIndex = -1;
@@ -1145,12 +1440,27 @@ function buildBackgammonScene(
 
   return {
     root,
-    update: (elapsed) => {
-      const cycleTime = elapsed % 22.8;
-      const turnIndex = Math.min(4, Math.floor(cycleTime / 4.35));
+    update: (elapsed, delta, view) => {
+      const horizontalDistance =
+        view.distance * Math.cos(view.pitch);
+      desiredBoardCamera.set(
+        Math.sin(view.yaw) * horizontalDistance + boardTarget.x,
+        Math.sin(view.pitch) * view.distance + boardTarget.y,
+        Math.cos(view.yaw) * horizontalDistance + boardTarget.z,
+      );
+      const orbitDamping = 1 - Math.exp(-delta * 18);
+      camera.position.lerp(desiredBoardCamera, orbitDamping);
+      camera.lookAt(boardTarget);
+
+      const cycleTime = elapsed % cycleDuration;
+      const turnIndex = Math.min(
+        turnSequence.length - 1,
+        Math.floor(cycleTime / turnDuration),
+      );
       const turn = turnSequence[turnIndex];
-      const turnTime = cycleTime - turnIndex * 4.35;
-      scanLine.position.z = -2.35 + (turnTime / 4.35) * 4.7;
+      const turnTime = cycleTime - turnIndex * turnDuration;
+      scanLine.position.z =
+        -2.35 + (turnTime / turnDuration) * 4.7;
 
       pieces.forEach((piece) => {
         piece.object.position.copy(piece.initialPosition);
@@ -1200,10 +1510,19 @@ function buildBackgammonScene(
       if (lastTurnIndex !== turnIndex) {
         setDieValue(dice[0], turn.dice[0]);
         setDieValue(dice[1], turn.dice[1]);
+        const orderedWays = turn.dice[0] === turn.dice[1] ? 1 : 2;
+        const probability = ((orderedWays / 36) * 100).toFixed(2);
         setHud(
           hudRoot,
           "probability",
-          `P({${turn.dice[0]},${turn.dice[1]}}) = 2 / 36 = 5.56%`,
+          `P({${turn.dice[0]},${turn.dice[1]}}) = ${orderedWays} / 36 = ${probability}%`,
+        );
+        setHud(
+          hudRoot,
+          "roll-ways",
+          `${orderedWays} ORDERED ${orderedWays === 1 ? "WAY" : "WAYS"} · ${
+            orderedWays === 1 ? "DOUBLE" : "ASYMMETRIC"
+          }`,
         );
         hudRoot
           ?.querySelectorAll<HTMLElement>("[data-roll]")
@@ -1217,9 +1536,13 @@ function buildBackgammonScene(
             ?.classList.add("is-active");
         });
 
+        targetMarkers.forEach((marker) => {
+          marker.visible = false;
+        });
         timeline
           .filter((move) => move.turn === turnIndex)
           .forEach((move, index) => {
+            targetMarkers[index].visible = true;
             targetMarkers[index].position.copy(move.end);
             targetMarkers[index].position.y = 0.275;
           });
@@ -1252,6 +1575,16 @@ function buildBackgammonScene(
             total + (25 - (currentPoints.get(piece) ?? 25)),
           0,
         );
+      const whiteMetrics = getBoardMetrics(
+        "WHITE",
+        pieces,
+        currentPoints,
+      );
+      const blackMetrics = getBoardMetrics(
+        "BLACK",
+        pieces,
+        currentPoints,
+      );
 
       setHud(hudRoot, "turn", `${turnIndex + 1} / 5`);
       setHud(hudRoot, "player", turn.player);
@@ -1260,7 +1593,7 @@ function buildBackgammonScene(
         hudRoot,
         "move",
         activeMoveIndex >= 0
-          ? `MOVE ${activeMoveWithinTurn + 1}/2 · ${timeline[activeMoveIndex].from}/${timeline[activeMoveIndex].to}`
+          ? `MOVE ${activeMoveWithinTurn + 1}/${turn.moves.length} · ${timeline[activeMoveIndex].from}/${timeline[activeMoveIndex].to}`
           : `PLAY · ${turn.notation}`,
       );
       setHud(hudRoot, "pip-white", String(whitePips));
@@ -1270,6 +1603,16 @@ function buildBackgammonScene(
         "pip-diff",
         `${whitePips - blackPips >= 0 ? "+" : ""}${whitePips - blackPips}`,
       );
+      setHud(hudRoot, "made-white", String(whiteMetrics.made));
+      setHud(hudRoot, "made-black", String(blackMetrics.made));
+      setHud(hudRoot, "blots-white", String(whiteMetrics.blots));
+      setHud(hudRoot, "blots-black", String(blackMetrics.blots));
+      setHud(hudRoot, "home-white", String(whiteMetrics.home));
+      setHud(hudRoot, "home-black", String(blackMetrics.home));
+      setHud(hudRoot, "prime-white", String(whiteMetrics.prime));
+      setHud(hudRoot, "prime-black", String(blackMetrics.prime));
+      setHud(hudRoot, "stacks-white", String(whiteMetrics.stacks));
+      setHud(hudRoot, "stacks-black", String(blackMetrics.stacks));
       setHud(
         hudRoot,
         "move-state",
@@ -1400,10 +1743,53 @@ function BackgammonHud() {
         <small>30 CHECKERS · 0 BAR · 0 HIT</small>
       </section>
 
+      <section className="board-topology">
+        <strong>POSITION TOPOLOGY / LIVE</strong>
+        <i>
+          <span>CHANNEL</span>
+          <span>W / B</span>
+        </i>
+        <p>
+          <span>MADE POINTS</span>
+          <b>
+            <em data-hud="made-white">4</em> /{" "}
+            <em data-hud="made-black">4</em>
+          </b>
+        </p>
+        <p>
+          <span>BLOTS / EXPOSURE</span>
+          <b>
+            <em data-hud="blots-white">0</em> /{" "}
+            <em data-hud="blots-black">0</em>
+          </b>
+        </p>
+        <p>
+          <span>HOME LOAD</span>
+          <b>
+            <em data-hud="home-white">5</em> /{" "}
+            <em data-hud="home-black">5</em>
+          </b>
+        </p>
+        <p>
+          <span>MAX PRIME</span>
+          <b>
+            <em data-hud="prime-white">1</em> /{" "}
+            <em data-hud="prime-black">1</em>
+          </b>
+        </p>
+        <p>
+          <span>HEAVY STACKS</span>
+          <b>
+            <em data-hud="stacks-white">3</em> /{" "}
+            <em data-hud="stacks-black">3</em>
+          </b>
+        </p>
+      </section>
+
       <section className="dice-analysis">
         <div className="dice-analysis-copy">
           <strong>DICE SPACE / 36 ORDERED OUTCOMES</strong>
-          <span>SYMMETRIC CELLS HIGHLIGHTED</span>
+          <span data-hud="roll-ways">2 ORDERED WAYS · ASYMMETRIC</span>
           <span className="signal-copy" data-hud="probability">
             P({"{"}6,1{"}"}) = 2 / 36 = 5.56%
           </span>
@@ -1422,7 +1808,7 @@ function BackgammonHud() {
       </section>
 
       <p className="board-proof">
-        STANDARD START · FIVE LEGAL TURNS · PIPS RECALCULATED AFTER EACH MOVE
+        FIVE LEGAL TURNS · ONE DOUBLE · STATE RECALCULATED AFTER EVERY MOVE
       </p>
     </>
   );
@@ -1432,7 +1818,23 @@ export function SystemCanvas({ mode }: { mode: VisualMode }) {
   const mountRef = useRef<HTMLDivElement>(null);
   const hudRootRef = useRef<HTMLDivElement>(null);
   const trackCanvasRef = useRef<HTMLCanvasElement>(null);
-  const pointerRef = useRef({ x: 0, y: 0 });
+  const viewRef = useRef<SceneView>(
+    mode === 1
+      ? { yaw: 0.505, pitch: 0.31, distance: 9 }
+      : { yaw: 0.676, pitch: 0.79, distance: 13.25 },
+  );
+  const dragRef = useRef({
+    active: false,
+    pointerId: -1,
+    x: 0,
+    y: 0,
+  });
+  const resetView = () => {
+    viewRef.current =
+      mode === 1
+        ? { yaw: 0.505, pitch: 0.31, distance: 9 }
+        : { yaw: 0.676, pitch: 0.79, distance: 13.25 };
+  };
 
   useEffect(() => {
     const mount = mountRef.current;
@@ -1445,7 +1847,7 @@ export function SystemCanvas({ mode }: { mode: VisualMode }) {
       alpha: true,
       powerPreference: "high-performance",
     });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.15;
@@ -1455,8 +1857,7 @@ export function SystemCanvas({ mode }: { mode: VisualMode }) {
     let disposed = false;
     let frame = 0;
     let controller: SceneController | null = null;
-    let rootBaseRotation = new THREE.Euler();
-    const clock = new THREE.Clock();
+    let lastFrameTime = performance.now();
     let elapsed = 0;
 
     const setup = async () => {
@@ -1470,7 +1871,6 @@ export function SystemCanvas({ mode }: { mode: VisualMode }) {
                 trackCanvasRef.current,
               )
             : buildBackgammonScene(scene, camera, hudRootRef.current);
-        rootBaseRotation = controller.root.rotation.clone();
         if (disposed) {
           scene.remove(controller.root);
           controller = null;
@@ -1501,20 +1901,15 @@ export function SystemCanvas({ mode }: { mode: VisualMode }) {
     observer.observe(mount);
     resize();
 
-    const animate = () => {
-      const delta = Math.min(clock.getDelta(), 0.05);
+    const animate = (frameTime: number) => {
+      const delta = Math.min(
+        Math.max(0, (frameTime - lastFrameTime) / 1000),
+        0.05,
+      );
+      lastFrameTime = frameTime;
       elapsed += delta;
       if (controller) {
-        const root = controller.root;
-        if (mode === 2) {
-          const pointerYaw = pointerRef.current.x * 0.045;
-          const pointerPitch = pointerRef.current.y * 0.018;
-          root.rotation.y +=
-            (rootBaseRotation.y + pointerYaw - root.rotation.y) * 0.045;
-          root.rotation.x +=
-            (rootBaseRotation.x + pointerPitch - root.rotation.x) * 0.045;
-        }
-        controller.update(elapsed, delta, pointerRef.current);
+        controller.update(elapsed, delta, viewRef.current);
       }
       renderer.render(scene, camera);
       frame = window.requestAnimationFrame(animate);
@@ -1544,22 +1939,107 @@ export function SystemCanvas({ mode }: { mode: VisualMode }) {
     <div
       className={`system-scene mode-${mode}`}
       ref={mountRef}
-      onPointerMove={(event) => {
-        const bounds = event.currentTarget.getBoundingClientRect();
-        pointerRef.current = {
-          x: ((event.clientX - bounds.left) / bounds.width - 0.5) * 2,
-          y: ((event.clientY - bounds.top) / bounds.height - 0.5) * 2,
+      tabIndex={0}
+      onPointerDown={(event) => {
+        if ((event.target as HTMLElement).closest("a, button")) return;
+        dragRef.current = {
+          active: true,
+          pointerId: event.pointerId,
+          x: event.clientX,
+          y: event.clientY,
         };
+        event.currentTarget.setPointerCapture(event.pointerId);
+        event.currentTarget.style.cursor = "grabbing";
       }}
-      onPointerLeave={() => {
-        pointerRef.current = { x: 0, y: 0 };
+      onPointerMove={(event) => {
+        const drag = dragRef.current;
+        if (!drag.active || drag.pointerId !== event.pointerId) return;
+        const deltaX = event.clientX - drag.x;
+        const deltaY = event.clientY - drag.y;
+        viewRef.current.yaw -= deltaX * 0.0065;
+        viewRef.current.pitch = THREE.MathUtils.clamp(
+          viewRef.current.pitch - deltaY * 0.0055,
+          mode === 1 ? 0.12 : 0.28,
+          1.3,
+        );
+        drag.x = event.clientX;
+        drag.y = event.clientY;
+      }}
+      onPointerUp={(event) => {
+        if (dragRef.current.pointerId === event.pointerId) {
+          dragRef.current.active = false;
+          dragRef.current.pointerId = -1;
+          if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+            event.currentTarget.releasePointerCapture(event.pointerId);
+          }
+          event.currentTarget.style.cursor = "grab";
+        }
+      }}
+      onPointerCancel={(event) => {
+        dragRef.current.active = false;
+        dragRef.current.pointerId = -1;
+        event.currentTarget.style.cursor = "grab";
+      }}
+      onWheel={(event) => {
+        event.preventDefault();
+        const next =
+          viewRef.current.distance * Math.exp(event.deltaY * 0.001);
+        viewRef.current.distance = THREE.MathUtils.clamp(
+          next,
+          mode === 1 ? 6.4 : 8.5,
+          mode === 1 ? 17 : 21,
+        );
+      }}
+      onDoubleClick={resetView}
+      onKeyDown={(event) => {
+        if (
+          [
+            "ArrowLeft",
+            "ArrowRight",
+            "ArrowUp",
+            "ArrowDown",
+            "+",
+            "=",
+            "-",
+            "0",
+          ].includes(event.key)
+        ) {
+          event.preventDefault();
+        }
+        if (event.key === "ArrowLeft") viewRef.current.yaw += 0.12;
+        if (event.key === "ArrowRight") viewRef.current.yaw -= 0.12;
+        if (event.key === "ArrowUp") {
+          viewRef.current.pitch = Math.min(
+            1.3,
+            viewRef.current.pitch + 0.08,
+          );
+        }
+        if (event.key === "ArrowDown") {
+          viewRef.current.pitch = Math.max(
+            mode === 1 ? 0.12 : 0.28,
+            viewRef.current.pitch - 0.08,
+          );
+        }
+        if (event.key === "+" || event.key === "=") {
+          viewRef.current.distance = Math.max(
+            mode === 1 ? 6.4 : 8.5,
+            viewRef.current.distance - 0.8,
+          );
+        }
+        if (event.key === "-") {
+          viewRef.current.distance = Math.min(
+            mode === 1 ? 17 : 21,
+            viewRef.current.distance + 0.8,
+          );
+        }
+        if (event.key === "0") resetView();
       }}
       aria-label={
         mode === 1
-          ? "Detailed Formula car replaying recorded Silverstone telemetry"
-          : "Five-turn backgammon opening with exact dice and pip analysis"
+          ? "Interactive Formula car replaying recorded Silverstone telemetry. Drag to orbit and scroll to zoom."
+          : "Interactive five-turn backgammon simulation with exact state analysis. Drag to orbit and scroll to zoom."
       }
-      role="img"
+      role="application"
     >
       <div className="scene-overlay" ref={hudRootRef}>
         {mode === 1 ? (
@@ -1567,6 +2047,9 @@ export function SystemCanvas({ mode }: { mode: VisualMode }) {
         ) : (
           <BackgammonHud />
         )}
+        <p className="view-hint">
+          DRAG / ORBIT · SCROLL / ZOOM · DOUBLE-CLICK / RESET
+        </p>
       </div>
     </div>
   );

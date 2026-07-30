@@ -14,6 +14,7 @@ const routes = [
 export default function Home() {
   const [finderOpen, setFinderOpen] = useState(false);
   const [activeVisual, setActiveVisual] = useState<1 | 2>(1);
+  const [autoCycle, setAutoCycle] = useState(true);
   const [finderQuery, setFinderQuery] = useState("");
   const [finderIndex, setFinderIndex] = useState(0);
   const finderInputRef = useRef<HTMLInputElement>(null);
@@ -48,12 +49,13 @@ export default function Home() {
   }, [finderOpen]);
 
   useEffect(() => {
+    if (!autoCycle) return;
     const interval = window.setInterval(() => {
       setActiveVisual((visual) => (visual === 1 ? 2 : 1));
     }, 26000);
 
     return () => window.clearInterval(interval);
-  }, []);
+  }, [autoCycle]);
 
   return (
     <main>
@@ -80,7 +82,13 @@ export default function Home() {
           </strong>
         </div>
 
-        <div className="canvas-shell" key={activeVisual}>
+        <div
+          className="canvas-shell"
+          key={activeVisual}
+          onPointerDownCapture={() => setAutoCycle(false)}
+          onWheelCapture={() => setAutoCycle(false)}
+          onKeyDownCapture={() => setAutoCycle(false)}
+        >
           <SystemCanvas mode={activeVisual} />
         </div>
       </section>
@@ -96,7 +104,10 @@ export default function Home() {
                 number === 1 ? "Formula telemetry" : "backgammon probability"
               } visual`}
               aria-pressed={number === activeVisual}
-              onClick={() => setActiveVisual(number)}
+              onClick={() => {
+                setAutoCycle(false);
+                setActiveVisual(number);
+              }}
             >
               [{number === activeVisual ? "" : number}]
             </button>

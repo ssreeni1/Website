@@ -32,7 +32,11 @@ test("server-renders the personal site shell", async () => {
   assert.match(html, /<title>Saneel — Independent Builder<\/title>/i);
   assert.match(html, /I build software, interfaces, and systems/);
   assert.match(html, /Formula \/ telemetry/);
-  assert.match(html, /Detailed Formula car replaying recorded Silverstone telemetry/);
+  assert.match(
+    html,
+    /Interactive Formula car replaying recorded Silverstone telemetry/,
+  );
+  assert.match(html, /DRAG \/ ORBIT · SCROLL \/ ZOOM/);
   assert.match(html, /ANTONELLI #12 \/ SILVERSTONE/);
   assert.match(html, /DATA \/ OPENF1/);
   assert.match(html, /Find\s*<span>\[F\]<\/span>/);
