@@ -8,6 +8,12 @@ Read [`docs/ANIMATION_PRIOR.md`](docs/ANIMATION_PRIOR.md) before designing or
 implementing a new visual. It defines the shared motion grammar, state model,
 camera rules, telemetry system, and production quality gate for every scene.
 
+## Posts
+
+Posts are registered once and published as native root routes such as
+`/five_lines/`. The registry also supplies canonical metadata and Collection
+entries. See [`docs/POSTS.md`](docs/POSTS.md) for the authoring convention.
+
 ## Runtime
 
 A clean full-stack starter running on

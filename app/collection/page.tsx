@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { postSummaries } from "../../content/posts";
 import { SiteNav } from "../SiteNav";
 import { CollectionList } from "./CollectionList";
 
@@ -11,6 +12,11 @@ export const metadata: Metadata = {
 };
 
 const entries = [
+  ...postSummaries.map((post) => ({
+    title: post.title,
+    date: post.publishedAt,
+    url: `/${post.slug}`,
+  })),
   {
     title: "Tracebase",
     date: "2026-05-27",
