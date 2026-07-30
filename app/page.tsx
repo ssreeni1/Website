@@ -12,6 +12,12 @@ const routes = [
   { name: "About", path: "#about", href: "#about" },
 ] as const;
 
+const visualLabels = {
+  1: "FROM OLD, THE NEW",
+  2: "PEACE IN VARIANCE",
+  3: "SIGNIFIERS AS CENTERS",
+} as const;
+
 export default function Home() {
   const [finderOpen, setFinderOpen] = useState(false);
   const [activeVisual, setActiveVisual] = useState<1 | 2 | 3>(1);
@@ -113,11 +119,7 @@ export default function Home() {
             </button>
           ))}
           <span className="selector-label">
-            {activeVisual === 1
-              ? "FORMULA"
-              : activeVisual === 2
-                ? "BACKGAMMON"
-                : "SYMBOLS"}
+            {visualLabels[activeVisual]}
           </span>
         </nav>
 
