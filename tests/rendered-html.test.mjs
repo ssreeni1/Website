@@ -2,13 +2,13 @@ import assert from "node:assert/strict";
 import { readFile, stat } from "node:fs/promises";
 import test from "node:test";
 
-async function render() {
+async function render(path = "/") {
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
   workerUrl.searchParams.set("test", `${process.pid}-${Date.now()}`);
   const { default: worker } = await import(workerUrl.href);
 
   return worker.fetch(
-    new Request("http://localhost/", {
+    new Request(`http://localhost${path}`, {
       headers: { accept: "text/html" },
     }),
     {
@@ -39,11 +39,30 @@ test("server-renders the personal site shell", async () => {
   assert.match(html, /DRAG \/ ORBIT · SCROLL \/ ZOOM/);
   assert.match(html, /ANTONELLI #12 \/ SILVERSTONE/);
   assert.match(html, /DATA \/ OPENF1/);
+  assert.match(html, /Saneel Sreeni/);
+  assert.match(html, /About\s*<span>\[A\]<\/span>/);
+  assert.match(html, /Contact\s*<span>\[C\]<\/span>/);
   assert.match(html, /Find\s*<span>\[F\]<\/span>/);
+  assert.match(html, />Home<\/span>\s*<i>\/<\/i>/);
+  assert.match(html, />About<\/span>\s*<i>\/about<\/i>/);
+  assert.match(html, />Contact<\/span>\s*<i>\/contact<\/i>/);
+  assert.doesNotMatch(html, />Formula system<\/span>/);
   assert.match(html, /Select backgammon probability visual/);
   assert.match(html, /Select symbol topology visual/);
   assert.match(html, /FROM OLD, THE NEW/);
   assert.doesNotMatch(html, /codex-preview|Building your site|Open menu \[M\]/i);
+});
+
+test("serves blank About and Contact page shells", async () => {
+  for (const path of ["/about", "/contact"]) {
+    const response = await render(path);
+    assert.equal(response.status, 200);
+    const html = await response.text();
+    assert.match(html, /Saneel Sreeni/);
+    assert.match(html, /About\s*<span>\[A\]<\/span>/);
+    assert.match(html, /Contact\s*<span>\[C\]<\/span>/);
+    assert.doesNotMatch(html, /Interactive Formula car/);
+  }
 });
 
 test("ships bounded model assets and recorded telemetry", async () => {
