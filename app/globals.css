@@ -843,7 +843,14 @@ main {
   z-index: 5;
   left: 24px;
   right: 24px;
-  bottom: 17px;
+  top: min(
+    calc(
+      60px + clamp(12px, 2vh, 22px) + min(71vh, 700px) +
+        clamp(28px, 4vh, 48px)
+    ),
+    calc(100svh - 47px)
+  );
+  bottom: auto;
   display: grid;
   grid-template-columns: 1fr 1fr;
   align-items: center;
@@ -1192,6 +1199,7 @@ main {
   .controls {
     left: 16px;
     right: 16px;
+    top: auto;
     bottom: 15px;
   }
 
