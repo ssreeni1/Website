@@ -1414,21 +1414,21 @@ function buildBackgammonScene(
     [-4.28, 2.67],
     [4.28, -2.67],
     [4.28, 2.67],
-  ].forEach(([x, z], index) => {
+  ].forEach(([x, z]) => {
     const mast = lineFromPoints(
       [
         new THREE.Vector3(x, 0.22, z),
         new THREE.Vector3(x, 0.83, z),
       ],
-      index === 3 ? RED : INK,
-      index === 3 ? 0.64 : 0.22,
+      INK,
+      0.26,
     );
     const node = new THREE.Mesh(
       new THREE.SphereGeometry(0.045, 9, 7),
       new THREE.MeshBasicMaterial({
-        color: index === 3 ? RED : INK,
+        color: INK,
         transparent: true,
-        opacity: index === 3 ? 0.92 : 0.42,
+        opacity: 0.46,
         depthWrite: false,
       }),
     );
@@ -1945,12 +1945,12 @@ function buildBackgammonScene(
   };
 }
 
-const SYMBOL_GRID_SIZE = 26;
-const SYMBOL_GRID_STEP = 0.32;
+const SYMBOL_GRID_SIZE = 40;
+const SYMBOL_GRID_STEP = 0.21;
 const SYMBOL_GRID_HALF =
   ((SYMBOL_GRID_SIZE - 1) * SYMBOL_GRID_STEP) / 2;
-const SYMBOL_PATH_COUNT = 8;
-const SYMBOL_VERTICES_PER_PATH = 64;
+const SYMBOL_PATH_COUNT = 16;
+const SYMBOL_VERTICES_PER_PATH = 128;
 const SYMBOL_VERTEX_COUNT =
   SYMBOL_PATH_COUNT * SYMBOL_VERTICES_PER_PATH;
 const SYMBOL_EDGE_COUNT =
@@ -2010,6 +2010,28 @@ function sampleCurve(
   );
 }
 
+function sampleCatmull(
+  controlPoints: THREE.Vector3[],
+  closed = false,
+  count = SYMBOL_VERTICES_PER_PATH,
+) {
+  const curve = new THREE.CatmullRomCurve3(
+    controlPoints,
+    closed,
+    "centripetal",
+    0.45,
+  );
+  return Array.from({ length: count }, (_, index) =>
+    curve.getPoint(index / (count - 1)),
+  );
+}
+
+function mirrorSymbolPath(path: THREE.Vector3[]) {
+  return path.map(
+    (point) => new THREE.Vector3(-point.x, point.y, point.z),
+  );
+}
+
 function snapSymbolPoint(point: THREE.Vector3) {
   const snap = (value: number) =>
     THREE.MathUtils.clamp(
@@ -2055,96 +2077,179 @@ function buildSymbolShape(
 function buildPhoenixShape() {
   const outer = samplePolyline(
     [
-      new THREE.Vector3(-0.25, -3.35, -0.1),
-      new THREE.Vector3(-0.9, -2.4, 0.35),
-      new THREE.Vector3(-2.25, -2.05, -0.1),
-      new THREE.Vector3(-1.45, -1.25, 0.45),
-      new THREE.Vector3(-3.7, -0.35, -0.5),
-      new THREE.Vector3(-2.35, 0.15, 0.2),
-      new THREE.Vector3(-4.0, 1.45, -0.65),
-      new THREE.Vector3(-2.25, 1.15, 0.3),
-      new THREE.Vector3(-2.9, 2.65, -0.4),
-      new THREE.Vector3(-1.15, 1.95, 0.35),
-      new THREE.Vector3(-0.45, 2.55, 0.2),
-      new THREE.Vector3(-0.15, 3.25, 0.45),
-      new THREE.Vector3(0.65, 2.7, 0.3),
-      new THREE.Vector3(0.25, 2.3, 0.15),
-      new THREE.Vector3(1.15, 1.95, 0.35),
-      new THREE.Vector3(2.9, 2.65, -0.4),
-      new THREE.Vector3(2.25, 1.15, 0.3),
-      new THREE.Vector3(4.0, 1.45, -0.65),
-      new THREE.Vector3(2.35, 0.15, 0.2),
-      new THREE.Vector3(3.7, -0.35, -0.5),
-      new THREE.Vector3(1.45, -1.25, 0.45),
-      new THREE.Vector3(2.25, -2.05, -0.1),
-      new THREE.Vector3(0.9, -2.4, 0.35),
-      new THREE.Vector3(0.25, -3.35, -0.1),
+      new THREE.Vector3(-0.15, -3.75, 0),
+      new THREE.Vector3(-0.85, -2.55, 0.35),
+      new THREE.Vector3(-2.05, -3.35, -0.5),
+      new THREE.Vector3(-1.5, -2.0, 0.5),
+      new THREE.Vector3(-3.15, -2.35, -0.55),
+      new THREE.Vector3(-2.3, -1.25, 0.5),
+      new THREE.Vector3(-3.75, -1.05, -0.72),
+      new THREE.Vector3(-2.62, -0.25, 0.52),
+      new THREE.Vector3(-4.05, 0.3, -0.78),
+      new THREE.Vector3(-2.78, 0.65, 0.48),
+      new THREE.Vector3(-3.82, 1.45, -0.62),
+      new THREE.Vector3(-2.48, 1.35, 0.45),
+      new THREE.Vector3(-3.08, 2.38, -0.42),
+      new THREE.Vector3(-1.8, 1.95, 0.58),
+      new THREE.Vector3(-1.5, 2.78, 0.18),
+      new THREE.Vector3(-0.72, 2.25, 0.76),
+      new THREE.Vector3(-0.5, 3.0, 0.5),
+      new THREE.Vector3(-0.1, 3.62, 0.42),
+      new THREE.Vector3(0.46, 3.35, 0.68),
+      new THREE.Vector3(1.08, 3.02, 0.14),
+      new THREE.Vector3(0.48, 2.82, 0.72),
+      new THREE.Vector3(0.72, 2.25, 0.76),
+      new THREE.Vector3(1.5, 2.78, 0.18),
+      new THREE.Vector3(1.8, 1.95, 0.58),
+      new THREE.Vector3(3.08, 2.38, -0.42),
+      new THREE.Vector3(2.48, 1.35, 0.45),
+      new THREE.Vector3(3.82, 1.45, -0.62),
+      new THREE.Vector3(2.78, 0.65, 0.48),
+      new THREE.Vector3(4.05, 0.3, -0.78),
+      new THREE.Vector3(2.62, -0.25, 0.52),
+      new THREE.Vector3(3.75, -1.05, -0.72),
+      new THREE.Vector3(2.3, -1.25, 0.5),
+      new THREE.Vector3(3.15, -2.35, -0.55),
+      new THREE.Vector3(1.5, -2.0, 0.5),
+      new THREE.Vector3(2.05, -3.35, -0.5),
+      new THREE.Vector3(0.85, -2.55, 0.35),
+      new THREE.Vector3(0.15, -3.75, 0),
     ],
     SYMBOL_VERTICES_PER_PATH,
     true,
   );
-  const body = samplePolyline([
-    new THREE.Vector3(-0.15, -2.55, 0.15),
-    new THREE.Vector3(-0.55, -1.25, 0.55),
-    new THREE.Vector3(-0.35, 0.1, 0.85),
-    new THREE.Vector3(-0.5, 1.4, 0.65),
-    new THREE.Vector3(-0.15, 2.45, 0.55),
-    new THREE.Vector3(0.65, 2.7, 0.3),
-    new THREE.Vector3(0.25, 2.3, 0.15),
-    new THREE.Vector3(0.45, 1.35, 0.65),
-    new THREE.Vector3(0.35, 0.1, 0.85),
-    new THREE.Vector3(0.55, -1.25, 0.55),
-    new THREE.Vector3(0.15, -2.55, 0.15),
-  ]);
-  const leftWing = samplePolyline([
-    new THREE.Vector3(-0.35, 1.25, 0.75),
-    new THREE.Vector3(-1.2, 1.35, 0.9),
-    new THREE.Vector3(-2.2, 1.8, 0.45),
-    new THREE.Vector3(-3.35, 1.65, -0.15),
-    new THREE.Vector3(-2.3, 0.85, 0.35),
-    new THREE.Vector3(-3.25, 0.45, -0.25),
-    new THREE.Vector3(-1.85, 0.35, 0.5),
-    new THREE.Vector3(-2.75, -0.25, -0.15),
-    new THREE.Vector3(-1.15, 0.0, 0.65),
-    new THREE.Vector3(-0.35, 0.45, 0.8),
-  ]);
-  const rightWing = leftWing.map(
-    (point) => new THREE.Vector3(-point.x, point.y, point.z),
+  const body = sampleCatmull(
+    [
+      new THREE.Vector3(-0.18, -2.55, 0.82),
+      new THREE.Vector3(-0.72, -1.45, 0.92),
+      new THREE.Vector3(-0.58, -0.1, 1.08),
+      new THREE.Vector3(-0.72, 1.15, 0.9),
+      new THREE.Vector3(-0.35, 2.3, 0.78),
+      new THREE.Vector3(0.28, 2.65, 0.68),
+      new THREE.Vector3(0.55, 1.35, 0.92),
+      new THREE.Vector3(0.52, -0.15, 1.08),
+      new THREE.Vector3(0.7, -1.42, 0.92),
+      new THREE.Vector3(0.18, -2.55, 0.82),
+    ],
+    true,
   );
-  const leftFeathers = samplePolyline([
-    new THREE.Vector3(-0.55, 1.05, 0.8),
-    new THREE.Vector3(-1.45, 2.15, 0.45),
-    new THREE.Vector3(-2.55, 2.45, -0.05),
-    new THREE.Vector3(-1.6, 1.45, 0.65),
-    new THREE.Vector3(-3.35, 1.25, -0.3),
-    new THREE.Vector3(-1.65, 0.8, 0.55),
-    new THREE.Vector3(-3.15, 0.05, -0.25),
-    new THREE.Vector3(-1.25, 0.25, 0.7),
-  ]);
-  const rightFeathers = leftFeathers.map(
-    (point) => new THREE.Vector3(-point.x, point.y, point.z),
+  const head = samplePolyline(
+    [
+      new THREE.Vector3(-0.38, 2.3, 0.95),
+      new THREE.Vector3(-0.5, 3.05, 0.88),
+      new THREE.Vector3(-0.08, 3.55, 0.72),
+      new THREE.Vector3(0.42, 3.28, 0.92),
+      new THREE.Vector3(1.05, 3.02, 0.35),
+      new THREE.Vector3(0.46, 2.84, 0.98),
+      new THREE.Vector3(0.38, 2.32, 1.04),
+    ],
+    SYMBOL_VERTICES_PER_PATH,
+    true,
   );
-  const leftTail = samplePolyline([
-    new THREE.Vector3(-0.25, -1.1, 0.65),
-    new THREE.Vector3(-0.8, -1.65, 0.4),
-    new THREE.Vector3(-1.7, -2.6, -0.15),
-    new THREE.Vector3(-0.55, -2.05, 0.45),
-    new THREE.Vector3(-0.8, -3.35, -0.3),
-    new THREE.Vector3(-0.05, -2.4, 0.3),
+  const spine = sampleCatmull([
+    new THREE.Vector3(0.02, 3.3, 1.1),
+    new THREE.Vector3(-0.08, 2.2, 1.3),
+    new THREE.Vector3(0.1, 0.9, 1.42),
+    new THREE.Vector3(-0.08, -0.45, 1.4),
+    new THREE.Vector3(0.05, -1.75, 1.18),
+    new THREE.Vector3(0, -3.6, 0.38),
   ]);
-  const rightTail = leftTail.map(
-    (point) => new THREE.Vector3(-point.x, point.y, point.z),
-  );
+  const leftWing = sampleCatmull([
+    new THREE.Vector3(-0.35, 1.55, 1.05),
+    new THREE.Vector3(-1.35, 2.15, 0.95),
+    new THREE.Vector3(-2.65, 2.3, 0.35),
+    new THREE.Vector3(-3.78, 1.45, -0.38),
+    new THREE.Vector3(-3.85, 0.28, -0.55),
+    new THREE.Vector3(-2.8, -0.35, 0.25),
+    new THREE.Vector3(-1.35, 0.05, 0.92),
+    new THREE.Vector3(-0.42, 0.72, 1.1),
+  ]);
+  const rightWing = mirrorSymbolPath(leftWing);
+  const leftPrimary = samplePolyline([
+    new THREE.Vector3(-0.48, 1.42, 1.2),
+    new THREE.Vector3(-1.45, 2.56, 0.72),
+    new THREE.Vector3(-1.18, 1.45, 0.98),
+    new THREE.Vector3(-2.45, 2.62, 0.28),
+    new THREE.Vector3(-1.7, 1.22, 0.9),
+    new THREE.Vector3(-3.35, 2.05, -0.22),
+    new THREE.Vector3(-2.15, 0.85, 0.72),
+    new THREE.Vector3(-3.88, 1.18, -0.5),
+    new THREE.Vector3(-2.38, 0.42, 0.66),
+    new THREE.Vector3(-3.82, 0.1, -0.48),
+    new THREE.Vector3(-1.9, 0.08, 0.82),
+    new THREE.Vector3(-0.48, 0.68, 1.18),
+  ]);
+  const rightPrimary = mirrorSymbolPath(leftPrimary);
+  const leftSecondary = samplePolyline([
+    new THREE.Vector3(-0.55, 1.28, 0.72),
+    new THREE.Vector3(-1.28, 2.05, 0.32),
+    new THREE.Vector3(-1.1, 1.18, 0.62),
+    new THREE.Vector3(-2.12, 2.05, -0.05),
+    new THREE.Vector3(-1.55, 0.9, 0.58),
+    new THREE.Vector3(-2.92, 1.58, -0.3),
+    new THREE.Vector3(-1.86, 0.55, 0.55),
+    new THREE.Vector3(-3.15, 0.78, -0.38),
+    new THREE.Vector3(-1.72, 0.25, 0.62),
+    new THREE.Vector3(-0.55, 0.72, 0.8),
+  ]);
+  const rightSecondary = mirrorSymbolPath(leftSecondary);
+  const leftTertiary = samplePolyline([
+    new THREE.Vector3(-0.48, 1.05, 1.45),
+    new THREE.Vector3(-1.08, 1.72, 1.26),
+    new THREE.Vector3(-0.92, 0.95, 1.38),
+    new THREE.Vector3(-1.72, 1.55, 1.05),
+    new THREE.Vector3(-1.32, 0.72, 1.28),
+    new THREE.Vector3(-2.18, 1.05, 0.86),
+    new THREE.Vector3(-1.45, 0.42, 1.2),
+    new THREE.Vector3(-2.18, 0.25, 0.78),
+    new THREE.Vector3(-1.12, 0.18, 1.28),
+    new THREE.Vector3(-0.42, 0.58, 1.45),
+  ]);
+  const rightTertiary = mirrorSymbolPath(leftTertiary);
+  const leftTail = sampleCatmull([
+    new THREE.Vector3(-0.18, -1.35, 1.02),
+    new THREE.Vector3(-0.72, -1.92, 0.75),
+    new THREE.Vector3(-1.55, -2.55, 0.15),
+    new THREE.Vector3(-1.9, -3.58, -0.42),
+    new THREE.Vector3(-0.78, -2.78, 0.48),
+    new THREE.Vector3(-0.2, -2.25, 0.82),
+  ]);
+  const rightTail = mirrorSymbolPath(leftTail);
+  const centerTail = sampleCatmull([
+    new THREE.Vector3(0, -1.3, 1.22),
+    new THREE.Vector3(-0.25, -2.05, 0.9),
+    new THREE.Vector3(0.12, -2.72, 0.45),
+    new THREE.Vector3(0, -4.0, -0.12),
+    new THREE.Vector3(0.42, -2.85, 0.5),
+    new THREE.Vector3(0.18, -1.82, 0.96),
+  ]);
+  const crest = samplePolyline([
+    new THREE.Vector3(-0.42, 3.02, 0.82),
+    new THREE.Vector3(-0.72, 3.55, 0.25),
+    new THREE.Vector3(-0.15, 3.28, 1.05),
+    new THREE.Vector3(0.02, 3.92, 0.3),
+    new THREE.Vector3(0.25, 3.3, 1.08),
+    new THREE.Vector3(0.72, 3.58, 0.28),
+    new THREE.Vector3(0.45, 3.02, 0.88),
+  ]);
 
   return buildSymbolShape("PHOENIX", [
     outer,
     body,
+    head,
+    spine,
     leftWing,
     rightWing,
-    leftFeathers,
-    rightFeathers,
+    leftPrimary,
+    rightPrimary,
+    leftSecondary,
+    rightSecondary,
+    leftTertiary,
+    rightTertiary,
     leftTail,
     rightTail,
+    centerTail,
+    crest,
   ]);
 }
 
@@ -2154,163 +2259,220 @@ function buildOuroborosShape() {
     zOffset: number,
     depth: number,
     phase = 0,
+    radialWave = 0,
+    waveFrequency = 1,
   ) =>
     sampleCurve((amount) => {
       const angle = amount * Math.PI * 2 + phase;
+      const liveRadius =
+        radius + Math.sin(angle * waveFrequency) * radialWave;
       return new THREE.Vector3(
-        Math.cos(angle) * radius,
-        Math.sin(angle) * radius,
+        Math.cos(angle) * liveRadius,
+        Math.sin(angle) * liveRadius,
         zOffset + Math.sin(angle * 2) * depth,
       );
     });
-  const headAngle = 0.22;
-  const headCenter = new THREE.Vector3(
-    Math.cos(headAngle) * 3.05,
-    Math.sin(headAngle) * 3.05,
-    0.48,
-  );
-  const head = samplePolyline(
+  const headOuter = sampleCatmull(
     [
-      new THREE.Vector3(
-        headCenter.x - 0.55,
-        headCenter.y + 0.55,
-        0.25,
-      ),
-      new THREE.Vector3(
-        headCenter.x + 0.45,
-        headCenter.y + 0.75,
-        0.4,
-      ),
-      new THREE.Vector3(
-        headCenter.x + 0.95,
-        headCenter.y + 0.2,
-        0.65,
-      ),
-      new THREE.Vector3(
-        headCenter.x + 0.7,
-        headCenter.y - 0.55,
-        0.35,
-      ),
-      new THREE.Vector3(
-        headCenter.x - 0.35,
-        headCenter.y - 0.45,
-        0.15,
-      ),
+      new THREE.Vector3(2.58, 0.05, 0.24),
+      new THREE.Vector3(2.78, 0.92, 0.46),
+      new THREE.Vector3(3.48, 1.2, 0.72),
+      new THREE.Vector3(4.02, 0.58, 0.78),
+      new THREE.Vector3(3.83, -0.18, 0.46),
+      new THREE.Vector3(3.18, -0.48, 0.28),
     ],
-    SYMBOL_VERTICES_PER_PATH,
     true,
   );
+  const headInner = sampleCatmull(
+    [
+      new THREE.Vector3(2.82, 0.18, -0.28),
+      new THREE.Vector3(2.98, 0.78, -0.1),
+      new THREE.Vector3(3.46, 0.98, 0.05),
+      new THREE.Vector3(3.8, 0.52, 0.12),
+      new THREE.Vector3(3.62, 0.02, -0.08),
+      new THREE.Vector3(3.16, -0.18, -0.24),
+    ],
+    true,
+  );
+  const jaw = samplePolyline([
+    new THREE.Vector3(2.72, 0.36, 0.68),
+    new THREE.Vector3(3.18, 0.12, 0.92),
+    new THREE.Vector3(3.78, 0.0, 0.72),
+    new THREE.Vector3(3.4, -0.23, 0.52),
+    new THREE.Vector3(2.85, -0.04, 0.38),
+  ]);
   const bite = samplePolyline([
-    new THREE.Vector3(3.85, 0.85, 0.55),
-    new THREE.Vector3(3.25, 0.45, 0.35),
-    new THREE.Vector3(2.7, 0.1, 0.1),
-    new THREE.Vector3(3.25, -0.15, -0.05),
-    new THREE.Vector3(3.75, 0.15, 0.25),
+    new THREE.Vector3(3.92, 0.52, 0.7),
+    new THREE.Vector3(3.52, 0.3, 0.48),
+    new THREE.Vector3(3.02, 0.12, 0.18),
+    new THREE.Vector3(2.64, -0.05, -0.12),
+    new THREE.Vector3(3.08, -0.28, 0.04),
+    new THREE.Vector3(3.64, -0.08, 0.34),
   ]);
   const eye = sampleCurve((amount) => {
     const angle = amount * Math.PI * 2;
     return new THREE.Vector3(
-      headCenter.x + 0.18 + Math.cos(angle) * 0.2,
-      headCenter.y + 0.26 + Math.sin(angle) * 0.2,
-      0.82,
+      3.48 + Math.cos(angle) * 0.22,
+      0.67 + Math.sin(angle) * 0.17,
+      1.02,
     );
   });
-  const scales = sampleCurve((amount) => {
-    const angle = amount * Math.PI * 2 + 0.42;
-    const radius = 2.72 + Math.sin(angle * 12) * 0.17;
+  const pupil = sampleCurve((amount) => {
+    const angle = amount * Math.PI * 2;
     return new THREE.Vector3(
-      Math.cos(angle) * radius,
-      Math.sin(angle) * radius,
-      -0.42 + Math.cos(angle * 2) * 0.18,
+      3.48 + Math.cos(angle) * 0.07,
+      0.67 + Math.sin(angle) * 0.13,
+      1.18,
     );
   });
 
   return buildSymbolShape("OUROBOROS", [
-    ring(3.25, 0, 0.5),
-    ring(2.55, 0, 0.38),
-    ring(2.9, 0.48, 0.18, 0.12),
-    ring(2.9, -0.45, 0.18, -0.12),
-    head,
+    ring(3.28, 0.58, 0.18),
+    ring(3.28, -0.58, 0.18),
+    ring(2.55, 0.5, 0.15),
+    ring(2.55, -0.5, 0.15),
+    ring(2.94, 0.9, 0.12, 0.04, 0.05, 12),
+    ring(2.94, -0.9, 0.12, -0.04, 0.05, 12),
+    ring(2.73, 0.2, 0.32, 0.1, 0.13, 18),
+    ring(3.08, 0.14, 0.3, 0.36, 0.11, 18),
+    ring(2.72, -0.2, 0.32, 0.62, 0.13, 18),
+    ring(3.08, -0.14, 0.3, 0.88, 0.11, 18),
+    headOuter,
+    headInner,
+    jaw,
     bite,
     eye,
-    scales,
+    pupil,
   ]);
 }
 
 function buildGandivaShape() {
-  const limb = sampleCurve((amount) => {
-    const y = 3.35 - amount * 6.7;
-    const normalizedY = y / 3.35;
-    const x =
-      1.65 -
-      3.25 * Math.pow(1 - Math.abs(normalizedY), 0.72) +
-      Math.sign(normalizedY || 1) *
-        Math.sin(Math.abs(normalizedY) * Math.PI) *
-        0.18;
-    return new THREE.Vector3(x, y, Math.sin(amount * Math.PI) * 0.42);
-  });
-  const innerLimb = sampleCurve((amount) => {
-    const source = limb[Math.round(amount * (limb.length - 1))];
-    const taper = Math.sin(amount * Math.PI) * 0.34;
-    return new THREE.Vector3(
-      source.x + taper,
-      source.y,
-      source.z - 0.46,
-    );
-  });
-  const string = samplePolyline([
-    new THREE.Vector3(1.65, 3.35, 0),
-    new THREE.Vector3(0.95, 1.75, -0.2),
-    new THREE.Vector3(-1.65, 0, -0.08),
-    new THREE.Vector3(0.95, -1.75, -0.2),
-    new THREE.Vector3(1.65, -3.35, 0),
+  const limb = (depth: number, inset: number) =>
+    sampleCurve((amount) => {
+      const y = 3.42 - amount * 6.84;
+      const normalizedY = y / 3.42;
+      const centerBow =
+        1.72 -
+        3.52 * Math.pow(1 - Math.abs(normalizedY), 0.7) +
+        Math.sign(normalizedY || 1) *
+          Math.sin(Math.abs(normalizedY) * Math.PI) *
+          0.2;
+      return new THREE.Vector3(
+        centerBow + Math.sin(amount * Math.PI) * inset,
+        y,
+        depth + Math.sin(amount * Math.PI) * 0.18,
+      );
+    });
+  const frontOuter = limb(0.62, 0);
+  const frontInner = limb(0.98, 0.32);
+  const backOuter = limb(-0.72, 0);
+  const backInner = limb(-0.34, 0.32);
+  const stringFront = samplePolyline([
+    new THREE.Vector3(1.72, 3.42, 0.72),
+    new THREE.Vector3(1.05, 2.05, 0.72),
+    new THREE.Vector3(-1.72, 0, 0.72),
+    new THREE.Vector3(1.05, -2.05, 0.72),
+    new THREE.Vector3(1.72, -3.42, 0.72),
   ]);
-  const arrow = samplePolyline([
-    new THREE.Vector3(-3.55, 0.05, 0.55),
-    new THREE.Vector3(2.9, 0.05, 0.55),
+  const stringBack = samplePolyline([
+    new THREE.Vector3(1.72, 3.42, -0.55),
+    new THREE.Vector3(1.05, 2.05, -0.55),
+    new THREE.Vector3(-1.72, 0, -0.55),
+    new THREE.Vector3(1.05, -2.05, -0.55),
+    new THREE.Vector3(1.72, -3.42, -0.55),
   ]);
-  const arrowhead = samplePolyline(
+  const arrowFront = samplePolyline([
+    new THREE.Vector3(-3.72, 0.08, 1.02),
+    new THREE.Vector3(3.18, 0.08, 1.02),
+  ]);
+  const arrowBack = samplePolyline([
+    new THREE.Vector3(-3.72, -0.08, 0.42),
+    new THREE.Vector3(3.18, -0.08, 0.42),
+  ]);
+  const arrowheadOuter = samplePolyline(
     [
-      new THREE.Vector3(3.65, 0.05, 0.55),
-      new THREE.Vector3(2.8, 0.52, 0.55),
-      new THREE.Vector3(2.95, 0.05, 0.55),
-      new THREE.Vector3(2.8, -0.42, 0.55),
+      new THREE.Vector3(4.02, 0.08, 0.75),
+      new THREE.Vector3(3.08, 0.62, 0.92),
+      new THREE.Vector3(3.28, 0.08, 0.98),
+      new THREE.Vector3(3.08, -0.48, 0.92),
     ],
     SYMBOL_VERTICES_PER_PATH,
     true,
   );
-  const grip = samplePolyline(
+  const arrowheadInner = samplePolyline(
     [
-      new THREE.Vector3(-1.85, 0.62, 0.3),
-      new THREE.Vector3(-1.35, 0.42, 0.75),
-      new THREE.Vector3(-1.25, -0.42, 0.75),
-      new THREE.Vector3(-1.85, -0.62, 0.3),
-      new THREE.Vector3(-2.15, -0.3, -0.15),
-      new THREE.Vector3(-2.15, 0.3, -0.15),
+      new THREE.Vector3(3.82, 0.08, 0.34),
+      new THREE.Vector3(3.18, 0.42, 0.42),
+      new THREE.Vector3(3.34, 0.08, 0.48),
+      new THREE.Vector3(3.18, -0.28, 0.42),
     ],
     SYMBOL_VERTICES_PER_PATH,
     true,
   );
-  const topRecurve = samplePolyline([
-    new THREE.Vector3(1.65, 3.35, 0),
-    new THREE.Vector3(2.2, 3.6, 0.25),
-    new THREE.Vector3(2.65, 3.25, 0.55),
-    new THREE.Vector3(2.15, 2.9, 0.35),
-    new THREE.Vector3(1.25, 3.05, -0.1),
+  const gripOuter = sampleCatmull(
+    [
+      new THREE.Vector3(-1.92, 0.68, 0.72),
+      new THREE.Vector3(-1.32, 0.42, 1.08),
+      new THREE.Vector3(-1.24, -0.42, 1.08),
+      new THREE.Vector3(-1.92, -0.68, 0.72),
+      new THREE.Vector3(-2.24, -0.3, 0.18),
+      new THREE.Vector3(-2.24, 0.3, 0.18),
+    ],
+    true,
+  );
+  const gripInner = sampleCatmull(
+    [
+      new THREE.Vector3(-1.82, 0.48, -0.36),
+      new THREE.Vector3(-1.45, 0.3, 0),
+      new THREE.Vector3(-1.4, -0.3, 0),
+      new THREE.Vector3(-1.82, -0.48, -0.36),
+      new THREE.Vector3(-2.05, -0.22, -0.62),
+      new THREE.Vector3(-2.05, 0.22, -0.62),
+    ],
+    true,
+  );
+  const topScrollFront = sampleCatmull([
+    new THREE.Vector3(1.72, 3.42, 0.62),
+    new THREE.Vector3(2.18, 3.78, 0.72),
+    new THREE.Vector3(2.75, 3.55, 0.84),
+    new THREE.Vector3(2.82, 3.05, 0.9),
+    new THREE.Vector3(2.38, 2.8, 0.92),
+    new THREE.Vector3(1.88, 3.0, 0.82),
+    new THREE.Vector3(1.45, 3.18, 0.72),
   ]);
-  const bottomRecurve = topRecurve.map(
+  const topScrollBack = sampleCatmull([
+    new THREE.Vector3(1.72, 3.42, -0.72),
+    new THREE.Vector3(2.18, 3.78, -0.62),
+    new THREE.Vector3(2.75, 3.55, -0.5),
+    new THREE.Vector3(2.82, 3.05, -0.44),
+    new THREE.Vector3(2.38, 2.8, -0.42),
+    new THREE.Vector3(1.88, 3.0, -0.52),
+    new THREE.Vector3(1.45, 3.18, -0.62),
+  ]);
+  const bottomScrollFront = topScrollFront.map(
+    (point) => new THREE.Vector3(point.x, -point.y, point.z),
+  );
+  const bottomScrollBack = topScrollBack.map(
     (point) => new THREE.Vector3(point.x, -point.y, point.z),
   );
 
   return buildSymbolShape("GANDIVA", [
-    limb,
-    innerLimb,
-    string,
-    arrow,
-    arrowhead,
-    grip,
-    topRecurve,
-    bottomRecurve,
+    frontOuter,
+    frontInner,
+    backOuter,
+    backInner,
+    stringFront,
+    stringBack,
+    arrowFront,
+    arrowBack,
+    arrowheadOuter,
+    arrowheadInner,
+    gripOuter,
+    gripInner,
+    topScrollFront,
+    topScrollBack,
+    bottomScrollFront,
+    bottomScrollBack,
   ]);
 }
 
@@ -2386,7 +2548,7 @@ function buildSymbolScene(
     "position",
     new THREE.BufferAttribute(latticePositions, 3),
   );
-  const latticeMaterial = roundPointMaterial(INK, 0.16, 1.72);
+  const latticeMaterial = roundPointMaterial(INK, 0.095, 1.38);
   const lattice = new THREE.Points(latticeGeometry, latticeMaterial);
   lattice.frustumCulled = false;
   root.add(lattice);
@@ -2418,7 +2580,7 @@ function buildSymbolScene(
   const pointAttribute = new THREE.BufferAttribute(activePositions, 3);
   pointAttribute.setUsage(THREE.DynamicDrawUsage);
   pointGeometry.setAttribute("position", pointAttribute);
-  const activePointMaterial = roundPointMaterial(RED, 0.96, 4.3);
+  const activePointMaterial = roundPointMaterial(RED, 0.94, 3.15);
   const activePoints = new THREE.Points(
     pointGeometry,
     activePointMaterial,
@@ -2550,7 +2712,7 @@ function buildSymbolScene(
           ((index % SYMBOL_VERTICES_PER_PATH) /
             (SYMBOL_VERTICES_PER_PATH - 1)) *
             0.16 +
-          Math.floor(index / SYMBOL_VERTICES_PER_PATH) * 0.012;
+          Math.floor(index / SYMBOL_VERTICES_PER_PATH) * 0.006;
         const progress = isMorphing
           ? THREE.MathUtils.smootherstep(
               (rawMorph - stagger) / Math.max(0.001, 1 - stagger),
@@ -2881,9 +3043,7 @@ function BackgammonRail({ side }: { side: "left" | "right" }) {
           <small data-hud="move-state">ROLL RESOLVED</small>
         </section>
 
-        <p className="board-proof">
-          FIVE LEGAL TURNS · ONE DOUBLE · STATE RECALCULATED AFTER EVERY MOVE
-        </p>
+        <DiceVignette />
       </>
     );
   }
@@ -2996,16 +3156,21 @@ function SymbolRail({ side }: { side: "left" | "right" }) {
         <section className="symbol-lattice">
           <strong>COORDINATE FIELD</strong>
           <span>
-            LATTICE <b>26 × 26 × 26</b>
+            LATTICE{" "}
+            <b>
+              {SYMBOL_GRID_SIZE} × {SYMBOL_GRID_SIZE} ×{" "}
+              {SYMBOL_GRID_SIZE}
+            </b>
           </span>
           <span>
-            POINTS <b>17,576</b>
+            POINTS{" "}
+            <b>{(SYMBOL_GRID_SIZE ** 3).toLocaleString("en-US")}</b>
           </span>
           <span>
-            PITCH <b>0.32 U</b>
+            PITCH <b>{SYMBOL_GRID_STEP.toFixed(2)} U</b>
           </span>
           <span>
-            ACTIVE <b>512</b>
+            ACTIVE <b>{SYMBOL_VERTEX_COUNT.toLocaleString("en-US")}</b>
           </span>
         </section>
 
@@ -3023,15 +3188,15 @@ function SymbolRail({ side }: { side: "left" | "right" }) {
         <strong>LIVE GRAPH / CURRENT FRAME</strong>
         <p>
           <span>VERTICES</span>
-          <b>512</b>
+          <b>{SYMBOL_VERTEX_COUNT.toLocaleString("en-US")}</b>
         </p>
         <p>
           <span>EDGES</span>
-          <b>504</b>
+          <b>{SYMBOL_EDGE_COUNT.toLocaleString("en-US")}</b>
         </p>
         <p>
           <span>PATHS</span>
-          <b>8</b>
+          <b>{SYMBOL_PATH_COUNT}</b>
         </p>
         <p>
           <span>CLOSED PATHS</span>
@@ -3109,14 +3274,9 @@ function DiceVignette() {
   );
 }
 
-/*
- * Telemetry lives in rails outside the WebGL viewport. The center overlay is
- * deliberately limited to interaction guidance and the dice roll vignette.
- */
-function SceneOverlay({ mode }: { mode: VisualMode }) {
+function SceneOverlay() {
   return (
     <div className="scene-overlay">
-      {mode === 2 && <DiceVignette />}
       <p className="view-hint">
         DRAG / ORBIT · SCROLL / ZOOM · DOUBLE-CLICK / RESET
       </p>
@@ -3145,7 +3305,7 @@ const VIEW_CONFIG: Record<
     maximumDistance: 21,
   },
   3: {
-    yaw: 0.3,
+    yaw: 0.06,
     pitch: 0.15,
     distance: 15.2,
     minimumPitch: -0.18,
@@ -3406,11 +3566,11 @@ export function SystemCanvas({ mode }: { mode: VisualMode }) {
             ? "Interactive Formula car replaying recorded Silverstone telemetry. Drag to orbit and scroll to zoom."
             : mode === 2
               ? "Interactive five-turn backgammon simulation with exact state analysis. Drag to orbit and scroll to zoom."
-              : "Interactive 26 by 26 by 26 lattice reconfiguring between a phoenix, ouroboros, and Gandiva bow. Drag to orbit and scroll to zoom."
+              : "Interactive high-resolution lattice reconfiguring between a phoenix, ouroboros, and Gandiva bow. Drag to orbit and scroll to zoom."
         }
         role="application"
       >
-        <SceneOverlay mode={mode} />
+        <SceneOverlay />
       </div>
 
       <aside className="telemetry-rail telemetry-rail-right">
