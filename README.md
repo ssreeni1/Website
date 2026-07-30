@@ -1,4 +1,14 @@
-# vinext-starter
+# Saneel — personal site
+
+A minimal personal site built around interactive, technical simulations.
+
+## Animation system
+
+Read [`docs/ANIMATION_PRIOR.md`](docs/ANIMATION_PRIOR.md) before designing or
+implementing a new visual. It defines the shared motion grammar, state model,
+camera rules, telemetry system, and production quality gate for every scene.
+
+## Runtime
 
 A clean full-stack starter running on
 [vinext](https://github.com/cloudflare/vinext), with optional Cloudflare D1 and
@@ -89,7 +99,7 @@ actions tied to the current ChatGPT user. Leave public content anonymous.
 
 - `npm run dev`: start local development
 - `npm run build`: verify the vinext build output
-- `npm test`: build the starter and verify its rendered loading skeleton
+- `npm test`: build the site and verify its rendered shell and bundled data
 - `npm run db:generate`: generate Drizzle migrations after schema changes
 
 ## Learn More
