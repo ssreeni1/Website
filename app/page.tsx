@@ -24,7 +24,7 @@ export default function Home() {
   }, [autoCycle]);
 
   return (
-    <main>
+    <main className="home-page">
       <SiteNav />
 
       <section className="system" id="about" aria-labelledby="system-title">
