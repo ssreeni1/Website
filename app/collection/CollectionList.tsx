@@ -60,7 +60,11 @@ export function CollectionList({ entries }: CollectionListProps) {
   return (
     <ol className="collection-list" aria-label="Collection entries">
       {entries.map((entry, index) => (
-        <li key={entry.url}>
+        <li
+          className={index === selectedIndex ? "is-selected" : ""}
+          key={entry.url}
+          onPointerEnter={() => setSelectedIndex(index)}
+        >
           <a
             className={index === selectedIndex ? "is-selected" : ""}
             href={entry.url}
@@ -69,7 +73,6 @@ export function CollectionList({ entries }: CollectionListProps) {
             ref={(element) => {
               linkRefs.current[index] = element;
             }}
-            onPointerEnter={() => setSelectedIndex(index)}
             onFocus={() => setSelectedIndex(index)}
           >
             {entry.title}
