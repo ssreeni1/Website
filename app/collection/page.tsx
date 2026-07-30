@@ -80,7 +80,15 @@ export default function CollectionPage() {
 
       <section className="collection-shell" aria-labelledby="collection-title">
         <header className="collection-heading">
-          <h1 id="collection-title">COLLECTION</h1>
+          <div className="collection-heading-title">
+            <h1 id="collection-title">COLLECTION</h1>
+            <span
+              className="collection-key-hint"
+              aria-label="Use up and down arrow keys to change selection"
+            >
+              [↓] [↑]
+            </span>
+          </div>
           <span>{String(entries.length).padStart(2, "0")} ENTRIES</span>
         </header>
 

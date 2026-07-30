@@ -45,6 +45,7 @@ test("server-renders the personal site shell", async () => {
   assert.match(html, /About\s*<span>\[A\]<\/span>/);
   assert.match(html, /Collection\s*<span>\[C\]<\/span>/);
   assert.match(html, /Find\s*<span>\[F\]<\/span>/);
+  assert.match(html, /Dark\s*<span>\[D\]<\/span>/);
   assert.match(html, />Home<\/span>\s*<i>\/<\/i>/);
   assert.match(html, />About<\/span>\s*<i>\/about<\/i>/);
   assert.match(html, />Collection<\/span>\s*<i>\/collection<\/i>/);
@@ -103,6 +104,8 @@ test("serves the linked Collection archive without descriptions", async () => {
   assert.match(html, /RICKS Mechanism Analysis/);
   assert.match(html, /https:\/\/observablehq\.com\/@ssreeni1\/picklerick/);
   assert.match(html, /Collection entries/);
+  assert.match(html, /Use up and down arrow keys to change selection/);
+  assert.match(html, /\[↓\]\s*\[↑\]/);
   assert.doesNotMatch(html, /Investing in early-stage|Products for BTC Miners/);
 });
 

@@ -242,6 +242,12 @@ main {
   font-weight: 400;
 }
 
+.collection-heading-title {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
 .collection-heading span {
   color: var(--muted);
 }

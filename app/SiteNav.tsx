@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 const routes = [
@@ -33,6 +33,7 @@ export function SiteNav() {
   const [finderOpen, setFinderOpen] = useState(false);
   const [finderQuery, setFinderQuery] = useState("");
   const [finderIndex, setFinderIndex] = useState(0);
+  const [theme, setTheme] = useState<SiteTheme>("light");
   const finderInputRef = useRef<HTMLInputElement>(null);
   const themeRef = useRef<SiteTheme>("light");
   const themeOverrideRef = useRef<SiteTheme | null>(null);
@@ -41,6 +42,15 @@ export function SiteNav() {
       .toLowerCase()
       .includes(finderQuery.trim().toLowerCase()),
   );
+
+  const toggleTheme = useCallback(() => {
+    const nextTheme = themeRef.current === "dark" ? "light" : "dark";
+    themeRef.current = nextTheme;
+    themeOverrideRef.current = nextTheme;
+    setTheme(nextTheme);
+    window.localStorage.setItem(THEME_STORAGE_KEY, nextTheme);
+    applySiteTheme(nextTheme);
+  }, []);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -77,11 +87,7 @@ export function SiteNav() {
 
       if (key === "d") {
         event.preventDefault();
-        const nextTheme = themeRef.current === "dark" ? "light" : "dark";
-        themeRef.current = nextTheme;
-        themeOverrideRef.current = nextTheme;
-        window.localStorage.setItem(THEME_STORAGE_KEY, nextTheme);
-        applySiteTheme(nextTheme);
+        toggleTheme();
       }
 
       if (event.key === "Escape") setFinderOpen(false);
@@ -89,7 +95,7 @@ export function SiteNav() {
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [router]);
+  }, [router, toggleTheme]);
 
   useEffect(() => {
     const media = window.matchMedia("(prefers-color-scheme: dark)");
@@ -103,6 +109,7 @@ export function SiteNav() {
     const syncTheme = () => {
       const theme = themeOverrideRef.current ?? getSystemTheme();
       themeRef.current = theme;
+      setTheme(theme);
       applySiteTheme(theme);
     };
     const onSystemThemeChange = () => {
@@ -145,6 +152,18 @@ export function SiteNav() {
             aria-label="Open directory"
           >
             Find <span>[F]</span>
+          </button>
+          <button
+            type="button"
+            aria-label={
+              theme === "dark"
+                ? "Switch to light mode"
+                : "Switch to dark mode"
+            }
+            aria-pressed={theme === "dark"}
+            onClick={toggleTheme}
+          >
+            Dark <span>[D]</span>
           </button>
         </nav>
       </header>
