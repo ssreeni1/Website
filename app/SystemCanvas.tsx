@@ -870,11 +870,13 @@ async function buildFormulaScene(
   const right = new THREE.Vector3(forward.z, 0, -forward.x);
   const desiredCamera = new THREE.Vector3();
   const desiredLook = new THREE.Vector3();
+  const displayCarPosition = carPosition.clone();
+  let displayHeading = Math.atan2(forward.x, forward.z);
   const cameraLook = carPosition
     .clone()
     .add(new THREE.Vector3(0, 0.62, 0));
-  carRig.position.copy(carPosition);
-  carRig.rotation.y = Math.atan2(forward.x, forward.z);
+  carRig.position.copy(displayCarPosition);
+  carRig.rotation.y = displayHeading;
   camera.position
     .copy(carPosition)
     .addScaledVector(forward, -7.5)
@@ -888,18 +890,19 @@ async function buildFormulaScene(
   let mapFrame = 0;
   let vectorFrame = 0;
   let hudFrame = 0;
+  const playbackRate = 1.5;
   const lapDuration = telemetry.source.lapDurationMs;
   const motionDuration = Math.max(
     lapDuration,
     telemetry.location[telemetry.location.length - 1].t + 360,
   );
-  const lastCarPosition = carPosition.clone();
+  const lastCarPosition = displayCarPosition.clone();
   const carTranslation = new THREE.Vector3();
   return {
     root,
     update: (elapsed, delta, view) => {
       const motionTime =
-        (elapsed * 1000 * telemetry.source.replayRate) % motionDuration;
+        (elapsed * 1000 * playbackRate) % motionDuration;
       const replayTime = Math.min(motionTime, lapDuration);
       const car = sampleWindow(telemetry.car, replayTime);
       const location = smoothLocation(
@@ -963,16 +966,25 @@ async function buildFormulaScene(
         0.03,
         (location.y - road.originY) * 0.1,
       );
-      forward.set(location.dx, 0, location.dy).normalize();
+      const targetHeading = Math.atan2(location.dx, location.dy);
+      const positionDamping = 1 - Math.exp(-delta * 22);
+      const headingDamping = 1 - Math.exp(-delta * 12);
+      displayCarPosition.lerp(carPosition, positionDamping);
+      const headingDelta = Math.atan2(
+        Math.sin(targetHeading - displayHeading),
+        Math.cos(targetHeading - displayHeading),
+      );
+      displayHeading += headingDelta * headingDamping;
+      forward.set(Math.sin(displayHeading), 0, Math.cos(displayHeading));
       right.set(forward.z, 0, -forward.x);
-      carRig.position.copy(carPosition);
-      carRig.rotation.y = Math.atan2(forward.x, forward.z);
-      carTranslation.copy(carPosition).sub(lastCarPosition);
+      carRig.position.copy(displayCarPosition);
+      carRig.rotation.y = displayHeading;
+      carTranslation.copy(displayCarPosition).sub(lastCarPosition);
       camera.position.add(carTranslation);
       cameraLook.add(carTranslation);
-      lastCarPosition.copy(carPosition);
+      lastCarPosition.copy(displayCarPosition);
       wheelAngle -=
-        ((speed / 3.6) / 0.36) * delta * telemetry.source.replayRate;
+        ((speed / 3.6) / 0.36) * delta * playbackRate;
       if (frontWheels) {
         frontWheels.rotation.x = frontWheelBaseRotation + wheelAngle;
       }
@@ -984,7 +996,7 @@ async function buildFormulaScene(
       });
 
       vectorFrame += 1;
-      if (vectorFrame % 2 === 0) {
+      if (vectorFrame % 3 === 0) {
         const trailPositionAttribute = trailGeometry.getAttribute(
           "position",
         ) as THREE.BufferAttribute;
@@ -1046,7 +1058,7 @@ async function buildFormulaScene(
       const horizontalDistance =
         view.distance * Math.cos(view.pitch);
       desiredCamera
-        .copy(carPosition)
+        .copy(displayCarPosition)
         .addScaledVector(
           forward,
           -Math.cos(view.yaw) * horizontalDistance,
@@ -1056,9 +1068,9 @@ async function buildFormulaScene(
           Math.sin(view.yaw) * horizontalDistance,
         );
       desiredCamera.y += Math.sin(view.pitch) * view.distance;
-      desiredLook.copy(carPosition);
+      desiredLook.copy(displayCarPosition);
       desiredLook.y += 0.62;
-      const cameraDamping = 1 - Math.exp(-delta * 36);
+      const cameraDamping = 1 - Math.exp(-delta * 12);
       camera.position.lerp(desiredCamera, cameraDamping);
       cameraLook.lerp(desiredLook, cameraDamping);
       camera.lookAt(cameraLook);
@@ -1249,34 +1261,34 @@ function buildBackgammonScene(
     : [grid.material];
   gridMaterials.forEach((material) => {
     material.transparent = true;
-    material.opacity = 0.08;
+    material.opacity = 0.022;
     material.depthWrite = false;
   });
   root.add(grid);
 
   const board = technicalSolid(new THREE.BoxGeometry(8.55, 0.3, 5.4), {
     color: 0xededE8,
-    opacity: 0.12,
-    edgeOpacity: 0.78,
+    opacity: 0.18,
+    edgeOpacity: 0.68,
   });
   root.add(board);
   const surface = technicalSolid(new THREE.BoxGeometry(8.1, 0.075, 4.95), {
     color: PAPER,
-    opacity: 0.08,
-    edgeOpacity: 0.38,
+    opacity: 0.16,
+    edgeOpacity: 0.3,
   });
   surface.position.y = 0.19;
   root.add(surface);
 
   const bar = technicalSolid(new THREE.BoxGeometry(0.24, 0.16, 4.95), {
     color: 0xe6e6e0,
-    opacity: 0.1,
-    edgeOpacity: 0.64,
+    opacity: 0.14,
+    edgeOpacity: 0.52,
   });
   bar.position.y = 0.28;
   root.add(bar);
 
-  const surfaceGrid = new THREE.GridHelper(8.1, 18, RED, INK);
+  const surfaceGrid = new THREE.GridHelper(8.1, 12, RED, INK);
   surfaceGrid.position.y = 0.242;
   surfaceGrid.scale.z = 0.61;
   const surfaceGridMaterials = Array.isArray(surfaceGrid.material)
@@ -1284,7 +1296,7 @@ function buildBackgammonScene(
     : [surfaceGrid.material];
   surfaceGridMaterials.forEach((material, index) => {
     material.transparent = true;
-    material.opacity = index === 0 ? 0.12 : 0.04;
+    material.opacity = index === 0 ? 0.075 : 0.016;
     material.depthWrite = false;
   });
   root.add(surfaceGrid);
@@ -1294,7 +1306,7 @@ function buildBackgammonScene(
     new THREE.LineBasicMaterial({
       color: INK,
       transparent: true,
-      opacity: 0.08,
+      opacity: 0.035,
       depthWrite: false,
     }),
   );
@@ -1433,8 +1445,8 @@ function buildBackgammonScene(
         roughness: player === "BLACK" ? 0.72 : 0.9,
         metalness: player === "BLACK" ? 0.08 : 0,
         transparent: true,
-        opacity: player === "BLACK" ? 0.72 : 0.34,
-        depthWrite: player === "BLACK",
+        opacity: player === "BLACK" ? 0.76 : 0.68,
+        depthWrite: true,
       });
       const checker = new THREE.Group();
       checker.add(
@@ -1444,7 +1456,7 @@ function buildBackgammonScene(
           new THREE.LineBasicMaterial({
             color: player === "BLACK" ? 0x000000 : INK,
             transparent: true,
-            opacity: player === "BLACK" ? 0.72 : 0.82,
+            opacity: player === "BLACK" ? 0.68 : 0.58,
           }),
         ),
       );
@@ -1453,7 +1465,7 @@ function buildBackgammonScene(
         new THREE.MeshBasicMaterial({
           color: player === "BLACK" ? RED : INK,
           transparent: true,
-          opacity: player === "BLACK" ? 0.42 : 0.48,
+          opacity: player === "BLACK" ? 0.24 : 0.18,
           depthWrite: false,
         }),
       );
@@ -1598,8 +1610,8 @@ function buildBackgammonScene(
     new THREE.BoxGeometry(1.55, 0.08, 1.04),
     {
       color: 0xe8e8e2,
-      opacity: 0.1,
-      edgeOpacity: 0.58,
+      opacity: 0.14,
+      edgeOpacity: 0.42,
     },
   );
   diceTray.position.set(4.85, 0.2, 0.18);
@@ -1609,8 +1621,8 @@ function buildBackgammonScene(
     const die = technicalSolid(new THREE.BoxGeometry(0.5, 0.5, 0.5), {
       color: PAPER,
       edgeColor: index === 0 ? RED : INK,
-      opacity: 0.22,
-      edgeOpacity: 0.82,
+      opacity: 0.58,
+      edgeOpacity: 0.7,
     });
     const pips = pipPositions.map(([px, pz]) => {
       const pip = new THREE.Mesh(
@@ -1638,25 +1650,29 @@ function buildBackgammonScene(
     object: THREE.Mesh;
     material: THREE.MeshBasicMaterial;
   }> = [];
-  const outcomeNodeGeometry = new THREE.SphereGeometry(0.045, 9, 7);
-  const fieldMinX = 4.08;
-  const fieldMinZ = -0.72;
-  const fieldStep = 0.31;
+  const outcomeField = new THREE.Group();
+  outcomeField.position.set(5.5, 0.72, -0.42);
+  outcomeField.rotation.y = -0.89;
+  root.add(outcomeField);
+  const outcomeNodeGeometry = new THREE.SphereGeometry(0.037, 9, 7);
+  const fieldMinY = 0;
+  const fieldMinZ = -0.62;
+  const fieldStep = 0.24;
   for (let first = 0; first < 6; first += 1) {
     for (let second = 0; second < 6; second += 1) {
       const material = new THREE.MeshBasicMaterial({
         color: INK,
         transparent: true,
-        opacity: 0.2,
+        opacity: 0.12,
         depthWrite: false,
       });
       const node = new THREE.Mesh(outcomeNodeGeometry, material);
       node.position.set(
-        fieldMinX + second * fieldStep,
-        1.48,
-        fieldMinZ + first * fieldStep,
+        0,
+        fieldMinY + first * fieldStep,
+        fieldMinZ + second * fieldStep,
       );
-      root.add(node);
+      outcomeField.add(node);
       outcomeNodes.push({ object: node, material });
     }
   }
@@ -1665,17 +1681,17 @@ function buildBackgammonScene(
   for (let index = 0; index < 6; index += 1) {
     const offset = index * fieldStep;
     fieldGridPoints.push(
-      new THREE.Vector3(fieldMinX, 1.48, fieldMinZ + offset),
+      new THREE.Vector3(0, fieldMinY + offset, fieldMinZ),
       new THREE.Vector3(
-        fieldMinX + fieldStep * 5,
-        1.48,
-        fieldMinZ + offset,
-      ),
-      new THREE.Vector3(fieldMinX + offset, 1.48, fieldMinZ),
-      new THREE.Vector3(
-        fieldMinX + offset,
-        1.48,
+        0,
+        fieldMinY + offset,
         fieldMinZ + fieldStep * 5,
+      ),
+      new THREE.Vector3(0, fieldMinY, fieldMinZ + offset),
+      new THREE.Vector3(
+        0,
+        fieldMinY + fieldStep * 5,
+        fieldMinZ + offset,
       ),
     );
   }
@@ -1684,11 +1700,11 @@ function buildBackgammonScene(
     new THREE.LineBasicMaterial({
       color: INK,
       transparent: true,
-      opacity: 0.11,
+      opacity: 0.045,
       depthWrite: false,
     }),
   );
-  root.add(outcomeFieldGrid);
+  outcomeField.add(outcomeFieldGrid);
 
   const outcomeProjectionGeometry = new THREE.BufferGeometry();
   const outcomeProjection = new THREE.LineSegments(
@@ -1698,7 +1714,7 @@ function buildBackgammonScene(
       dashSize: 0.08,
       gapSize: 0.06,
       transparent: true,
-      opacity: 0.48,
+      opacity: 0.34,
       depthWrite: false,
     }),
   );
@@ -1739,7 +1755,7 @@ function buildBackgammonScene(
       new THREE.Vector3(4.05, 0.27, 0),
     ],
     RED,
-    0.45,
+    0.22,
   );
   root.add(scanLine);
 
@@ -1750,7 +1766,7 @@ function buildBackgammonScene(
         color: RED,
         edgeColor: RED,
         opacity: 0.02,
-        edgeOpacity: 0.55,
+        edgeOpacity: 0.38,
       },
     );
     marker.rotation.x = Math.PI / 2;
@@ -1766,6 +1782,7 @@ function buildBackgammonScene(
   let lastTurnIndex = -1;
   let lastMoveIndex = -1;
   let activeOutcomeIndexes = [5];
+  let targetMarkerCount = 0;
   const currentPoints = new Map<BackgammonPiece, number>();
 
   return {
@@ -1836,6 +1853,10 @@ function buildBackgammonScene(
         activePath.visible = false;
         lastMoveIndex = -1;
       }
+      targetMarkers.forEach((marker, index) => {
+        marker.visible =
+          activeMoveIndex < 0 && index < targetMarkerCount;
+      });
 
       if (lastTurnIndex !== turnIndex) {
         setDieValue(dice[0], turn.dice[0]);
@@ -1876,13 +1897,18 @@ function buildBackgammonScene(
         targetMarkers.forEach((marker) => {
           marker.visible = false;
         });
-        timeline
+        const uniqueTargets = timeline
           .filter((move) => move.turn === turnIndex)
-          .forEach((move, index) => {
-            targetMarkers[index].visible = true;
-            targetMarkers[index].position.copy(move.end);
-            targetMarkers[index].position.y = 0.275;
-          });
+          .filter(
+            (move, index, moves) =>
+              moves.findIndex((candidate) => candidate.to === move.to) ===
+              index,
+          );
+        targetMarkerCount = uniqueTargets.length;
+        uniqueTargets.forEach((move, index) => {
+          targetMarkers[index].position.copy(move.end);
+          targetMarkers[index].position.y = 0.275;
+        });
         lastTurnIndex = turnIndex;
       }
 
@@ -1906,8 +1932,8 @@ function buildBackgammonScene(
         const active = activeOutcomeIndexes.includes(index);
         const pulse = 1 + Math.sin(elapsed * 4.2 + index * 0.15) * 0.08;
         object.scale.setScalar(active ? 1.55 * pulse : 1);
-        object.position.y = 1.48 + (active ? 0.08 * pulse : 0);
-        material.opacity = active ? 0.94 : 0.16;
+        object.position.x = active ? 0.07 * pulse : 0;
+        material.opacity = active ? 0.9 : 0.1;
         material.color.set(active ? RED : INK);
       });
       const projectionPoints: THREE.Vector3[] = [];
@@ -1919,7 +1945,7 @@ function buildBackgammonScene(
             ]
           ].object;
         projectionPoints.push(
-          node.position.clone(),
+          node.getWorldPosition(new THREE.Vector3()),
           die.position.clone().add(new THREE.Vector3(0, 0.34, 0)),
         );
       });
@@ -2029,7 +2055,7 @@ function FormulaHud({
           LAP TIME <b data-hud="lap-time">00:00.000</b>
         </span>
         <span>
-          PROGRESS <b data-hud="lap-progress">0.0%</b> · REPLAY 4.0×
+          PROGRESS <b data-hud="lap-progress">0.0%</b> · REPLAY 1.5×
         </span>
         <span className="signal-copy" data-hud="phase">
           REAL-LAP REPLAY
@@ -2208,7 +2234,7 @@ export function SystemCanvas({ mode }: { mode: VisualMode }) {
       alpha: true,
       powerPreference: "high-performance",
     });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.15;
@@ -2265,7 +2291,7 @@ export function SystemCanvas({ mode }: { mode: VisualMode }) {
     const animate = (frameTime: number) => {
       const delta = Math.min(
         Math.max(0, (frameTime - lastFrameTime) / 1000),
-        0.05,
+        0.033,
       );
       lastFrameTime = frameTime;
       elapsed += delta;
