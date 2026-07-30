@@ -1,0 +1,584 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <meta name="description" content="A brief on harness history and where we're going.">
+  <title>Five Lines to Infinity</title>
+  <link rel="stylesheet" href="styles.css?v=4">
+</head>
+<body>
+  <main id="top">
+    <article>
+      <header class="article-header">
+        <h1>Five Lines to Infinity</h1>
+        <p class="subtitle">A brief on harness history and where we're going.</p>
+      </header>
+
+      <nav id="contents" class="article-toc" aria-label="Table of contents">
+        <a href="#trajectory" data-section="trajectory">
+          <span>01</span>
+          <strong>From calls to trajectories</strong>
+        </a>
+        <a href="#code" data-section="code">
+          <span>02</span>
+          <strong>Computers as environments</strong>
+        </a>
+        <a href="#durability" data-section="durability">
+          <span>03</span>
+          <strong>Durable, recoverable agents</strong>
+        </a>
+        <a href="#optimization" data-section="optimization">
+          <span>04</span>
+          <strong>Learning from traces</strong>
+        </a>
+        <a href="#frontier" data-section="frontier">
+          <span>05</span>
+          <strong>The moving boundary</strong>
+        </a>
+      </nav>
+
+      <section class="prose opening">
+        <p>In July 2026, OpenAI was puzzled that GPT-5.6 Sol, a model that could prove mathematics and play Pokémon, looked helpless in ARC-AGI-3’s small 2D worlds. Under the official generic harness it scored 13.3 on the public set. OpenAI changed two context settings. The same model scored 38.3 and emitted six times fewer output tokens.</p>
+
+        <p>The changes sound almost insultingly mundane. Retain the model’s private reasoning between actions. When context fills, compact it instead of deleting the oldest turns. Without the first, every move asked the policy to rediscover the game. Without the second, it eventually forgot the evidence needed to learn it. The benchmark had not only measured abstract reasoning; it had measured a particular theory of conversation history.</p>
+
+        <figure class="inline-figure" aria-labelledby="fig1-title">
+          <div class="figure-title">
+            <span>FIGURE 1</span>
+            <p id="fig1-title">Two settings changed the apparent frontier</p>
+          </div>
+          <div class="bar-chart">
+            <div class="bar-row">
+              <div class="bar-meta"><span>Official generic harness</span><b>13.3</b></div>
+              <div class="bar-track"><i style="--value:33.25%"></i></div>
+            </div>
+            <div class="bar-row active">
+              <div class="bar-meta"><span>Retained reasoning + compaction</span><b>38.3</b></div>
+              <div class="bar-track"><i style="--value:95.75%"></i></div>
+            </div>
+            <div class="bar-axis"><span>0</span><span>10</span><span>20</span><span>30</span><span>40 RHAE</span></div>
+          </div>
+          <figcaption>Observed. GPT-5.6 Sol (max) on the ARC-AGI-3 public set. OpenAI’s Responses API harness retained reasoning and enabled compaction; output tokens fell 6×. This is a public-set harness comparison, not a replacement for ARC Prize’s verified leaderboard. <a href="https://openai.com/index/how-two-settings-tripled-our-arc-agi-3-scores/">Source</a>.</figcaption>
+        </figure>
+
+        <p>The timing sharpened the dispute. ARC Prize had just named <a href="https://arcprize.org/results/anthropic-claude-opus-5">Claude Opus 5</a> its new verified leader at 30.2. OpenAI’s 38.3 was a public-set rerun under a different harness, so it does not directly replace that ranking. It does make the ranking’s hidden variable impossible to ignore. “Which model is smarter?” is underspecified until we say how each model is allowed to remember, act, and recover.</p>
+
+        <p>This article is my attempt to make that hidden variable legible. I want to explain how the code around a model evolved, what each new layer was trying to fix, and why the harness now matters as much as many changes to the model itself. The most useful starting point is to stop treating “the agent” as one indivisible thing.</p>
+
+        <p>The relevant unit of comparison is the model and harness together, not the model alone:</p>
+
+        <div class="math-block">result = f(model, harness, environment, budget, evaluator).</div>
+
+        <p>Here is the vocabulary I will use. The model proposes the next inference or action. The harness coordinates the work: it decides what the model sees, which actions it can express, when to retry, and where feedback goes. The environment is the world being changed. The evaluator judges the result independently. Add compute limits and human authority, and you have the complete agent system.</p>
+
+        <dl class="taxonomy" aria-label="Agent system boundaries">
+          <div><dt>POLICY</dt><dd>proposes</dd></div>
+          <div><dt>HARNESS</dt><dd>coordinates</dd></div>
+          <div><dt>ENVIRONMENT</dt><dd>changes state</dd></div>
+          <div><dt>EVALUATOR</dt><dd>judges</dd></div>
+          <div><dt>AGENT SYSTEM</dt><dd>contains all four</dd></div>
+        </dl>
+
+        <p>The harness did not swallow every other layer. It became their control plane: the place where durable state becomes a model call, a model output becomes a constrained action, and evidence from that action becomes the next observation. The history is easier to follow as three accumulating ideas. Interfaces turned calls into trajectories. External state turned trajectories into long-running work. Independent evaluation made it possible to improve the controller without letting it grade its own homework.</p>
+      </section>
+
+      <section id="trajectory" class="prose">
+        <h2>From an answer to a trajectory</h2>
+
+        <p>GPT-3 initially made the model look like a function: <code>answer = model(prompt + examples + question)</code>. There was no environment to inspect and no result to feed into the next decision. The unit of computation was one completion.</p>
+
+        <p>The first missing object was evidence. <a href="https://arxiv.org/abs/2112.09332">WebGPT</a> placed GPT-3 behind a text browser with five basic actions: search, open, click, navigate, and quote. The final answer had to cite observations gathered through that browser. Its best configuration was preferred to its human demonstrators 56% of the time. Web search was not the real invention. The important part was that a claim could now be checked against a trace outside the model’s prose.</p>
+
+        <p>Evidence still did not grant authority. A model can propose an action that sounds useful but cannot work in the current world. <a href="https://arxiv.org/abs/2204.01691">SayCan</a> made that distinction explicit in robotics: a language model scored whether a skill served the instruction, while an affordance model scored whether the robot could execute it now. Fluent language no longer had unilateral control over physical action:</p>
+
+        <div class="math-block">score(skill) ≈ P(useful | instruction) × P(executable | world).</div>
+
+        <p>If you remember one thing about SayCan, make it this: usefulness and permission are separate scores. That multiplication is the ancestor of every later gate in this essay. A test decides whether to accept a patch. A policy decides whether a GUI action needs approval. A sealed evaluator decides whether an optimized skill may ship. The model proposes what ought to happen. A mechanism grounded in the world decides what may happen.</p>
+
+        <p>The remaining step was to repeat this separation. Routing work to external modules in <a href="https://arxiv.org/abs/2205.00445">MRKL</a>, and delegating exact computation to generated programs in <a href="https://arxiv.org/abs/2211.10435">PAL</a>, moved operations the model should not simulate into machinery that could actually perform them. <a href="https://arxiv.org/abs/2210.03629">ReAct</a> then compressed the general pattern into Thought → Action → Observation: plan locally, act through an interface, let the changed world correct the next inference.</p>
+
+        <pre><code>history = []
+while True:
+    step = model(goal, history)
+    if step.kind == "finish":
+        return step.answer
+    observation = tools[step.name](**step.args)
+    history.append((step, observation))</code></pre>
+
+        <figure class="wide-figure" aria-labelledby="fig2-title">
+          <div class="figure-title">
+            <span>FIGURE 2</span>
+            <p id="fig2-title">Closing the loop</p>
+          </div>
+          <svg viewBox="0 0 1000 330" role="img" aria-label="Prompt completion compared with a policy environment feedback loop">
+            <defs>
+              <marker id="arrow2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M0 0L10 5L0 10Z" class="arrow-head"/>
+              </marker>
+            </defs>
+            <g class="grid"><path d="M20 82H980M20 246H980M172 24V306M500 24V306M828 24V306"/></g>
+            <text x="30" y="50" class="svg-label">PROMPT-ONLY</text>
+            <rect x="118" y="103" width="160" height="62" class="node"/>
+            <text x="198" y="130" text-anchor="middle" class="node-title">PROMPT</text>
+            <text x="198" y="149" text-anchor="middle" class="node-note">STATIC STATE</text>
+            <path d="M278 134H420" class="edge" marker-end="url(#arrow2)"/>
+            <rect x="422" y="103" width="160" height="62" class="node signal-node"/>
+            <text x="502" y="130" text-anchor="middle" class="node-title">MODEL</text>
+            <text x="502" y="149" text-anchor="middle" class="node-note">ONE CALL</text>
+            <path d="M582 134H724" class="edge" marker-end="url(#arrow2)"/>
+            <rect x="726" y="103" width="160" height="62" class="node"/>
+            <text x="806" y="130" text-anchor="middle" class="node-title">ANSWER</text>
+            <text x="806" y="149" text-anchor="middle" class="node-note">NO FEEDBACK</text>
+
+            <text x="30" y="214" class="svg-label">AGENT LOOP</text>
+            <rect x="118" y="232" width="160" height="62" class="node"/>
+            <text x="198" y="259" text-anchor="middle" class="node-title">STATE</text>
+            <text x="198" y="278" text-anchor="middle" class="node-note">GOAL + HISTORY</text>
+            <path d="M278 263H420" class="edge" marker-end="url(#arrow2)"/>
+            <rect x="422" y="232" width="160" height="62" class="node signal-node"/>
+            <text x="502" y="259" text-anchor="middle" class="node-title">POLICY</text>
+            <text x="502" y="278" text-anchor="middle" class="node-note">NEXT ACTION</text>
+            <path d="M582 263H724" class="edge" marker-end="url(#arrow2)"/>
+            <rect x="726" y="232" width="160" height="62" class="node"/>
+            <text x="806" y="259" text-anchor="middle" class="node-title">ENVIRONMENT</text>
+            <text x="806" y="278" text-anchor="middle" class="node-note">OBSERVATION</text>
+            <path d="M806 232C806 184 198 184 198 232" class="edge return" marker-end="url(#arrow2)"/>
+          </svg>
+          <figcaption>Derived conceptual synthesis from WebGPT, SayCan, and ReAct. Red marks the neural policy; the feedback loop around it is the first general harness.</figcaption>
+        </figure>
+
+        <p>With one or two demonstrations, <a href="https://arxiv.org/abs/2210.03629">ReAct reported</a> absolute gains of 34 points on ALFWorld and 10 on WebShop over imitation and reinforcement-learning baselines. Its five-line structure still sits inside current agents. The problem is that this tiny loop asks one transcript to do four jobs at once: hold the plan, store memory, record the trace, and represent the current world. It also asks the model to choose tools, interpret errors, verify results, and decide when to stop. One bad action changes every later observation. Every irrelevant result still consumes context.</p>
+
+        <p>Training the policy to insert API calls, as <a href="https://arxiv.org/abs/2302.04761">Toolformer</a> did, and later standardizing typed function calls made individual actions cleaner. It did not solve the larger problem. A typed call gives the model a verb. It does not give the system durable state, control flow, verification, or recovery. Once we knew how to create a trajectory, the next temptation was obvious: let it run for longer. That is where the simple loop started to break.</p>
+
+        <h2>Autonomy externalized state before it earned trust</h2>
+
+        <p>The immediate response was simply to keep the loop running. BabyAGI gave ReAct an indefinite goal, retrieval memory, and a task queue that could add more tasks to itself. Its controller was almost comically small:</p>
+
+        <pre><code>while tasks:
+    task = tasks.pop(0)
+    result = executor(task, memory)
+    memory.store(task, result)
+    tasks += creator(goal, task, result)
+    tasks = prioritizer(tasks)</code></pre>
+
+        <p>The queue moved intended work out of the model’s prose, but exposed the next failure. The planner could manufacture unlimited work and grade whether it mattered. Without an independent completion test, activity looked exactly like progress.</p>
+
+        <p>It is tempting to call this a memory problem, but “more memory” is too vague to be useful. A lesson about a failed attempt, a fact needed later, and a reusable procedure are different objects with different ways of becoming true. <a href="https://arxiv.org/abs/2303.11366">Reflexion</a> stored the first as a verbal hypothesis for another attempt. <a href="https://arxiv.org/abs/2310.08560">MemGPT</a> addressed the second by treating context as a cache over external tiers. The prompt was no longer the canonical record. It was a temporary view assembled from a larger store.</p>
+
+        <p><a href="https://arxiv.org/abs/2305.16291">Voyager</a> made the third object concrete. A generated Minecraft program entered its skill library only after execution and self-verification. It reported 3.3× more unique items and technology milestones reached as much as 15.3× faster. Experience had been compiled into a retrievable, testable procedure:</p>
+
+        <pre><code>candidate = synthesize(goal, retrieve_skills(goal))
+result = environment.run(candidate)
+
+if verifier.accept(result):
+    skill_library.add(
+        procedure=candidate,
+        description=describe(candidate),
+        evidence=result
+    )</code></pre>
+
+        <p>A reflection is an interpretation, retrieved memory is a selected record, and a skill is a procedure that can carry executable evidence. Moving down that list usually makes verification easier, but not permanent. A reflection should not become a permission, and a skill may fail when its preconditions change.</p>
+
+        <p>There was one more hidden object to externalize: the path not taken. <a href="https://arxiv.org/abs/2310.04406">Language Agent Tree Search</a> could score and revisit alternate trajectories instead of committing to the first plausible one. But this only works when the world is cheap to copy and an evaluator can compare branches. You cannot abandon a branch after it sends an email or changes a reservation. Search needed reversible state. Software repositories happened to provide almost exactly the world it wanted.</p>
+      </section>
+
+      <section id="code" class="prose">
+        <h2>Coding turned the loop into a runtime</h2>
+
+        <p>The early tool loop treated a computer as a menu of verbs. Software work made that abstraction collapse. Editing a repository is a procedure: inspect, search, mutate, execute, interpret the failure, and try again against a changing world. A repository also supplied what earlier agents lacked: legible state, an oracle outside the policy, and reversible branches.</p>
+
+        <pre><code>state       = files
+actions     = shell + patches
+feedback    = compiler + tests
+checkpoint  = git commit
+branch      = worktree
+world       = sandbox</code></pre>
+
+        <p>The first shift was from choosing tools to writing procedures. <a href="https://arxiv.org/abs/2402.01030">CodeAct</a> made executable code the action language, letting one model step compose libraries, loops, and intermediate state. Orchestration moved below the token loop, where ordinary control flow was cheaper and exact.</p>
+
+        <p>Once models could write procedures, failures moved to the interface around them. Terminal output and editors were built for humans, so <a href="https://arxiv.org/abs/2405.15793">SWE-agent</a> treated computer use as a language-design problem. Bounded file views, explicit search, structured edits, and useful errors helped GPT-4 reach 12.5% on SWE-bench versus the cited 1.96% non-interactive result. Search, patch, test, and error had become a model-facing computer interface.</p>
+
+        <p>Longer jobs required a runtime. <a href="https://arxiv.org/abs/2407.16741">OpenHands</a> represented actions and observations as typed events so the policy, sandbox, interface, and benchmark adapter could evolve independently. <a href="https://code.claude.com/docs/en/how-claude-code-works">Claude Code</a> and <a href="https://openai.com/index/introducing-codex/">Codex</a> complete the shift: compile repository state into each call, isolate execution, preserve progress outside one context window, and let tests decide whether work can ship. Coding agents became cloud agents when the running loop stopped being the durable object.</p>
+
+        <figure class="wide-figure" aria-labelledby="fig3-title">
+          <div class="figure-title">
+            <span>FIGURE 3</span>
+            <p id="fig3-title">The modern coding control loop</p>
+          </div>
+          <svg viewBox="0 0 1000 570" role="img" aria-label="Durable state feeds a context compiler and model; typed tools mutate a repository in a sandbox; a verifier returns evidence to the event log">
+            <defs>
+              <marker id="arrow3" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M0 0L10 5L0 10Z" class="arrow-head"/>
+              </marker>
+            </defs>
+            <g class="grid"><path d="M24 96H976M24 270H976M24 444H976M180 26V544M500 26V544M820 26V544"/></g>
+
+            <rect x="54" y="52" width="236" height="76" class="node"/>
+            <text x="172" y="83" text-anchor="middle" class="node-title">EVENT LOG</text>
+            <text x="172" y="105" text-anchor="middle" class="node-note">GOALS · HISTORY · APPROVALS</text>
+            <path d="M290 90H354" class="edge" marker-end="url(#arrow3)"/>
+
+            <rect x="356" y="52" width="288" height="76" class="node signal-node"/>
+            <text x="500" y="83" text-anchor="middle" class="node-title">CONTEXT COMPILER</text>
+            <text x="500" y="105" text-anchor="middle" class="node-note">RULES · PLAN · RELEVANT STATE</text>
+            <path d="M500 128V182" class="edge" marker-end="url(#arrow3)"/>
+
+            <rect x="708" y="52" width="236" height="76" class="node boundary-node"/>
+            <text x="826" y="83" text-anchor="middle" class="node-title">POLICY BROKER</text>
+            <text x="826" y="105" text-anchor="middle" class="node-note">APPROVALS · SCOPED CREDENTIALS</text>
+            <path d="M826 128V184" class="edge return" marker-end="url(#arrow3)"/>
+
+            <rect x="390" y="184" width="220" height="86" class="node"/>
+            <text x="500" y="219" text-anchor="middle" class="node-title">MODEL</text>
+            <text x="500" y="242" text-anchor="middle" class="node-note">PROPOSE NEXT ACTION</text>
+            <path d="M610 227H708" class="edge" marker-end="url(#arrow3)"/>
+
+            <rect x="708" y="184" width="236" height="86" class="node"/>
+            <text x="826" y="219" text-anchor="middle" class="node-title">TYPED TOOL INTERFACE</text>
+            <text x="826" y="242" text-anchor="middle" class="node-note">SEARCH · PATCH · SHELL</text>
+            <path d="M826 270V338" class="edge" marker-end="url(#arrow3)"/>
+
+            <rect x="708" y="340" width="236" height="86" class="node"/>
+            <text x="826" y="375" text-anchor="middle" class="node-title">SANDBOX</text>
+            <text x="826" y="398" text-anchor="middle" class="node-note">EXECUTION · NETWORK POLICY</text>
+            <path d="M708 383H610" class="edge" marker-end="url(#arrow3)"/>
+
+            <rect x="390" y="340" width="220" height="86" class="node"/>
+            <text x="500" y="375" text-anchor="middle" class="node-title">REPOSITORY</text>
+            <text x="500" y="398" text-anchor="middle" class="node-note">FILES · GIT · ARTIFACTS</text>
+            <path d="M500 426V474" class="edge" marker-end="url(#arrow3)"/>
+
+            <rect x="390" y="476" width="220" height="70" class="node signal-node"/>
+            <text x="500" y="505" text-anchor="middle" class="node-title">VERIFIER</text>
+            <text x="500" y="527" text-anchor="middle" class="node-note">TEST · LINT · ARTIFACT REVIEW</text>
+            <path d="M390 511C246 511 172 440 172 128" class="edge return" marker-end="url(#arrow3)"/>
+            <path d="M826 426C826 480 654 478 610 511" class="edge" marker-end="url(#arrow3)"/>
+            <text x="700" y="472" class="node-note">EXECUTION RESULT</text>
+            <text x="180" y="480" class="node-note">EVIDENCE APPENDED</text>
+          </svg>
+          <figcaption>Derived conceptual synthesis. Repository mutation occurs through the sandbox; the verifier reads resulting artifacts and returns evidence to durable history for the next compiled context.</figcaption>
+        </figure>
+
+        <p>It helps to read the diagram from the bottom up. The sandbox performs the mutation. The repository preserves the changed world. The verifier inspects the result. The event log records the evidence. Only then does the harness assemble a temporary context for the next call. A fresh model call can continue old work because the work does not live inside that call.</p>
+
+        <p>Code made this architecture unusually forgiving. The world was legible, branches were cheap, and many outcomes could be tested. Outside the repository, state became partial and side effects stopped being reversible.</p>
+
+        <h2>The web broke the illusion of a universal interface</h2>
+
+        <p>Code’s conveniences did not transfer to the web. Browser tasks span pages, hidden state, authentication, and mutations whose success may be invisible. <a href="https://arxiv.org/abs/2307.13854">WebArena</a> made those failures measurable; <a href="https://arxiv.org/abs/2412.05467">BrowserGym and AgentLab</a> standardized observations, actions, and evaluation. They exposed the next problem: the same representation was not best for both perception and action.</p>
+
+        <p>Screenshots work everywhere but hide semantics. DOM and accessibility trees expose structure but can be enormous, stale, or incomplete. Program state is precise but application-specific. Strong computer-use harnesses combine them: pixels for visual evidence, structured state for targeting, and narrow tools for operations that should not use a mouse.</p>
+
+        <p>Full desktop environments removed the last convenient fiction: that a failed trajectory can always be reset. In <a href="https://arxiv.org/abs/2404.07972">OSWorld</a>-like settings, the world is partially visible and a sent message, purchase, or changed reservation cannot be undone by restoring a screenshot. SayCan’s old distinction returns at higher stakes. The model may judge an action useful; the control plane must still judge it admissible. Read-only inspection can run speculatively, while external mutation needs idempotency keys, approval boundaries, and semantic checkpoints recording both authority and effect.</p>
+
+        <p>This is how computer use turns into a personal agent. Start with the GUI agent’s partial view of the world and its irreversible actions. Then add a durable identity, accounts, schedules, communication channels, and memories that may affect a decision months later. At that point the controller is no longer just an interaction loop. It is an authority boundary.</p>
+
+        <h2>Personal agents make the control plane explicit</h2>
+
+        <p>A personal agent inherits every earlier obligation: partial observation, persistent identity, distinct memory and procedure, and protection against an old intention becoming permanent authority. <a href="https://docs.openclaw.ai/agent-runtime-architecture">OpenClaw</a> and <a href="https://hermes-agent.nousresearch.com/docs/developer-guide/architecture">Hermes Agent</a> expose machinery that a chat window usually hides.</p>
+
+        <p>OpenClaw organizes a long-lived personal workspace around channels, sessions, gateways, and policy-bound plugins. Hermes centers a portable loop that assembles prompts, dispatches tools, retries failures, compresses context, and persists sessions across backends. Their invariant matters more than their differences: identity, memory, procedure, and authority must remain separate even when the interface makes them feel like one assistant.</p>
+
+        <figure class="inline-figure comparison-figure" aria-labelledby="fig4-title">
+          <div class="figure-title">
+            <span>FIGURE 4</span>
+            <p id="fig4-title">Shared invariants, different emphasis</p>
+          </div>
+          <div class="comparison-table" role="table" aria-label="OpenClaw and Hermes personal agent control-plane comparison">
+            <div class="comparison-head" role="row">
+              <span role="columnheader">CONTROL-PLANE INVARIANT</span>
+              <span role="columnheader">OPENCLAW EMPHASIS</span>
+              <span role="columnheader">HERMES EMPHASIS</span>
+            </div>
+            <div role="row"><b role="cell">Identity + routing</b><span role="cell">channels, gateway, sessions</span><span role="cell">entry points, profiles, sessions</span></div>
+            <div role="row"><b role="cell">Context assembly</b><span role="cell">workspace, memory, route</span><span role="cell">stable, contextual, volatile tiers</span></div>
+            <div role="row"><b role="cell">Procedure</b><span role="cell">scoped workspace skills</span><span role="cell">retrieved procedural skills</span></div>
+            <div role="row"><b role="cell">Authority</b><span role="cell">gateway policy + approvals</span><span role="cell"><a href="https://hermes-agent.nousresearch.com/docs/user-guide/features/goals">tool policy + completion contracts</a></span></div>
+            <div role="row"><b role="cell">Extension</b><span role="cell">plugins + runtime adapters</span><span role="cell">tools + local/remote backends</span></div>
+          </div>
+          <figcaption>Derived comparison from current official <a href="https://docs.openclaw.ai/agent-runtime-architecture">OpenClaw</a> and <a href="https://hermes-agent.nousresearch.com/docs/developer-guide/architecture">Hermes</a> documentation. Both systems contain gateways and agent loops.</figcaption>
+        </figure>
+
+        <p>The shared structure matters more than the branding. Both systems assemble context, preserve identity, load procedures, route capabilities, and decide when a person must approve an action. Once a controller can do that across months, a new question appears. How do you let every process die without losing the logical agent?</p>
+      </section>
+
+      <section id="durability" class="prose">
+        <h2>Long-running means recoverable, not continuously alive</h2>
+
+        <p>A container that stays alive for twenty-four hours has solved a timeout, not long-running agency. It does not preserve the agent’s interpretation of the task, prevent a retry from repeating an external action, or prove that resumed work is still valid. There are at least four kinds of continuity to preserve: filesystem state, process state, workflow state, and semantic state. Keeping one does not magically recover the others.</p>
+
+        <p>Anthropic’s <a href="https://www.anthropic.com/engineering/managed-agents">Managed Agents architecture</a> gives the clearest public decomposition. An early design placed session, harness, and sandbox in one container. The redesign stores the session in an external append-only event log, makes the model/tool loop restartable, and treats the execution environment as replaceable. A failed harness can replay events. A failed sandbox becomes a recoverable tool error. Credentials stay outside the boundary executing generated code.</p>
+
+        <pre><code><span class="comment"># Illustrative pseudocode derived from published interfaces</span>
+events = session.get_events(run_id)
+state = replay(events)
+hand = sandbox.attach_or_provision(state.workspace)
+
+while not verifier.complete(state):
+    context = harness.compile_context(state)
+    action = model.next_action(context)
+    session.emit(run_id, Proposed(action.id, action))
+    result = hand.execute(action, idempotency_key=action.id)
+    session.emit(run_id, Observed(action.id, result))
+    state = reduce(state, action, result)</code></pre>
+
+        <p>The most important sentence in this section is that the durable object is the history of accepted facts and effects, not the process currently interpreting it. Once you make that distinction, compute can sleep, restart, or move while the logical agent survives. Persistent disks, memory snapshots, durable timers, addressable identities, and workflow retries each preserve a different part of the system. They are not interchangeable. Saving RAM does not recover the meaning of the task. Saving a transcript does not recover operating-system side effects.</p>
+
+        <p>The next question is what deserves a checkpoint. <a href="https://arxiv.org/abs/2604.28138">Crab</a> checkpoints only turns that create recovery-relevant operating-system state, reporting recovery correctness rising from 8% for conversation-only recovery to 100% while reducing checkpoint traffic by as much as 87%. The semantic transaction, not the token interval, is the right boundary. <a href="https://arxiv.org/abs/2605.22781">DeltaBox</a> attacks the complementary cost problem, reporting 14 ms checkpoints and 5 ms rollback through copy-on-write filesystem deltas and incremental process dumps. When rollback becomes this cheap, durability becomes a search primitive: alternate world states can support exploration or reinforcement learning without being confused with controller state.</p>
+
+        <p>Only after state and execution were separated did it become useful to standardize the edge between them. The <a href="https://modelcontextprotocol.io/">Model Context Protocol</a> standardizes discovery and invocation of external capabilities; event graphs and agent protocols standardize parts of orchestration. These make tools and runtimes replaceable, but replacement is not correctness. A connector widens the action space. The harness still decides which actions are admissible, what must be recorded, and what evidence closes the loop.</p>
+
+        <h3 id="post-training">The harness also became a post-training environment</h3>
+
+        <p>So far I have held the model fixed and changed the controller around it. Modern agent training closes the opposite loop. The harness defines the sequence the model experiences: observation, allowed action, tool result, state transition, and terminal condition. It records the resulting trajectory. A verifier assigns credit to the outcome or individual steps, and supervised fine-tuning or reinforcement learning moves useful behavior into the weights. The harness is not only an inference wrapper. It is also the model’s curriculum and data-generating environment.</p>
+
+        <p>This is different from training on isolated answers because changing the harness changes the data distribution. In one observed result, <a href="https://arxiv.org/abs/2508.03501">long-context, multi-turn software-engineering RL</a> trained against a stateful repository that responded after each action and improved from a 20% rejection-fine-tuned baseline to 39% on SWE-bench Verified under the paper’s scaffolding. <a href="https://arxiv.org/abs/2508.03680">Agent Lightning</a> makes the separation architectural: existing runtimes emit traces through a common interface, while a credit-assignment layer converts them into training transitions. Execution can evolve without embedding the training algorithm in the agent, and training can change without rewriting every runtime.</p>
+
+        <p>The result is co-adaptation. A model trained behind one shell syntax, observation compressor, retry policy, or verifier learns the distribution created by that harness. Put it behind a different interface and apparent capability may fall. The knowledge did not necessarily vanish. The action grammar and feedback process changed. The reverse is also true: improving the harness changes the trajectories used to train the next model. Better interfaces produce cleaner experience. Post-training internalizes recurring behavior. The next harness can then operate at a higher level of abstraction.</p>
+
+        <p>There are now two learning loops, and it is worth keeping them separate. Agentic post-training changes the model weights using trajectories produced by a harness. Harness optimization keeps the model fixed and changes the external controller using traces from that model. Both can learn from the same evidence, but they change different objects and need separate evaluation.</p>
+      </section>
+
+      <section id="optimization" class="prose">
+        <h2>Traces make the control plane trainable</h2>
+
+        <p>Engineers traditionally tuned the harness by hand. Durable event histories give us a better signal. A scalar reward can tell you that a run failed. A trace can tell you whether the controller retrieved the wrong policy, described a tool badly, omitted a prerequisite, or stopped before verification. Once the cause is visible, the external program becomes something we can optimize systematically.</p>
+
+        <p>The easiest object to change is text. <a href="https://arxiv.org/abs/2507.19457">GEPA</a> samples a textual module from an instance-wise Pareto archive, studies its trajectories using natural-language feedback, proposes a mutation, and preserves changes that help particular examples. In plain English, it turns failed runs into a better instruction without changing model weights or runtime code. A held-out set still decides which version survives:</p>
+
+        <pre><code>parent = pareto_archive.sample(dev_instances)
+traces, feedback = execute(parent, dev_minibatch)
+diagnosis = reflect(traces, feedback)
+candidate = mutate_text(parent, diagnosis)
+
+dev_scores = evaluate(candidate, development_set)
+pareto_archive.update(candidate, per_instance=dev_scores)
+
+selected = choose_on_held_out(pareto_archive, validation_set)</code></pre>
+
+        <p><a href="https://arxiv.org/abs/2507.19457">GEPA reports 6% on average over GRPO</a>, with up to 35× fewer rollouts across the evaluated tasks. But text is also its boundary: rewriting an instruction cannot add a missing tool, encode a reusable multi-step contract, or repair brittle control flow.</p>
+
+        <p>Text can only take us so far, so the next object is the procedure itself. <a href="https://arxiv.org/abs/2605.23904">SkillOpt</a> turns scored trajectories into edits to a bounded skill artifact. An evaluation gate accepts or rejects the patch, and accepted skills become versioned state. The procedure stays cheap to deploy because it is loaded only when relevant. More importantly, it acquires the things Voyager’s skill library pointed toward: tests, provenance, versions, and rollback. At this point optimization starts to look more like release engineering than gradient descent.</p>
+
+        <figure class="inline-figure" aria-labelledby="fig5-title">
+          <div class="figure-title">
+            <span>FIGURE 5</span>
+            <p id="fig5-title">A gated skill update</p>
+          </div>
+          <svg viewBox="0 0 760 270" role="img" aria-label="Traces produce a skill patch that must pass an evaluator outside the optimization boundary before a version is promoted">
+            <defs>
+              <marker id="arrow5" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M0 0L10 5L0 10Z" class="arrow-head"/>
+              </marker>
+            </defs>
+            <g class="grid"><path d="M18 66H742M18 190H742M120 20V246M380 20V246M640 20V246"/></g>
+            <text x="257" y="50" text-anchor="middle" class="node-note">OPTIMIZER BOUNDARY</text>
+            <rect x="20" y="58" width="398" height="116" rx="2" class="boundary"/>
+            <rect x="34" y="84" width="132" height="66" class="node"/>
+            <text x="100" y="113" text-anchor="middle" class="node-title">TRACES</text>
+            <text x="100" y="133" text-anchor="middle" class="node-note">FAILURE EVIDENCE</text>
+            <path d="M166 117H238" class="edge" marker-end="url(#arrow5)"/>
+            <rect x="240" y="84" width="150" height="66" class="node"/>
+            <text x="315" y="113" text-anchor="middle" class="node-title">SKILL PATCH</text>
+            <text x="315" y="133" text-anchor="middle" class="node-note">ADD · DELETE · REPLACE</text>
+            <path d="M390 117H452" class="edge" marker-end="url(#arrow5)"/>
+            <rect x="454" y="76" width="150" height="82" class="node signal-node"/>
+            <text x="529" y="110" text-anchor="middle" class="node-title">SEALED EVAL</text>
+            <text x="529" y="132" text-anchor="middle" class="node-note">HELD-OUT ACCEPT / REJECT</text>
+            <path d="M604 117H648" class="edge" marker-end="url(#arrow5)"/>
+            <rect x="650" y="84" width="82" height="66" class="node"/>
+            <text x="691" y="113" text-anchor="middle" class="node-title">SKILL</text>
+            <text x="691" y="133" text-anchor="middle" class="node-note">VERSION n+1</text>
+            <path d="M529 158V216H315" class="edge return" marker-end="url(#arrow5)"/>
+            <rect x="186" y="198" width="129" height="42" class="node"/>
+            <text x="250" y="224" text-anchor="middle" class="node-note">REJECTED HISTORY</text>
+          </svg>
+          <figcaption>Derived from SkillOpt. The held-out evaluator sits outside both the artifact and optimizer; rejection remains visible and accepted state is versioned.</figcaption>
+        </figure>
+
+        <p>The sequence is now <code>prompt text → skill artifact → workflow code</code>. <a href="https://arxiv.org/abs/2603.28052">Meta-Harness</a> reaches the last step by giving an outer agent access to source, traces, and scores so it can change the code that constructs state for the inner model. This is more powerful for exactly the reason it is more dangerous. The optimizer can change which evidence the model sees and even the rule used to declare success. As the target widens, held-out tasks, versioning, rollback, independent evaluation, and human review all need to get stronger.</p>
+
+        <p>OpenClaw and Hermes show this idea moving toward product systems. They also show why proposal and deployment must remain separate. OpenClaw’s <a href="https://docs.openclaw.ai/tools/skill-workshop">Skill Workshop is explicitly a proposal</a> for placing generated changes in a hash-bound, scanner-gated queue before an explicit apply step. <a href="https://github.com/NousResearch/hermes-agent-self-evolution">Hermes Agent Self-Evolution</a> is a separate experimental repository exploring GEPA-generated variants with tests, size limits, semantic checks, and pull-request review. <a href="https://github.com/NousResearch/hermes-agent-self-evolution/issues/33">A public audit</a> found a weak fitness signal, dead judge configuration, and a missing benchmark gate. These projects show that procedures are becoming optimization targets. They do not show that autonomous self-improvement is solved. If one system writes, executes, and grades its own change, it has built a very elaborate way to agree with itself.</p>
+
+        <h2>Recursive harnesses change the problem presented to the model</h2>
+
+        <p><a href="https://alexzhang13.github.io/blog/2026/harness/">Alex Zhang and Omar Khattab</a> describe the frontier as compositional generalization. A good harness does more than provide capabilities. It decomposes an unfamiliar global state into local observations resembling tasks the model already knows how to solve.</p>
+
+        <p><a href="https://arxiv.org/abs/2512.24601">Recursive Language Models</a> externalize a large prompt as a variable in a REPL. The root model writes programs that inspect, slice, and transform that variable. Only selected fragments enter recursive calls, while intermediate results remain in program state. This is not ordinary chunking because the model decides what to inspect as computation unfolds:</p>
+
+        <pre><code>long_prompt = ExternalVariable(source)   <span class="comment"># outside context</span>
+notes = {}
+
+schema = repl.inspect(long_prompt, keys_only=True)
+for query in root_model.plan(schema):
+    window = repl.slice(long_prompt, query.selector)
+    notes[query.id] = subcall(query.task, window)
+
+return root_model.synthesize(notes)</code></pre>
+
+        <p>The <a href="https://arxiv.org/abs/2512.24601">RLM paper reports</a> tasks with inputs up to 100× the model’s context window. <a href="https://arxiv.org/abs/2606.13643">Recursive Agent Harnesses</a> extend recursion from model subcalls to complete agent instances with fresh contexts and tools. With GPT-5 as the backbone, RAH reported 81.36 on the 199-sample Oolong-Synthetic setting, compared with a previously published 71.75 Codex baseline. The matched backbone makes the harness a plausible source of the gain, but the baseline was imported rather than rerun as a paired per-instance experiment; the result should not be generalized beyond that long-context synthetic setting.</p>
+
+        <p>Here is the intuition. Two tasks can look completely different in their surface tokens while sharing the same procedure: filter, search, map, compare, synthesize. A harness can keep domain-specific state inside external variables or subagents and make the root trajectory look similar across both tasks. Training and prompting then operate over a smaller set of reusable strategies instead of every possible surface form.</p>
+
+        <div class="math-block">
+          unfamiliar global task<br>
+          ↓ control-plane decomposition<br>
+          sequence of locally familiar observations
+        </div>
+
+        <p>This gives us a simple way to read the entire history. WebGPT turned the web into a small action vocabulary. ReAct made arbitrary tools conform to one recurring transition. Skills compressed successful trajectories into callable procedures. Coding harnesses turned repositories into bounded inspection, mutation, and test operations. RLMs turn huge state into selective local programs. At each step, the harness makes the next problem look more familiar to the model.</p>
+
+        <h2>The emerging system is a loop of loops</h2>
+
+        <p>So what is the best harness today? Unsatisfyingly, it depends. Coding systems can rely on files, tests, and rollback. Browser and personal agents need hybrid perception and approvals that reflect real-world consequences. Research agents can parallelize read-only branches. A runtime tuned for one model may expose the wrong tools or reminders to another.</p>
+
+        <p>A common control-plane shape is nevertheless emerging. Intent, policy, and budget enter a scheduler and context compiler. Isolated workers act against code, information, or applications. Their outputs accumulate in a durable artifact graph and append-only history. Independent verifiers decide whether to commit, repair, branch, or request human authority. Accepted traces can propose changes to prompts, skills, or controller code, but a sealed evaluator determines which changes reach production.</p>
+
+        <figure class="wide-figure final-figure" aria-labelledby="fig6-title">
+          <div class="figure-title">
+            <span>FIGURE 6</span>
+            <p id="fig6-title">An agent system as nested control loops</p>
+          </div>
+          <svg viewBox="0 0 1000 720" role="img" aria-label="Intent enters a controller that schedules isolated workers; durable state feeds a verifier and next context; accepted traces enter a separately evaluated optimization loop">
+            <defs>
+              <marker id="arrow6" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M0 0L10 5L0 10Z" class="arrow-head"/>
+              </marker>
+            </defs>
+            <g class="grid"><path d="M24 94H976M24 250H976M24 406H976M24 562H976M180 28V692M500 28V692M820 28V692"/></g>
+
+            <text x="500" y="42" text-anchor="middle" class="svg-label">INTENT · POLICY · BUDGET</text>
+            <path d="M500 56V82" class="edge" marker-end="url(#arrow6)"/>
+
+            <rect x="286" y="68" width="428" height="110" rx="2" class="boundary"/>
+            <text x="300" y="82" class="boundary-label">HARNESS / CONTROLLER</text>
+            <rect x="300" y="84" width="400" height="74" class="node signal-node"/>
+            <text x="500" y="114" text-anchor="middle" class="node-title">SCHEDULER + CONTEXT COMPILER</text>
+            <text x="500" y="136" text-anchor="middle" class="node-note">SELECT STATE · SKILLS · TOOLS · AUTHORITY</text>
+
+            <path d="M500 158V202" class="edge" marker-end="url(#arrow6)"/>
+            <rect x="36" y="186" width="920" height="150" rx="2" class="boundary"/>
+            <text x="48" y="200" class="boundary-label">ENVIRONMENT / EXECUTION</text>
+            <rect x="52" y="204" width="260" height="78" class="node"/>
+            <text x="182" y="236" text-anchor="middle" class="node-title">CODE / API WORKER</text>
+            <text x="182" y="258" text-anchor="middle" class="node-note">STRUCTURED MUTATION</text>
+            <rect x="370" y="204" width="260" height="78" class="node"/>
+            <text x="500" y="236" text-anchor="middle" class="node-title">RESEARCH WORKERS</text>
+            <text x="500" y="258" text-anchor="middle" class="node-note">PARALLEL EVIDENCE</text>
+            <rect x="688" y="204" width="260" height="78" class="node"/>
+            <text x="818" y="236" text-anchor="middle" class="node-title">GUI / WORLD WORKER</text>
+            <text x="818" y="258" text-anchor="middle" class="node-note">HYBRID PERCEPTION · APPROVALS</text>
+            <path d="M500 158C500 180 182 180 182 204M500 158C500 180 818 180 818 204" class="edge" marker-end="url(#arrow6)"/>
+
+            <path d="M182 282C182 326 500 306 500 350M500 282V350M818 282C818 326 500 306 500 350" class="edge" marker-end="url(#arrow6)"/>
+            <rect x="286" y="352" width="428" height="76" class="node"/>
+            <text x="500" y="383" text-anchor="middle" class="node-title">DURABLE ARTIFACT GRAPH + EVENT HISTORY</text>
+            <text x="500" y="405" text-anchor="middle" class="node-note">FILES · RESULTS · EFFECT IDS · PROVENANCE · CHECKPOINTS</text>
+
+            <path d="M714 390H774" class="edge" marker-end="url(#arrow6)"/>
+            <rect x="758" y="332" width="206" height="154" rx="2" class="boundary"/>
+            <text x="770" y="346" class="boundary-label">INDEPENDENT EVALUATOR</text>
+            <rect x="776" y="346" width="172" height="88" class="node signal-node"/>
+            <text x="862" y="379" text-anchor="middle" class="node-title">VERIFIER</text>
+            <text x="862" y="401" text-anchor="middle" class="node-note">ACCEPTANCE + AUTHORITY</text>
+            <text x="862" y="418" text-anchor="middle" class="node-note">COMMIT · REPAIR · BRANCH · HUMAN</text>
+
+            <path d="M776 410C724 456 500 456 500 428" class="edge return" marker-end="url(#arrow6)"/>
+            <path d="M286 390C124 390 116 120 300 120" class="edge return" marker-end="url(#arrow6)"/>
+            <text x="72" y="338" class="node-note">NEXT COMPILED CONTEXT</text>
+
+            <path d="M500 428V500" class="edge" marker-end="url(#arrow6)"/>
+            <rect x="98" y="478" width="866" height="168" rx="2" class="boundary"/>
+            <text x="110" y="493" class="boundary-label">OPTIMIZATION + PROMOTION</text>
+            <rect x="116" y="502" width="250" height="74" class="node"/>
+            <text x="241" y="532" text-anchor="middle" class="node-title">TRACE OPTIMIZER</text>
+            <text x="241" y="554" text-anchor="middle" class="node-note">PROMPT · SKILL · CONTROLLER PATCH</text>
+            <path d="M500 500C500 480 241 480 241 502" class="edge" marker-end="url(#arrow6)"/>
+
+            <path d="M366 539H452" class="edge" marker-end="url(#arrow6)"/>
+            <rect x="454" y="494" width="220" height="90" class="node signal-node"/>
+            <text x="564" y="528" text-anchor="middle" class="node-title">SEALED EVALUATOR</text>
+            <text x="564" y="550" text-anchor="middle" class="node-note">HELD-OUT · VERSIONED · ROLLBACK</text>
+
+            <path d="M674 539H744" class="edge" marker-end="url(#arrow6)"/>
+            <rect x="746" y="502" width="202" height="74" class="node"/>
+            <text x="847" y="532" text-anchor="middle" class="node-title">PROMOTION</text>
+            <text x="847" y="554" text-anchor="middle" class="node-note">ACCEPTED CONTROL-PLANE STATE</text>
+
+            <path d="M847 502C847 630 500 658 500 584" class="edge return"/>
+            <path d="M500 658C228 658 228 158 300 121" class="edge return" marker-end="url(#arrow6)"/>
+            <text x="500" y="688" text-anchor="middle" class="svg-label">PROMOTED CHANGES ENTER THE NEXT RUN · REJECTED CHANGES REMAIN IN HISTORY</text>
+          </svg>
+          <figcaption>Illustrative synthesis, not a product diagram. Red marks state construction, task acceptance, and promotion gates; environment, controller, and evaluator remain distinct.</figcaption>
+        </figure>
+
+        <h2 id="frontier">The frontier is a moving boundary</h2>
+
+        <p>This history suggests a useful research question: which harness primitives should eventually become part of the model product, and which must remain outside it?</p>
+
+        <p>Reasoning loops, compaction, recursive decomposition, and RLM-style interaction with external state may belong to the first group. The obvious experiment is to test each primitive across models, tasks, and environments while holding the rest of the system fixed. A primitive that transfers broadly, survives model upgrades, and improves post-training trajectories is a candidate to migrate behind the API. Providers can train models inside it until users experience the combined system as simply “the model.”</p>
+
+        <p>Repository conventions, tool availability, organizational policy, current user state, and acceptance tests look more like irreducible last-mile specification. The research problem here is compression. How small can that external specification become before performance or safety breaks? The right unit is not prompt length alone. It is the total information carried by context, tools, procedures, evaluators, and authority rules.</p>
+
+        <p>This gives harness research two concrete directions. One is to discover general cognitive primitives and measure when they should move inward. The other is to find the minimum sufficient harness for a particular world.</p>
+
+        <p>There is a second boundary moving at the same time: opacity. We have long accepted that the weights of a closed model are opaque. They are the lab’s artifact. A session is different. It is jointly produced from the user’s instructions, the model’s decisions, retrieved evidence, tool effects, and sometimes days of accumulated work. Yet opacity is spreading outward from the model into that shared record.</p>
+
+        <p>The completion APIs of the GPT-3 era were limited but legible. Save the prompt and response and you held most of the semantic session. New agent APIs increasingly return only a view into a larger provider-owned process. Encrypted reasoning, opaque compaction, hosted search context, server-side conversation IDs, and sealed subagent messages may improve privacy, continuity, and efficiency. The problem is not that these mechanisms exist. It is when an opaque object becomes the sole carrier of meaning. At that point the transcript is no longer the session. It is a pointer into one provider’s ability to reconstruct it. Earendil calls this <a href="https://earendil.com/posts/session-portability/">provider-sealed state</a>.</p>
+
+        <p>This creates two frontiers. The provider-native frontier optimizes capability: co-trained reasoning formats, private state, cache routing, and compaction that an external controller cannot reproduce. The portable frontier optimizes custody: whether another system can inspect what happened, recover the evidence, and continue the work without asking the original provider to decrypt its past. The two need not be enemies. A strong API could return both a sealed continuation capsule for maximum same-provider performance and a readable handoff record for audit and migration. The relevant measurement is the portability tax: how much capability is lost when the session must remain intelligible outside the provider that ran it?</p>
+
+        <p>The future harness therefore has a narrower but harder job. It must hold the current state of the world, the permissions under which an agent acts, the evidence that work is done, and the provider-neutral record of what the system saw and changed. Harness evaluations should measure not only task success, but inspection, export, replay, audit, deletion, and recovery after the original provider disappears. General cognitive machinery will keep moving inward. The external harness may do less of the thinking, but it must retain custody of the work.</p>
+
+      </section>
+
+      <section id="sources" class="sources prose">
+        <h2>Sources and scope</h2>
+        <p>Quantitative claims link directly to primary papers or official engineering sources. Product descriptions reflect public documentation available on July 30, 2026. “Observed” labels identify reported measurements; “Derived” labels mark cross-source synthesis; “Illustrative” labels mark proposed architecture.</p>
+        <div class="source-list">
+          <a href="https://arxiv.org/abs/2112.09332">WebGPT</a>
+          <a href="https://arxiv.org/abs/2210.03629">ReAct</a>
+          <a href="https://arxiv.org/abs/2305.16291">Voyager</a>
+          <a href="https://arxiv.org/abs/2310.08560">MemGPT</a>
+          <a href="https://arxiv.org/abs/2402.01030">CodeAct</a>
+          <a href="https://arxiv.org/abs/2405.15793">SWE-agent</a>
+          <a href="https://arxiv.org/abs/2407.16741">OpenHands</a>
+          <a href="https://arxiv.org/abs/2307.13854">WebArena</a>
+          <a href="https://arxiv.org/abs/2412.05467">BrowserGym</a>
+          <a href="https://arxiv.org/abs/2404.07972">OSWorld</a>
+          <a href="https://modelcontextprotocol.io/">MCP</a>
+          <a href="https://www.anthropic.com/engineering/managed-agents">Managed Agents</a>
+          <a href="https://arxiv.org/abs/2604.28138">Crab</a>
+          <a href="https://arxiv.org/abs/2605.22781">DeltaBox</a>
+          <a href="https://arxiv.org/abs/2508.03501">Multi-turn SWE RL</a>
+          <a href="https://arxiv.org/abs/2508.03680">Agent Lightning</a>
+          <a href="https://arxiv.org/abs/2507.19457">GEPA</a>
+          <a href="https://arxiv.org/abs/2605.23904">SkillOpt</a>
+          <a href="https://arxiv.org/abs/2603.28052">Meta-Harness</a>
+          <a href="https://arxiv.org/abs/2512.24601">Recursive Language Models</a>
+          <a href="https://arxiv.org/abs/2606.13643">Recursive Agent Harnesses</a>
+          <a href="https://openai.com/index/how-two-settings-tripled-our-arc-agi-3-scores/">GPT-5.6 ARC-AGI-3 harness study</a>
+          <a href="https://arcprize.org/results/anthropic-claude-opus-5">Claude Opus 5 ARC-AGI-3 result</a>
+          <a href="https://docs.openclaw.ai/agent-runtime-architecture">OpenClaw runtime</a>
+          <a href="https://docs.openclaw.ai/tools/skill-workshop">OpenClaw Skill Workshop</a>
+          <a href="https://hermes-agent.nousresearch.com/docs/developer-guide/architecture">Hermes architecture</a>
+          <a href="https://github.com/NousResearch/hermes-agent-self-evolution">Hermes self-evolution</a>
+          <a href="https://github.com/NousResearch/hermes-agent-self-evolution/issues/33">Hermes self-evolution audit</a>
+          <a href="https://hermes-agent.nousresearch.com/docs/user-guide/features/goals">Hermes completion contracts</a>
+          <a href="https://code.claude.com/docs/en/how-claude-code-works">Claude Code architecture</a>
+          <a href="https://earendil.com/posts/session-portability/">The Session You Cannot Take With You</a>
+        </div>
+      </section>
+    </article>
+  </main>
+
+  <footer>
+    <span>FIVE LINES TO INFINITY</span>
+    <span>2026</span>
+  </footer>
+  <script src="visuals.js?v=4"></script>
+</body>
+</html>

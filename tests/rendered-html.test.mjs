@@ -102,7 +102,10 @@ test("serves the linked Collection archive without descriptions", async () => {
   assert.equal(response.status, 200);
   const html = await response.text();
   assert.match(html, /<title>Collection — Saneel Sreeni<\/title>/i);
-  assert.match(html, /12(?:<!-- -->)? ENTRIES/);
+  assert.match(html, /13(?:<!-- -->)? ENTRIES/);
+  assert.match(html, /Five Lines to Infinity/);
+  assert.match(html, /2026\.07\.30/);
+  assert.match(html, /href="\/five_lines"/);
   assert.match(html, /Tracebase/);
   assert.match(html, /2026\.05\.27/);
   assert.match(
@@ -122,8 +125,26 @@ test("serves the linked Collection archive without descriptions", async () => {
   assert.doesNotMatch(html, /Investing in early-stage|Products for BTC Miners/);
 });
 
+test("serves registered posts at their root slug", async () => {
+  const response = await render("/five_lines/");
+  assert.equal(response.status, 200);
+
+  const html = await response.text();
+  assert.match(html, /<title>Five Lines to Infinity — Saneel<\/title>/i);
+  assert.match(
+    html,
+    /<link rel="canonical" href="https:\/\/saneel\.xyz\/five_lines\/"/i,
+  );
+  assert.match(html, /property="og:type" content="article"/i);
+  assert.match(html, /property="article:published_time" content="2026-07-30"/i);
+  assert.match(html, /data-post="five_lines"/i);
+  assert.match(html, /Two settings changed the apparent frontier/);
+  assert.match(html, /The Session You Cannot Take With You/);
+  assert.match(html, /post-runtime-five_lines/);
+});
+
 test("exports the complete GitHub Pages artifact", async () => {
-  const [home, about, collection] = await Promise.all([
+  const [home, about, collection, fiveLines] = await Promise.all([
     readFile(new URL("../dist/client/index.html", import.meta.url), "utf8"),
     readFile(
       new URL("../dist/client/about/index.html", import.meta.url),
@@ -133,6 +154,10 @@ test("exports the complete GitHub Pages artifact", async () => {
       new URL("../dist/client/collection/index.html", import.meta.url),
       "utf8",
     ),
+    readFile(
+      new URL("../dist/client/five_lines/index.html", import.meta.url),
+      "utf8",
+    ),
   ]);
 
   assert.match(home, /<title>Saneel — Independent Builder<\/title>/);
@@ -140,6 +165,11 @@ test("exports the complete GitHub Pages artifact", async () => {
   assert.match(home, /href="https:\/\/saneel\.xyz\/"/);
   assert.match(about, /href="https:\/\/saneel\.xyz\/about\/"/);
   assert.match(collection, /href="https:\/\/saneel\.xyz\/collection\/"/);
+  assert.match(
+    fiveLines,
+    /href="https:\/\/saneel\.xyz\/five_lines\/"/,
+  );
+  assert.match(fiveLines, /Five Lines to Infinity/);
 
   const assetDirectory = new URL("../dist/client/assets/", import.meta.url);
   const assetNames = await readdir(assetDirectory);

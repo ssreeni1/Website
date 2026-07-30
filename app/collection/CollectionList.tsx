@@ -68,8 +68,8 @@ export function CollectionList({ entries }: CollectionListProps) {
           <a
             className={index === selectedIndex ? "is-selected" : ""}
             href={entry.url}
-            target="_blank"
-            rel="noreferrer"
+            target={entry.url.startsWith("http") ? "_blank" : undefined}
+            rel={entry.url.startsWith("http") ? "noreferrer" : undefined}
             ref={(element) => {
               linkRefs.current[index] = element;
             }}
