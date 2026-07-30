@@ -316,7 +316,7 @@ main {
 }
 
 .scene-credits {
-  margin-top: auto;
+  margin-top: 12px;
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
