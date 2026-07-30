@@ -361,6 +361,38 @@ function buildRoadRibbon(locations: LocationSample[]) {
   );
   const left = lineFromPoints([...leftPoints, leftPoints[0]], INK, 0.34);
   const right = lineFromPoints([...rightPoints, rightPoints[0]], INK, 0.34);
+  const minorTickPoints: THREE.Vector3[] = [];
+  const sectorTickPoints: THREE.Vector3[] = [];
+  for (let index = 0; index < centerPoints.length; index += 4) {
+    const target =
+      index % 20 === 0 ? sectorTickPoints : minorTickPoints;
+    const leftInner = leftPoints[index].clone().lerp(rightPoints[index], 0.07);
+    const rightInner = rightPoints[index].clone().lerp(leftPoints[index], 0.07);
+    target.push(
+      leftPoints[index].clone().setY(-0.018),
+      leftInner.setY(-0.018),
+      rightPoints[index].clone().setY(-0.018),
+      rightInner.setY(-0.018),
+    );
+  }
+  const minorTicks = new THREE.LineSegments(
+    new THREE.BufferGeometry().setFromPoints(minorTickPoints),
+    new THREE.LineBasicMaterial({
+      color: INK,
+      transparent: true,
+      opacity: 0.12,
+      depthWrite: false,
+    }),
+  );
+  const sectorTicks = new THREE.LineSegments(
+    new THREE.BufferGeometry().setFromPoints(sectorTickPoints),
+    new THREE.LineBasicMaterial({
+      color: RED,
+      transparent: true,
+      opacity: 0.44,
+      depthWrite: false,
+    }),
+  );
   const center = new THREE.Line(
     new THREE.BufferGeometry().setFromPoints([
       ...centerPoints,
@@ -377,7 +409,16 @@ function buildRoadRibbon(locations: LocationSample[]) {
   );
   center.computeLineDistances();
   center.position.y = -0.025;
-  return { mesh, left, right, center, originX, originY };
+  return {
+    mesh,
+    left,
+    right,
+    center,
+    minorTicks,
+    sectorTicks,
+    originX,
+    originY,
+  };
 }
 
 function drawTrackMap(
@@ -472,6 +513,7 @@ async function buildFormulaScene(
   const shellMaterials: Array<{
     material: THREE.MeshStandardMaterial;
     baseOpacity: number;
+    baseDepthWrite: boolean;
   }> = [];
   const edgeMaterials: Array<{
     material: THREE.LineBasicMaterial;
@@ -492,12 +534,13 @@ async function buildFormulaScene(
     const isGlass = role.includes("glass");
     const isInterior = role.includes("interior") || role.includes("bottom");
     const baseOpacity = isWheel
-      ? 0.46
+      ? 0.74
       : isInterior
-        ? 0.065
+        ? 0.12
         : isGlass
-          ? 0.035
-          : 0.1;
+          ? 0.08
+          : 0.24;
+    const baseDepthWrite = !isGlass;
     const material = new THREE.MeshStandardMaterial({
       color: isWheel ? 0x282828 : isInterior ? 0x565652 : 0x3b3b39,
       roughness: isWheel ? 0.82 : 0.62,
@@ -505,12 +548,12 @@ async function buildFormulaScene(
       transparent: true,
       opacity: baseOpacity,
       side: THREE.DoubleSide,
-      depthWrite: isWheel,
+      depthWrite: baseDepthWrite,
     });
     mesh.material = material;
     mesh.castShadow = true;
     mesh.receiveShadow = true;
-    shellMaterials.push({ material, baseOpacity });
+    shellMaterials.push({ material, baseOpacity, baseDepthWrite });
 
     const edgeOpacity = isWheel
       ? 0.64
@@ -585,6 +628,7 @@ async function buildFormulaScene(
   carRig.add(energyLine);
 
   const brakeMaterials: THREE.MeshBasicMaterial[] = [];
+  const wheelRegisters: THREE.Group[] = [];
   [
     [-1.42, 0.46, -2.25],
     [1.42, 0.46, -2.25],
@@ -605,6 +649,29 @@ async function buildFormulaScene(
     disc.position.set(x, y, z);
     carRig.add(disc);
     brakeMaterials.push(material);
+
+    const register = new THREE.Group();
+    register.position.set(x, y, z);
+    const spoke = lineFromPoints(
+      [
+        new THREE.Vector3(0, 0, 0),
+        new THREE.Vector3(0, 0.24, 0.13),
+      ],
+      RED,
+      0.88,
+    );
+    const hub = new THREE.Mesh(
+      new THREE.SphereGeometry(0.035, 8, 6),
+      new THREE.MeshBasicMaterial({
+        color: RED,
+        transparent: true,
+        opacity: 0.9,
+        depthWrite: false,
+      }),
+    );
+    register.add(spoke, hub);
+    carRig.add(register);
+    wheelRegisters.push(register);
   });
 
   const sensorPositions = [
@@ -660,8 +727,133 @@ async function buildFormulaScene(
   carRig.add(contact);
 
   const road = buildRoadRibbon(telemetry.location);
-  root.add(road.mesh, road.left, road.right, road.center);
-  carRig.scale.setScalar(0.72);
+  root.add(
+    road.mesh,
+    road.left,
+    road.right,
+    road.center,
+    road.minorTicks,
+    road.sectorTicks,
+  );
+
+  const trailSampleCount = 64;
+  const trailPositions = new Float32Array(trailSampleCount * 3);
+  const trailColors = new Float32Array(trailSampleCount * 3);
+  const trailGeometry = new THREE.BufferGeometry();
+  trailGeometry.setAttribute(
+    "position",
+    new THREE.BufferAttribute(trailPositions, 3),
+  );
+  const trailMuted = new THREE.Color(0xbdbdb6);
+  const trailRed = new THREE.Color(RED);
+  for (let index = 0; index < trailSampleCount; index += 1) {
+    const mix = index / (trailSampleCount - 1);
+    const color = trailMuted.clone().lerp(trailRed, Math.pow(mix, 1.8));
+    trailColors.set([color.r, color.g, color.b], index * 3);
+  }
+  trailGeometry.setAttribute(
+    "color",
+    new THREE.BufferAttribute(trailColors, 3),
+  );
+  const trajectoryTrail = new THREE.Line(
+    trailGeometry,
+    new THREE.LineBasicMaterial({
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.92,
+      depthWrite: false,
+    }),
+  );
+  const trajectorySamples = new THREE.Points(
+    trailGeometry,
+    new THREE.PointsMaterial({
+      size: 0.055,
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.76,
+      depthWrite: false,
+      sizeAttenuation: true,
+    }),
+  );
+  root.add(trajectoryTrail, trajectorySamples);
+
+  const predictionSampleCount = 28;
+  const predictionGeometry = new THREE.BufferGeometry().setFromPoints(
+    Array.from(
+      { length: predictionSampleCount },
+      () => new THREE.Vector3(),
+    ),
+  );
+  const trajectoryPrediction = new THREE.Line(
+    predictionGeometry,
+    new THREE.LineDashedMaterial({
+      color: RED,
+      dashSize: 0.42,
+      gapSize: 0.34,
+      transparent: true,
+      opacity: 0.48,
+      depthWrite: false,
+    }),
+  );
+  const predictionSamples = new THREE.Points(
+    predictionGeometry,
+    new THREE.PointsMaterial({
+      color: RED,
+      size: 0.035,
+      transparent: true,
+      opacity: 0.5,
+      depthWrite: false,
+      sizeAttenuation: true,
+    }),
+  );
+  root.add(trajectoryPrediction, predictionSamples);
+
+  const velocityGeometry = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(0, 1.02, 0),
+    new THREE.Vector3(0, 1.02, 2.7),
+  ]);
+  const velocityVector = new THREE.Line(
+    velocityGeometry,
+    new THREE.LineBasicMaterial({
+      color: RED,
+      transparent: true,
+      opacity: 0.72,
+      depthWrite: false,
+    }),
+  );
+  carRig.add(velocityVector);
+
+  const lateralGeometry = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(0, 0.88, 0),
+    new THREE.Vector3(0, 0.88, 0),
+  ]);
+  const lateralVector = new THREE.Line(
+    lateralGeometry,
+    new THREE.LineDashedMaterial({
+      color: INK,
+      dashSize: 0.14,
+      gapSize: 0.1,
+      transparent: true,
+      opacity: 0.52,
+      depthWrite: false,
+    }),
+  );
+  carRig.add(lateralVector);
+
+  const vectorOrigin = new THREE.Mesh(
+    new THREE.TorusGeometry(0.11, 0.012, 6, 28),
+    new THREE.MeshBasicMaterial({
+      color: RED,
+      transparent: true,
+      opacity: 0.78,
+      depthWrite: false,
+    }),
+  );
+  vectorOrigin.rotation.x = Math.PI / 2;
+  vectorOrigin.position.set(0, 1.01, 0);
+  carRig.add(vectorOrigin);
+
+  carRig.scale.setScalar(0.78);
 
   const firstLocation = telemetry.location[0];
   const firstDirectionTarget = telemetry.location[3] ?? firstLocation;
@@ -694,6 +886,7 @@ async function buildFormulaScene(
   let smoothedBrakeTemperature = 320;
   let wheelAngle = 0;
   let mapFrame = 0;
+  let vectorFrame = 0;
   let hudFrame = 0;
   const lapDuration = telemetry.source.lapDurationMs;
   const motionDuration = Math.max(
@@ -786,6 +979,69 @@ async function buildFormulaScene(
       if (rearWheels) {
         rearWheels.rotation.x = rearWheelBaseRotation + wheelAngle;
       }
+      wheelRegisters.forEach((register) => {
+        register.rotation.x = wheelAngle;
+      });
+
+      vectorFrame += 1;
+      if (vectorFrame % 2 === 0) {
+        const trailPositionAttribute = trailGeometry.getAttribute(
+          "position",
+        ) as THREE.BufferAttribute;
+        for (let index = 0; index < trailSampleCount; index += 1) {
+          const sampleTime =
+            (motionTime -
+              (trailSampleCount - 1 - index) * 52 +
+              motionDuration) %
+            motionDuration;
+          const sample = smoothLocation(
+            telemetry.location,
+            sampleTime,
+            motionDuration,
+          );
+          trailPositionAttribute.setXYZ(
+            index,
+            (sample.x - road.originX) * 0.1,
+            0.055,
+            (sample.y - road.originY) * 0.1,
+          );
+        }
+        trailPositionAttribute.needsUpdate = true;
+
+        const predictionPoints = Array.from(
+          { length: predictionSampleCount },
+          (_, index) => {
+            const sampleTime =
+              (motionTime + index * 58) % motionDuration;
+            const sample = smoothLocation(
+              telemetry.location,
+              sampleTime,
+              motionDuration,
+            );
+            return new THREE.Vector3(
+              (sample.x - road.originX) * 0.1,
+              0.06,
+              (sample.y - road.originY) * 0.1,
+            );
+          },
+        );
+        predictionGeometry.setFromPoints(predictionPoints);
+        trajectoryPrediction.computeLineDistances();
+      }
+
+      const velocityPositions = velocityGeometry.getAttribute(
+        "position",
+      ) as THREE.BufferAttribute;
+      velocityPositions.setXYZ(1, 0, 1.02, 1.55 + speed / 92);
+      velocityPositions.needsUpdate = true;
+      const lateralPositions = lateralGeometry.getAttribute(
+        "position",
+      ) as THREE.BufferAttribute;
+      const lateralLength =
+        Math.sign(steering || 1) * Math.min(1.55, 0.18 + lateralG * 0.22);
+      lateralPositions.setXYZ(1, lateralLength, 0.88, 0);
+      lateralPositions.needsUpdate = true;
+      lateralVector.computeLineDistances();
 
       const horizontalDistance =
         view.distance * Math.cos(view.pitch);
@@ -833,10 +1089,13 @@ async function buildFormulaScene(
       scanPlane.position.z = -3.6 + scanProgress * 7.2;
       scanPlaneMaterial.opacity +=
         ((scanActive ? 0.095 : 0) - scanPlaneMaterial.opacity) * 0.12;
-      shellMaterials.forEach(({ material, baseOpacity }) => {
-        const target = scanActive ? baseOpacity * 0.48 : baseOpacity;
+      shellMaterials.forEach(
+        ({ material, baseOpacity, baseDepthWrite }) => {
+        const target = scanActive ? baseOpacity * 0.22 : baseOpacity;
+        material.depthWrite = scanActive ? false : baseDepthWrite;
         material.opacity += (target - material.opacity) * 0.08;
-      });
+        },
+      );
       edgeMaterials.forEach(({ material, baseOpacity, scanOpacity }) => {
         material.opacity +=
           ((scanActive ? scanOpacity : baseOpacity) - material.opacity) * 0.08;
@@ -1017,7 +1276,7 @@ function buildBackgammonScene(
   bar.position.y = 0.28;
   root.add(bar);
 
-  const surfaceGrid = new THREE.GridHelper(8.1, 24, RED, INK);
+  const surfaceGrid = new THREE.GridHelper(8.1, 18, RED, INK);
   surfaceGrid.position.y = 0.242;
   surfaceGrid.scale.z = 0.61;
   const surfaceGridMaterials = Array.isArray(surfaceGrid.material)
@@ -1025,7 +1284,7 @@ function buildBackgammonScene(
     : [surfaceGrid.material];
   surfaceGridMaterials.forEach((material, index) => {
     material.transparent = true;
-    material.opacity = index === 0 ? 0.16 : 0.075;
+    material.opacity = index === 0 ? 0.12 : 0.04;
     material.depthWrite = false;
   });
   root.add(surfaceGrid);
@@ -1035,7 +1294,7 @@ function buildBackgammonScene(
     new THREE.LineBasicMaterial({
       color: INK,
       transparent: true,
-      opacity: 0.12,
+      opacity: 0.08,
       depthWrite: false,
     }),
   );
@@ -1375,6 +1634,76 @@ function buildBackgammonScene(
     });
   };
 
+  const outcomeNodes: Array<{
+    object: THREE.Mesh;
+    material: THREE.MeshBasicMaterial;
+  }> = [];
+  const outcomeNodeGeometry = new THREE.SphereGeometry(0.045, 9, 7);
+  const fieldMinX = 4.08;
+  const fieldMinZ = -0.72;
+  const fieldStep = 0.31;
+  for (let first = 0; first < 6; first += 1) {
+    for (let second = 0; second < 6; second += 1) {
+      const material = new THREE.MeshBasicMaterial({
+        color: INK,
+        transparent: true,
+        opacity: 0.2,
+        depthWrite: false,
+      });
+      const node = new THREE.Mesh(outcomeNodeGeometry, material);
+      node.position.set(
+        fieldMinX + second * fieldStep,
+        1.48,
+        fieldMinZ + first * fieldStep,
+      );
+      root.add(node);
+      outcomeNodes.push({ object: node, material });
+    }
+  }
+
+  const fieldGridPoints: THREE.Vector3[] = [];
+  for (let index = 0; index < 6; index += 1) {
+    const offset = index * fieldStep;
+    fieldGridPoints.push(
+      new THREE.Vector3(fieldMinX, 1.48, fieldMinZ + offset),
+      new THREE.Vector3(
+        fieldMinX + fieldStep * 5,
+        1.48,
+        fieldMinZ + offset,
+      ),
+      new THREE.Vector3(fieldMinX + offset, 1.48, fieldMinZ),
+      new THREE.Vector3(
+        fieldMinX + offset,
+        1.48,
+        fieldMinZ + fieldStep * 5,
+      ),
+    );
+  }
+  const outcomeFieldGrid = new THREE.LineSegments(
+    new THREE.BufferGeometry().setFromPoints(fieldGridPoints),
+    new THREE.LineBasicMaterial({
+      color: INK,
+      transparent: true,
+      opacity: 0.11,
+      depthWrite: false,
+    }),
+  );
+  root.add(outcomeFieldGrid);
+
+  const outcomeProjectionGeometry = new THREE.BufferGeometry();
+  const outcomeProjection = new THREE.LineSegments(
+    outcomeProjectionGeometry,
+    new THREE.LineDashedMaterial({
+      color: RED,
+      dashSize: 0.08,
+      gapSize: 0.06,
+      transparent: true,
+      opacity: 0.48,
+      depthWrite: false,
+    }),
+  );
+  root.add(outcomeProjection);
+
   const activeHalo = technicalSolid(
     new THREE.TorusGeometry(0.27, 0.018, 7, 32),
     {
@@ -1436,6 +1765,7 @@ function buildBackgammonScene(
 
   let lastTurnIndex = -1;
   let lastMoveIndex = -1;
+  let activeOutcomeIndexes = [5];
   const currentPoints = new Map<BackgammonPiece, number>();
 
   return {
@@ -1510,6 +1840,13 @@ function buildBackgammonScene(
       if (lastTurnIndex !== turnIndex) {
         setDieValue(dice[0], turn.dice[0]);
         setDieValue(dice[1], turn.dice[1]);
+        activeOutcomeIndexes =
+          turn.dice[0] === turn.dice[1]
+            ? [(turn.dice[0] - 1) * 6 + (turn.dice[1] - 1)]
+            : [
+                (turn.dice[0] - 1) * 6 + (turn.dice[1] - 1),
+                (turn.dice[1] - 1) * 6 + (turn.dice[0] - 1),
+              ];
         const orderedWays = turn.dice[0] === turn.dice[1] ? 1 : 2;
         const probability = ((orderedWays / 36) * 100).toFixed(2);
         setHud(
@@ -1564,6 +1901,30 @@ function buildBackgammonScene(
           rollEnergy *
             (0.5 + Math.abs(Math.sin(turnTime * 14 + index)) * 0.16);
       });
+
+      outcomeNodes.forEach(({ object, material }, index) => {
+        const active = activeOutcomeIndexes.includes(index);
+        const pulse = 1 + Math.sin(elapsed * 4.2 + index * 0.15) * 0.08;
+        object.scale.setScalar(active ? 1.55 * pulse : 1);
+        object.position.y = 1.48 + (active ? 0.08 * pulse : 0);
+        material.opacity = active ? 0.94 : 0.16;
+        material.color.set(active ? RED : INK);
+      });
+      const projectionPoints: THREE.Vector3[] = [];
+      dice.forEach((die, dieIndex) => {
+        const node =
+          outcomeNodes[
+            activeOutcomeIndexes[
+              Math.min(dieIndex, activeOutcomeIndexes.length - 1)
+            ]
+          ].object;
+        projectionPoints.push(
+          node.position.clone(),
+          die.position.clone().add(new THREE.Vector3(0, 0.34, 0)),
+        );
+      });
+      outcomeProjectionGeometry.setFromPoints(projectionPoints);
+      outcomeProjection.computeLineDistances();
 
       const whitePips = pieces
         .filter((piece) => piece.player === "WHITE")
@@ -1820,7 +2181,7 @@ export function SystemCanvas({ mode }: { mode: VisualMode }) {
   const trackCanvasRef = useRef<HTMLCanvasElement>(null);
   const viewRef = useRef<SceneView>(
     mode === 1
-      ? { yaw: 0.505, pitch: 0.31, distance: 9 }
+      ? { yaw: 0.92, pitch: 0.45, distance: 8.35 }
       : { yaw: 0.676, pitch: 0.79, distance: 13.25 },
   );
   const dragRef = useRef({
@@ -1832,7 +2193,7 @@ export function SystemCanvas({ mode }: { mode: VisualMode }) {
   const resetView = () => {
     viewRef.current =
       mode === 1
-        ? { yaw: 0.505, pitch: 0.31, distance: 9 }
+        ? { yaw: 0.92, pitch: 0.45, distance: 8.35 }
         : { yaw: 0.676, pitch: 0.79, distance: 13.25 };
   };
 
@@ -1847,7 +2208,7 @@ export function SystemCanvas({ mode }: { mode: VisualMode }) {
       alpha: true,
       powerPreference: "high-performance",
     });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.15;

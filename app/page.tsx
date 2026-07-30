@@ -5,11 +5,11 @@ import Link from "next/link";
 import { SystemCanvas } from "./SystemCanvas";
 
 const routes = [
-  { name: "Index", path: "/" },
-  { name: "About", path: "#about" },
-  { name: "Work", path: "#work" },
-  { name: "Notes", path: "#notes" },
-];
+  { name: "Index", path: "/", href: "/" },
+  { name: "Formula system", path: "visual/01", visual: 1 as const },
+  { name: "Backgammon system", path: "visual/02", visual: 2 as const },
+  { name: "About", path: "#about", href: "#about" },
+] as const;
 
 export default function Home() {
   const [finderOpen, setFinderOpen] = useState(false);
@@ -23,6 +23,15 @@ export default function Home() {
       .toLowerCase()
       .includes(finderQuery.trim().toLowerCase()),
   );
+  const visitRoute = (route: (typeof routes)[number]) => {
+    if ("visual" in route) {
+      setAutoCycle(false);
+      setActiveVisual(route.visual);
+    } else {
+      window.location.href = route.href;
+    }
+    setFinderOpen(false);
+  };
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -172,8 +181,7 @@ export default function Home() {
                   setFinderIndex((index) => Math.max(0, index - 1));
                 }
                 if (event.key === "Enter" && filteredRoutes[finderIndex]) {
-                  window.location.href = filteredRoutes[finderIndex].path;
-                  setFinderOpen(false);
+                  visitRoute(filteredRoutes[finderIndex]);
                 }
               }}
             />
@@ -183,10 +191,13 @@ export default function Home() {
             {filteredRoutes.map((route, index) => (
               <a
                 className={index === finderIndex ? "is-selected" : ""}
-                href={route.path}
+                href={"href" in route ? route.href : `#${route.path}`}
                 key={route.name}
                 tabIndex={finderOpen ? 0 : -1}
-                onClick={() => setFinderOpen(false)}
+                onClick={(event) => {
+                  if ("visual" in route) event.preventDefault();
+                  visitRoute(route);
+                }}
               >
                 <span>{route.name}</span>
                 <i>{route.path}</i>
@@ -211,9 +222,6 @@ export default function Home() {
           </div>
         </section>
       </div>
-
-      <div id="work" className="anchor" />
-      <div id="notes" className="anchor" />
     </main>
   );
 }
