@@ -45,7 +45,7 @@ test("server-renders the personal site shell", async () => {
   assert.match(html, /About\s*<span>\[A\]<\/span>/);
   assert.match(html, /Collection\s*<span>\[C\]<\/span>/);
   assert.match(html, /Find\s*<span>\[F\]<\/span>/);
-  assert.match(html, /Dark(?:<!-- -->)?\s*<span>\[D\]<\/span>/);
+  assert.match(html, /Vibe\s*<span>\[V\]<\/span>/);
   assert.match(html, />Home<\/span>\s*<i>\/<\/i>/);
   assert.match(html, />About<\/span>\s*<i>\/about<\/i>/);
   assert.match(html, />Collection<\/span>\s*<i>\/collection<\/i>/);
