@@ -3291,7 +3291,7 @@ const VIEW_CONFIG: Record<
   1: {
     yaw: 0.04,
     pitch: 0.45,
-    distance: 9.15,
+    distance: 17,
     minimumPitch: 0.12,
     minimumDistance: 6.4,
     maximumDistance: 17,
@@ -3299,7 +3299,7 @@ const VIEW_CONFIG: Record<
   2: {
     yaw: 0.676,
     pitch: 0.79,
-    distance: 13.95,
+    distance: 21,
     minimumPitch: 0.28,
     minimumDistance: 8.5,
     maximumDistance: 21,
@@ -3307,7 +3307,7 @@ const VIEW_CONFIG: Record<
   3: {
     yaw: 0.06,
     pitch: 0.15,
-    distance: 15.2,
+    distance: 23,
     minimumPitch: -0.18,
     minimumDistance: 9.2,
     maximumDistance: 23,
