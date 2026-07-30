@@ -586,6 +586,68 @@ async function buildFormulaScene(
     });
   });
 
+  const brakeMaterials: THREE.MeshBasicMaterial[] = [];
+  const addWheelTelemetry = (wheelObject: THREE.Object3D | undefined) => {
+    if (!wheelObject) return;
+    const wheelMesh = wheelObject.children.find(
+      (child) => (child as THREE.Mesh).isMesh,
+    ) as THREE.Mesh | undefined;
+    if (!wheelMesh) return;
+    wheelMesh.geometry.computeBoundingBox();
+    if (!wheelMesh.geometry.boundingBox) return;
+    wheelMesh.updateMatrix();
+    const bounds = wheelMesh.geometry.boundingBox
+      .clone()
+      .applyMatrix4(wheelMesh.matrix);
+    const size = bounds.getSize(new THREE.Vector3());
+    const radius = Math.max(size.y, size.z) / 2;
+    const outerX = Math.max(Math.abs(bounds.min.x), Math.abs(bounds.max.x));
+
+    [-1, 1].forEach((side) => {
+      const register = new THREE.Mesh(
+        new THREE.BoxGeometry(
+          Math.max(0.018, outerX * 0.012),
+          radius * 0.27,
+          radius * 0.085,
+        ),
+        new THREE.MeshBasicMaterial({
+          color: RED,
+          transparent: true,
+          opacity: 0.86,
+          depthWrite: false,
+        }),
+      );
+      register.position.set(
+        side * (outerX + 0.012),
+        0,
+        radius * 0.72,
+      );
+      wheelObject.add(register);
+
+      const brakeMaterial = new THREE.MeshBasicMaterial({
+        color: RED,
+        transparent: true,
+        opacity: 0.02,
+        depthWrite: false,
+      });
+      const disc = new THREE.Mesh(
+        new THREE.TorusGeometry(
+          radius * 0.5,
+          radius * 0.035,
+          7,
+          32,
+        ),
+        brakeMaterial,
+      );
+      disc.rotation.y = Math.PI / 2;
+      disc.position.x = side * outerX * 0.79;
+      wheelObject.add(disc);
+      brakeMaterials.push(brakeMaterial);
+    });
+  };
+  addWheelTelemetry(frontWheels);
+  addWheelTelemetry(rearWheels);
+
   const internals = new THREE.Group();
   const component = (
     size: [number, number, number],
@@ -627,77 +689,6 @@ async function buildFormulaScene(
   );
   carRig.add(energyLine);
 
-  const brakeMaterials: THREE.MeshBasicMaterial[] = [];
-  const wheelRegisters: THREE.Group[] = [];
-  [
-    [-1.42, 0.46, -2.25],
-    [1.42, 0.46, -2.25],
-    [-1.46, 0.5, 2.15],
-    [1.46, 0.5, 2.15],
-  ].forEach(([x, y, z]) => {
-    const material = new THREE.MeshBasicMaterial({
-      color: RED,
-      transparent: true,
-      opacity: 0,
-      depthWrite: false,
-    });
-    const disc = new THREE.Mesh(
-      new THREE.TorusGeometry(0.27, 0.032, 7, 28),
-      material,
-    );
-    disc.rotation.y = Math.PI / 2;
-    disc.position.set(x, y, z);
-    carRig.add(disc);
-    brakeMaterials.push(material);
-
-    const register = new THREE.Group();
-    register.position.set(x, y, z);
-    const spoke = lineFromPoints(
-      [
-        new THREE.Vector3(0, 0, 0),
-        new THREE.Vector3(0, 0.24, 0.13),
-      ],
-      RED,
-      0.88,
-    );
-    const hub = new THREE.Mesh(
-      new THREE.SphereGeometry(0.035, 8, 6),
-      new THREE.MeshBasicMaterial({
-        color: RED,
-        transparent: true,
-        opacity: 0.9,
-        depthWrite: false,
-      }),
-    );
-    register.add(spoke, hub);
-    carRig.add(register);
-    wheelRegisters.push(register);
-  });
-
-  const sensorPositions = [
-    new THREE.Vector3(0, 0.34, -3.28),
-    new THREE.Vector3(-1.43, 0.92, -2.2),
-    new THREE.Vector3(1.43, 0.92, -2.2),
-    new THREE.Vector3(0, 1.22, -0.25),
-    new THREE.Vector3(0, 0.68, 1.62),
-  ];
-  const sensorMaterials: THREE.MeshBasicMaterial[] = [];
-  sensorPositions.forEach((position) => {
-    const material = new THREE.MeshBasicMaterial({
-      color: RED,
-      transparent: true,
-      opacity: 0.25,
-      depthWrite: false,
-    });
-    const sensor = new THREE.Mesh(
-      new THREE.SphereGeometry(0.045, 10, 8),
-      material,
-    );
-    sensor.position.copy(position);
-    carRig.add(sensor);
-    sensorMaterials.push(material);
-  });
-
   const scanPlaneMaterial = new THREE.MeshBasicMaterial({
     color: RED,
     transparent: true,
@@ -711,20 +702,6 @@ async function buildFormulaScene(
   );
   scanPlane.position.y = 0.85;
   carRig.add(scanPlane);
-
-  const contact = new THREE.Mesh(
-    new THREE.PlaneGeometry(4.6, 7.7),
-    new THREE.MeshBasicMaterial({
-      color: INK,
-      transparent: true,
-      opacity: 0.035,
-      depthWrite: false,
-      side: THREE.DoubleSide,
-    }),
-  );
-  contact.rotation.x = -Math.PI / 2;
-  contact.position.y = -0.025;
-  carRig.add(contact);
 
   const road = buildRoadRibbon(telemetry.location);
   root.add(
@@ -991,10 +968,6 @@ async function buildFormulaScene(
       if (rearWheels) {
         rearWheels.rotation.x = rearWheelBaseRotation + wheelAngle;
       }
-      wheelRegisters.forEach((register) => {
-        register.rotation.x = wheelAngle;
-      });
-
       vectorFrame += 1;
       if (vectorFrame % 3 === 0) {
         const trailPositionAttribute = trailGeometry.getAttribute(
@@ -1085,16 +1058,11 @@ async function buildFormulaScene(
           ((braking ? 0.82 : 0.015) - material.opacity) * 0.14;
       });
       energyMaterial.opacity = 0.16 + (throttle / 100) * 0.62;
-      sensorMaterials.forEach((material, index) => {
-        const active =
-          Math.floor(replayTime / 850) % sensorMaterials.length === index;
-        material.opacity += ((active ? 0.96 : 0.22) - material.opacity) * 0.12;
-      });
-
-      const replayPhase = (elapsed % 22.1) / 22.1;
-      const scanActive = replayPhase > 0.62 && replayPhase < 0.86;
+      const scanCycleDuration = 12.4;
+      const replayPhase = (elapsed % scanCycleDuration) / scanCycleDuration;
+      const scanActive = replayPhase > 0.5 && replayPhase < 0.8;
       const scanProgress = THREE.MathUtils.clamp(
-        (replayPhase - 0.62) / 0.24,
+        (replayPhase - 0.5) / 0.3,
         0,
         1,
       );
@@ -1363,15 +1331,19 @@ function buildBackgammonScene(
     return geometry;
   };
 
-  const pointObjects = new Map<number, THREE.Group>();
   const slot = 0.63;
+  const pointCenterX = (point: number) => {
+    if (point <= 6) return 0.675 + (6 - point) * slot;
+    if (point <= 12) return -3.505 + (12 - point) * slot;
+    if (point <= 18) return -3.505 + (point - 13) * slot;
+    return 0.675 + (point - 19) * slot;
+  };
   for (let boardSide = 0; boardSide < 2; boardSide += 1) {
     for (let index = 0; index < 6; index += 1) {
-      const center = (boardSide === 0 ? -3.82 : 0.36) + index * slot;
       const bottomPoint = boardSide === 0 ? 12 - index : 6 - index;
-      const topPoint = boardSide === 0 ? 13 + index : 19 + index;
+      const pointStart = pointCenterX(bottomPoint) - slot / 2;
       const bottom = technicalSolid(
-        pointGeometry(center, center + slot, -2.42, -0.48),
+        pointGeometry(pointStart, pointStart + slot, -2.42, -0.48),
         {
           color: index % 2 === 0 ? 0xd8d8d1 : 0xebebe6,
           opacity: index % 2 === 0 ? 0.14 : 0.07,
@@ -1380,7 +1352,7 @@ function buildBackgammonScene(
         },
       );
       const top = technicalSolid(
-        pointGeometry(center, center + slot, 2.42, 0.48),
+        pointGeometry(pointStart, pointStart + slot, 2.42, 0.48),
         {
           color: index % 2 === 0 ? 0xebebe6 : 0xd8d8d1,
           opacity: index % 2 === 0 ? 0.07 : 0.14,
@@ -1388,23 +1360,16 @@ function buildBackgammonScene(
           threshold: 1,
         },
       );
-      pointObjects.set(bottomPoint, bottom);
-      pointObjects.set(topPoint, top);
       root.add(bottom, top);
     }
   }
 
   const pointPosition = (point: number, stackIndex: number) => {
     const top = point >= 13;
-    let x: number;
-    if (point <= 6) x = 3.82 - (point - 1) * 0.63;
-    else if (point <= 12) x = -0.67 - (point - 7) * 0.63;
-    else if (point <= 18) x = -3.82 + (point - 13) * 0.63;
-    else x = 0.67 + (point - 19) * 0.63;
     const edgeZ = top ? 2.1 : -2.1;
     const direction = top ? -1 : 1;
     return new THREE.Vector3(
-      x,
+      pointCenterX(point),
       0.35 + stackIndex * 0.008,
       edgeZ + direction * stackIndex * 0.43,
     );
@@ -1549,7 +1514,7 @@ function buildBackgammonScene(
     to: number;
     start: THREE.Vector3;
     end: THREE.Vector3;
-    curve: THREE.CatmullRomCurve3;
+    curve: THREE.QuadraticBezierCurve3;
     startsAt: number;
     endsAt: number;
   }> = [];
@@ -1581,144 +1546,13 @@ function buildBackgammonScene(
         to: move.to,
         start,
         end,
-        curve: new THREE.CatmullRomCurve3([start, midpoint, end]),
+        curve: new THREE.QuadraticBezierCurve3(start, midpoint, end),
         startsAt,
         endsAt: startsAt + (turn.moves.length === 4 ? 0.78 : 1.02),
       });
       simulatedPoints.set(piece, move.to);
     });
   });
-
-  const pipPositions = [
-    [0, 0],
-    [-0.16, -0.18],
-    [0.16, 0.18],
-    [-0.16, 0.18],
-    [0.16, -0.18],
-    [-0.16, 0],
-    [0.16, 0],
-  ] as const;
-  const pipIndexes: Record<number, number[]> = {
-    1: [0],
-    2: [1, 2],
-    3: [1, 0, 2],
-    4: [1, 2, 3, 4],
-    5: [1, 2, 3, 4, 0],
-    6: [1, 2, 3, 4, 5, 6],
-  };
-  const diceTray = technicalSolid(
-    new THREE.BoxGeometry(1.55, 0.08, 1.04),
-    {
-      color: 0xe8e8e2,
-      opacity: 0.14,
-      edgeOpacity: 0.42,
-    },
-  );
-  diceTray.position.set(4.85, 0.2, 0.18);
-  root.add(diceTray);
-
-  const dice = [4.5, 5.18].map((x, index) => {
-    const die = technicalSolid(new THREE.BoxGeometry(0.5, 0.5, 0.5), {
-      color: PAPER,
-      edgeColor: index === 0 ? RED : INK,
-      opacity: 0.58,
-      edgeOpacity: 0.7,
-    });
-    const pips = pipPositions.map(([px, pz]) => {
-      const pip = new THREE.Mesh(
-        new THREE.SphereGeometry(0.046, 10, 8),
-        new THREE.MeshBasicMaterial({ color: index === 0 ? RED : INK }),
-      );
-      pip.scale.setScalar(0.84);
-      pip.position.set(px * 0.82, 0.257, pz * 0.82);
-      die.add(pip);
-      return pip;
-    });
-    die.userData.pips = pips;
-    die.position.set(x, 0.64, 0.18);
-    root.add(die);
-    return die;
-  });
-  const setDieValue = (die: THREE.Group, value: number) => {
-    const visible = pipIndexes[value];
-    (die.userData.pips as THREE.Mesh[]).forEach((pip, index) => {
-      pip.visible = visible.includes(index);
-    });
-  };
-
-  const outcomeNodes: Array<{
-    object: THREE.Mesh;
-    material: THREE.MeshBasicMaterial;
-  }> = [];
-  const outcomeField = new THREE.Group();
-  outcomeField.position.set(5.5, 0.72, -0.42);
-  outcomeField.rotation.y = -0.89;
-  root.add(outcomeField);
-  const outcomeNodeGeometry = new THREE.SphereGeometry(0.037, 9, 7);
-  const fieldMinY = 0;
-  const fieldMinZ = -0.62;
-  const fieldStep = 0.24;
-  for (let first = 0; first < 6; first += 1) {
-    for (let second = 0; second < 6; second += 1) {
-      const material = new THREE.MeshBasicMaterial({
-        color: INK,
-        transparent: true,
-        opacity: 0.12,
-        depthWrite: false,
-      });
-      const node = new THREE.Mesh(outcomeNodeGeometry, material);
-      node.position.set(
-        0,
-        fieldMinY + first * fieldStep,
-        fieldMinZ + second * fieldStep,
-      );
-      outcomeField.add(node);
-      outcomeNodes.push({ object: node, material });
-    }
-  }
-
-  const fieldGridPoints: THREE.Vector3[] = [];
-  for (let index = 0; index < 6; index += 1) {
-    const offset = index * fieldStep;
-    fieldGridPoints.push(
-      new THREE.Vector3(0, fieldMinY + offset, fieldMinZ),
-      new THREE.Vector3(
-        0,
-        fieldMinY + offset,
-        fieldMinZ + fieldStep * 5,
-      ),
-      new THREE.Vector3(0, fieldMinY, fieldMinZ + offset),
-      new THREE.Vector3(
-        0,
-        fieldMinY + fieldStep * 5,
-        fieldMinZ + offset,
-      ),
-    );
-  }
-  const outcomeFieldGrid = new THREE.LineSegments(
-    new THREE.BufferGeometry().setFromPoints(fieldGridPoints),
-    new THREE.LineBasicMaterial({
-      color: INK,
-      transparent: true,
-      opacity: 0.045,
-      depthWrite: false,
-    }),
-  );
-  outcomeField.add(outcomeFieldGrid);
-
-  const outcomeProjectionGeometry = new THREE.BufferGeometry();
-  const outcomeProjection = new THREE.LineSegments(
-    outcomeProjectionGeometry,
-    new THREE.LineDashedMaterial({
-      color: RED,
-      dashSize: 0.08,
-      gapSize: 0.06,
-      transparent: true,
-      opacity: 0.34,
-      depthWrite: false,
-    }),
-  );
-  root.add(outcomeProjection);
 
   const activeHalo = technicalSolid(
     new THREE.TorusGeometry(0.27, 0.018, 7, 32),
@@ -1775,13 +1609,12 @@ function buildBackgammonScene(
   });
 
   camera.position.set(5.9, 9.35, 7.35);
-  const boardTarget = new THREE.Vector3(0.35, 0.2, 0);
+  const boardTarget = new THREE.Vector3(0, 0.2, 0);
   const desiredBoardCamera = new THREE.Vector3();
   camera.lookAt(boardTarget);
 
   let lastTurnIndex = -1;
   let lastMoveIndex = -1;
-  let activeOutcomeIndexes = [5];
   let targetMarkerCount = 0;
   const currentPoints = new Map<BackgammonPiece, number>();
 
@@ -1830,7 +1663,7 @@ function buildBackgammonScene(
         activeMoveWithinTurn = timeline
           .filter((candidate) => candidate.turn === turnIndex)
           .findIndex((candidate) => candidate === move);
-        const progress = THREE.MathUtils.smoothstep(
+        const progress = THREE.MathUtils.smootherstep(
           (cycleTime - move.startsAt) / (move.endsAt - move.startsAt),
           0,
           1,
@@ -1859,15 +1692,6 @@ function buildBackgammonScene(
       });
 
       if (lastTurnIndex !== turnIndex) {
-        setDieValue(dice[0], turn.dice[0]);
-        setDieValue(dice[1], turn.dice[1]);
-        activeOutcomeIndexes =
-          turn.dice[0] === turn.dice[1]
-            ? [(turn.dice[0] - 1) * 6 + (turn.dice[1] - 1)]
-            : [
-                (turn.dice[0] - 1) * 6 + (turn.dice[1] - 1),
-                (turn.dice[1] - 1) * 6 + (turn.dice[0] - 1),
-              ];
         const orderedWays = turn.dice[0] === turn.dice[1] ? 1 : 2;
         const probability = ((orderedWays / 36) * 100).toFixed(2);
         setHud(
@@ -1911,46 +1735,6 @@ function buildBackgammonScene(
         });
         lastTurnIndex = turnIndex;
       }
-
-      const rollEnergy =
-        1 - THREE.MathUtils.smoothstep(turnTime / 0.68, 0, 1);
-      dice.forEach((die, index) => {
-        die.rotation.x =
-          0.08 + Math.sin(turnTime * 17 + index) * rollEnergy * 0.72;
-        die.rotation.y =
-          (index === 0 ? 0.24 : -0.24) +
-          Math.cos(turnTime * 14 + index) * rollEnergy * 0.76;
-        die.rotation.z =
-          0.04 + Math.sin(turnTime * 12) * rollEnergy * 0.28;
-        die.position.y =
-          0.64 +
-          rollEnergy *
-            (0.5 + Math.abs(Math.sin(turnTime * 14 + index)) * 0.16);
-      });
-
-      outcomeNodes.forEach(({ object, material }, index) => {
-        const active = activeOutcomeIndexes.includes(index);
-        const pulse = 1 + Math.sin(elapsed * 4.2 + index * 0.15) * 0.08;
-        object.scale.setScalar(active ? 1.55 * pulse : 1);
-        object.position.x = active ? 0.07 * pulse : 0;
-        material.opacity = active ? 0.9 : 0.1;
-        material.color.set(active ? RED : INK);
-      });
-      const projectionPoints: THREE.Vector3[] = [];
-      dice.forEach((die, dieIndex) => {
-        const node =
-          outcomeNodes[
-            activeOutcomeIndexes[
-              Math.min(dieIndex, activeOutcomeIndexes.length - 1)
-            ]
-          ].object;
-        projectionPoints.push(
-          node.getWorldPosition(new THREE.Vector3()),
-          die.position.clone().add(new THREE.Vector3(0, 0.34, 0)),
-        );
-      });
-      outcomeProjectionGeometry.setFromPoints(projectionPoints);
-      outcomeProjection.computeLineDistances();
 
       const whitePips = pieces
         .filter((piece) => piece.player === "WHITE")
@@ -2208,7 +1992,7 @@ export function SystemCanvas({ mode }: { mode: VisualMode }) {
   const viewRef = useRef<SceneView>(
     mode === 1
       ? { yaw: 0.92, pitch: 0.45, distance: 8.35 }
-      : { yaw: 0.676, pitch: 0.79, distance: 13.25 },
+      : { yaw: 0.676, pitch: 0.79, distance: 12.1 },
   );
   const dragRef = useRef({
     active: false,
@@ -2220,7 +2004,7 @@ export function SystemCanvas({ mode }: { mode: VisualMode }) {
     viewRef.current =
       mode === 1
         ? { yaw: 0.92, pitch: 0.45, distance: 8.35 }
-        : { yaw: 0.676, pitch: 0.79, distance: 13.25 };
+        : { yaw: 0.676, pitch: 0.79, distance: 12.1 };
   };
 
   useEffect(() => {
