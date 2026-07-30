@@ -47,7 +47,11 @@ type SampleWindow<T> = {
 
 type SceneController = {
   root: THREE.Group;
-  update: (elapsed: number, delta: number) => void;
+  update: (
+    elapsed: number,
+    delta: number,
+    pointer: { x: number; y: number },
+  ) => void;
 };
 
 const INK = 0x171717;
@@ -170,55 +174,88 @@ function addFormulaLights(scene: THREE.Scene) {
   scene.add(rim);
 }
 
-function buildRoadRibbon(sampleCount: number) {
+function buildRoadRibbon(locations: LocationSample[]) {
+  const sampleCount = locations.length;
+  const xs = locations.map((point) => point.x);
+  const ys = locations.map((point) => point.y);
+  const originX = (Math.min(...xs) + Math.max(...xs)) / 2;
+  const originY = (Math.min(...ys) + Math.max(...ys)) / 2;
+  const coordinateScale = 0.1;
+  const roadHalfWidth = 7.5;
+  const centerPoints = locations.map(
+    (point) =>
+      new THREE.Vector3(
+        (point.x - originX) * coordinateScale,
+        0,
+        (point.y - originY) * coordinateScale,
+      ),
+  );
   const geometry = new THREE.BufferGeometry();
   const positions = new Float32Array(sampleCount * 2 * 3);
   geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
   const indices: number[] = [];
+
+  const leftPoints: THREE.Vector3[] = [];
+  const rightPoints: THREE.Vector3[] = [];
+  centerPoints.forEach((point, index) => {
+    const previous = centerPoints[Math.max(0, index - 1)];
+    const next = centerPoints[Math.min(centerPoints.length - 1, index + 1)];
+    const tangentX = next.x - previous.x;
+    const tangentZ = next.z - previous.z;
+    const length = Math.max(0.001, Math.hypot(tangentX, tangentZ));
+    const normalX = -tangentZ / length;
+    const normalZ = tangentX / length;
+    const left = new THREE.Vector3(
+      point.x + normalX * roadHalfWidth,
+      -0.04,
+      point.z + normalZ * roadHalfWidth,
+    );
+    const right = new THREE.Vector3(
+      point.x - normalX * roadHalfWidth,
+      -0.04,
+      point.z - normalZ * roadHalfWidth,
+    );
+    leftPoints.push(left);
+    rightPoints.push(right);
+    positions.set([left.x, left.y, left.z], index * 6);
+    positions.set([right.x, right.y, right.z], index * 6 + 3);
+  });
+
   for (let i = 0; i < sampleCount - 1; i += 1) {
     const base = i * 2;
     indices.push(base, base + 1, base + 2, base + 1, base + 3, base + 2);
   }
   geometry.setIndex(indices);
+  geometry.computeVertexNormals();
 
   const mesh = new THREE.Mesh(
     geometry,
     new THREE.MeshStandardMaterial({
-      color: 0xe9e9e4,
+      color: 0xe4e4de,
       transparent: true,
-      opacity: 0.72,
+      opacity: 0.52,
       roughness: 1,
       metalness: 0,
       side: THREE.DoubleSide,
       depthWrite: false,
     }),
   );
-  const left = lineFromPoints(
-    Array.from({ length: sampleCount }, () => new THREE.Vector3()),
-    INK,
-    0.32,
-  );
-  const right = lineFromPoints(
-    Array.from({ length: sampleCount }, () => new THREE.Vector3()),
-    INK,
-    0.32,
-  );
-  const centerGeometry = new THREE.BufferGeometry();
-  centerGeometry.setAttribute(
-    "position",
-    new THREE.BufferAttribute(new Float32Array(sampleCount * 3), 3),
-  );
-  const center = new THREE.Points(
-    centerGeometry,
-    new THREE.PointsMaterial({
+  const left = lineFromPoints(leftPoints, INK, 0.34);
+  const right = lineFromPoints(rightPoints, INK, 0.34);
+  const center = new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints(centerPoints),
+    new THREE.LineDashedMaterial({
       color: RED,
-      size: 0.035,
+      dashSize: 3.2,
+      gapSize: 5.2,
       transparent: true,
-      opacity: 0.42,
+      opacity: 0.38,
       depthWrite: false,
     }),
   );
-  return { mesh, left, right, center, sampleCount };
+  center.computeLineDistances();
+  center.position.y = -0.025;
+  return { mesh, left, right, center, originX, originY };
 }
 
 function drawTrackMap(
@@ -305,6 +342,10 @@ async function buildFormulaScene(
   const center = bounds.getCenter(new THREE.Vector3());
   model.position.set(-center.x, -bounds.min.y, -center.z);
   carRig.add(model);
+  const frontWheels = model.getObjectByName("front_wheels_7");
+  const rearWheels = model.getObjectByName("back_wheels_1");
+  const frontWheelBaseRotation = frontWheels?.rotation.x ?? 0;
+  const rearWheelBaseRotation = rearWheels?.rotation.x ?? 0;
 
   const shellMaterials: Array<{
     material: THREE.MeshStandardMaterial;
@@ -496,96 +537,45 @@ async function buildFormulaScene(
   contact.position.y = -0.025;
   carRig.add(contact);
 
-  const road = buildRoadRibbon(83);
-  road.mesh.position.y = -0.08;
-  road.left.position.y = -0.068;
-  road.right.position.y = -0.068;
-  road.center.position.y = -0.06;
+  const road = buildRoadRibbon(telemetry.location);
   root.add(road.mesh, road.left, road.right, road.center);
-  carRig.scale.setScalar(1.12);
+  carRig.scale.setScalar(0.72);
 
-  const roadPoints = Array.from(
-    { length: road.sampleCount },
-    () => new THREE.Vector3(),
+  const firstLocation = telemetry.location[0];
+  const firstDirectionTarget = telemetry.location[3] ?? firstLocation;
+  const carPosition = new THREE.Vector3(
+    (firstLocation.x - road.originX) * 0.1,
+    0.03,
+    (firstLocation.y - road.originY) * 0.1,
   );
-  const roadHalfWidth = 1.92;
-  const coordinateScale = 0.012;
-  const updateRoad = (
-    active: SampleWindow<LocationSample>,
-    currentX: number,
-    currentY: number,
-  ) => {
-    const locations = telemetry.location;
-    const directionA = locations[Math.max(0, active.index - 2)];
-    const directionB =
-      locations[Math.min(locations.length - 1, active.index + 2)];
-    const headingX = directionB.x - directionA.x;
-    const headingZ = directionB.y - directionA.y;
-    const rotation = -Math.atan2(headingX, headingZ);
-    const cosine = Math.cos(rotation);
-    const sine = Math.sin(rotation);
-    const firstIndex = active.index - Math.floor(road.sampleCount / 2);
-
-    for (let i = 0; i < road.sampleCount; i += 1) {
-      const index = THREE.MathUtils.clamp(
-        firstIndex + i,
-        0,
-        locations.length - 1,
-      );
-      const point = locations[index];
-      const localX = (point.x - currentX) * coordinateScale;
-      const localZ = (point.y - currentY) * coordinateScale;
-      roadPoints[i].set(
-        localX * cosine + localZ * sine,
-        0,
-        -localX * sine + localZ * cosine,
-      );
-    }
-
-    const roadPosition = road.mesh.geometry.attributes
-      .position as THREE.BufferAttribute;
-    const leftPosition = road.left.geometry.attributes
-      .position as THREE.BufferAttribute;
-    const rightPosition = road.right.geometry.attributes
-      .position as THREE.BufferAttribute;
-    const centerPosition = road.center.geometry.attributes
-      .position as THREE.BufferAttribute;
-
-    roadPoints.forEach((point, index) => {
-      const previous = roadPoints[Math.max(0, index - 1)];
-      const next = roadPoints[Math.min(roadPoints.length - 1, index + 1)];
-      const tangentX = next.x - previous.x;
-      const tangentZ = next.z - previous.z;
-      const length = Math.max(0.001, Math.hypot(tangentX, tangentZ));
-      const normalX = -tangentZ / length;
-      const normalZ = tangentX / length;
-      const leftX = point.x + normalX * roadHalfWidth;
-      const leftZ = point.z + normalZ * roadHalfWidth;
-      const rightX = point.x - normalX * roadHalfWidth;
-      const rightZ = point.z - normalZ * roadHalfWidth;
-
-      roadPosition.setXYZ(index * 2, leftX, 0, leftZ);
-      roadPosition.setXYZ(index * 2 + 1, rightX, 0, rightZ);
-      leftPosition.setXYZ(index, leftX, 0, leftZ);
-      rightPosition.setXYZ(index, rightX, 0, rightZ);
-      centerPosition.setXYZ(index, point.x, 0, point.z);
-    });
-
-    roadPosition.needsUpdate = true;
-    leftPosition.needsUpdate = true;
-    rightPosition.needsUpdate = true;
-    centerPosition.needsUpdate = true;
-  };
-
-  camera.position.set(6.25, 2.95, -8.25);
-  camera.lookAt(0, 0.7, 0);
+  const forward = new THREE.Vector3(
+    firstDirectionTarget.x - firstLocation.x,
+    0,
+    firstDirectionTarget.y - firstLocation.y,
+  ).normalize();
+  const right = new THREE.Vector3(forward.z, 0, -forward.x);
+  const desiredCamera = new THREE.Vector3();
+  const desiredLook = new THREE.Vector3();
+  const cameraLook = carPosition
+    .clone()
+    .addScaledVector(forward, 1.65)
+    .add(new THREE.Vector3(0, 0.72, 0));
+  carRig.position.copy(carPosition);
+  carRig.rotation.y = Math.atan2(forward.x, forward.z);
+  camera.position
+    .copy(carPosition)
+    .addScaledVector(forward, -7.5)
+    .addScaledVector(right, 4.15)
+    .add(new THREE.Vector3(0, 2.75, 0));
+  camera.lookAt(cameraLook);
   setHud(hudRoot, "model-state", "MODEL / READY · 125K VTX");
 
   let smoothedBrakeTemperature = 320;
+  let wheelAngle = 0;
   let mapFrame = 0;
   return {
     root,
-    update: (elapsed, delta) => {
+    update: (elapsed, delta, pointer) => {
       const lapDuration = telemetry.source.lapDurationMs;
       const replayTime =
         (elapsed * 1000 * telemetry.source.replayRate) % lapDuration;
@@ -596,7 +586,6 @@ async function buildFormulaScene(
       const throttle = lerp(car.a.throttle, car.b.throttle, car.mix);
       const currentX = lerp(location.a.x, location.b.x, location.mix);
       const currentY = lerp(location.a.y, location.b.y, location.mix);
-      updateRoad(location, currentX, currentY);
 
       const locations = telemetry.location;
       const before = locations[Math.max(0, location.index - 3)];
@@ -633,6 +622,40 @@ async function buildFormulaScene(
         0,
         6.2,
       );
+
+      carPosition.set(
+        (currentX - road.originX) * 0.1,
+        0.03,
+        (currentY - road.originY) * 0.1,
+      );
+      forward
+        .set(after.x - before.x, 0, after.y - before.y)
+        .normalize();
+      right.set(forward.z, 0, -forward.x);
+      carRig.position.copy(carPosition);
+      carRig.rotation.y = Math.atan2(forward.x, forward.z);
+      wheelAngle -=
+        ((speed / 3.6) / 0.36) * delta * telemetry.source.replayRate;
+      if (frontWheels) {
+        frontWheels.rotation.x = frontWheelBaseRotation + wheelAngle;
+      }
+      if (rearWheels) {
+        rearWheels.rotation.x = rearWheelBaseRotation + wheelAngle;
+      }
+
+      desiredCamera
+        .copy(carPosition)
+        .addScaledVector(forward, -7.5)
+        .addScaledVector(right, 4.15 + pointer.x * 1.2);
+      desiredCamera.y += 2.75 + pointer.y * 0.55;
+      desiredLook
+        .copy(carPosition)
+        .addScaledVector(forward, 1.65);
+      desiredLook.y += 0.72;
+      const cameraDamping = 1 - Math.exp(-delta * 48);
+      camera.position.lerp(desiredCamera, cameraDamping);
+      cameraLook.lerp(desiredLook, cameraDamping);
+      camera.lookAt(cameraLook);
 
       const braking = car.a.brake > 0;
       const temperatureTarget = braking ? 820 + speed * 1.4 : 310;
@@ -863,8 +886,8 @@ function buildBackgammonScene(
     const direction = top ? -1 : 1;
     return new THREE.Vector3(
       x,
-      0.36 + stackIndex * 0.018,
-      edgeZ + direction * stackIndex * 0.46,
+      0.35 + stackIndex * 0.008,
+      edgeZ + direction * stackIndex * 0.43,
     );
   };
 
@@ -873,12 +896,12 @@ function buildBackgammonScene(
     BLACK: [1, 1, 12, 12, 12, 12, 12, 17, 17, 17, 19, 19, 19, 19, 19],
   };
   const pieces: BackgammonPiece[] = [];
-  const checkerGeometry = new THREE.CylinderGeometry(0.275, 0.275, 0.14, 28, 2);
+  const checkerGeometry = new THREE.CylinderGeometry(0.21, 0.21, 0.13, 32, 2);
 
   (Object.keys(initialPoints) as Player[]).forEach((player) => {
     initialPoints[player].forEach((point, pieceIndex, allPoints) => {
       const fill = new THREE.MeshStandardMaterial({
-        color: player === "BLACK" ? INK : 0xe8e8e2,
+        color: player === "BLACK" ? INK : 0xe4e4de,
         roughness: player === "BLACK" ? 0.72 : 0.9,
         metalness: player === "BLACK" ? 0.08 : 0,
       });
@@ -890,7 +913,7 @@ function buildBackgammonScene(
           new THREE.LineBasicMaterial({
             color: player === "BLACK" ? 0x000000 : INK,
             transparent: true,
-            opacity: 0.68,
+            opacity: player === "BLACK" ? 0.72 : 0.82,
           }),
         ),
       );
@@ -1021,7 +1044,17 @@ function buildBackgammonScene(
     5: [1, 2, 3, 4, 0],
     6: [1, 2, 3, 4, 5, 6],
   };
-  const dice = [-0.45, 0.45].map((x, index) => {
+  const diceTray = technicalSolid(
+    new THREE.BoxGeometry(1.55, 0.08, 1.04),
+    {
+      color: 0xe8e8e2,
+      edgeOpacity: 0.58,
+    },
+  );
+  diceTray.position.set(4.85, 0.2, 0.18);
+  root.add(diceTray);
+
+  const dice = [4.5, 5.18].map((x, index) => {
     const die = technicalSolid(new THREE.BoxGeometry(0.5, 0.5, 0.5), {
       color: PAPER,
       edgeColor: index === 0 ? RED : INK,
@@ -1038,7 +1071,7 @@ function buildBackgammonScene(
       return pip;
     });
     die.userData.pips = pips;
-    die.position.set(x, 0.59, 0);
+    die.position.set(x, 0.64, 0.18);
     root.add(die);
     return die;
   });
@@ -1050,7 +1083,7 @@ function buildBackgammonScene(
   };
 
   const activeHalo = technicalSolid(
-    new THREE.TorusGeometry(0.35, 0.022, 7, 32),
+    new THREE.TorusGeometry(0.27, 0.018, 7, 32),
     {
       color: RED,
       edgeColor: RED,
@@ -1090,7 +1123,7 @@ function buildBackgammonScene(
 
   const targetMarkers = [0, 1].map(() => {
     const marker = technicalSolid(
-      new THREE.TorusGeometry(0.39, 0.018, 6, 30),
+      new THREE.TorusGeometry(0.29, 0.014, 6, 30),
       {
         color: RED,
         edgeColor: RED,
@@ -1103,8 +1136,8 @@ function buildBackgammonScene(
     return marker;
   });
 
-  camera.position.set(7.4, 7.5, 8.6);
-  camera.lookAt(0, 0.25, 0);
+  camera.position.set(5.9, 9.35, 7.35);
+  camera.lookAt(0.35, 0.2, 0);
 
   let lastTurnIndex = -1;
   let lastMoveIndex = -1;
@@ -1121,7 +1154,7 @@ function buildBackgammonScene(
 
       pieces.forEach((piece) => {
         piece.object.position.copy(piece.initialPosition);
-        piece.fill.color.set(piece.player === "BLACK" ? INK : 0xe8e8e2);
+        piece.fill.color.set(piece.player === "BLACK" ? INK : 0xe4e4de);
         currentPoints.set(piece, piece.initialPoint);
       });
       timeline.forEach((move) => {
@@ -1184,10 +1217,12 @@ function buildBackgammonScene(
             ?.classList.add("is-active");
         });
 
-        turn.moves.forEach((move, index) => {
-          targetMarkers[index].position.copy(pointPosition(move.to, 0));
-          targetMarkers[index].position.y = 0.28;
-        });
+        timeline
+          .filter((move) => move.turn === turnIndex)
+          .forEach((move, index) => {
+            targetMarkers[index].position.copy(move.end);
+            targetMarkers[index].position.y = 0.275;
+          });
         lastTurnIndex = turnIndex;
       }
 
@@ -1201,6 +1236,10 @@ function buildBackgammonScene(
           Math.cos(turnTime * 14 + index) * rollEnergy * 0.76;
         die.rotation.z =
           0.04 + Math.sin(turnTime * 12) * rollEnergy * 0.28;
+        die.position.y =
+          0.64 +
+          rollEnergy *
+            (0.5 + Math.abs(Math.sin(turnTime * 14 + index)) * 0.16);
       });
 
       const whitePips = pieces
@@ -1467,14 +1506,15 @@ export function SystemCanvas({ mode }: { mode: VisualMode }) {
       elapsed += delta;
       if (controller) {
         const root = controller.root;
-        const pointerYaw = pointerRef.current.x * (mode === 1 ? 0.055 : 0.045);
-        const pointerPitch =
-          pointerRef.current.y * (mode === 1 ? 0.025 : 0.018);
-        root.rotation.y +=
-          (rootBaseRotation.y + pointerYaw - root.rotation.y) * 0.045;
-        root.rotation.x +=
-          (rootBaseRotation.x + pointerPitch - root.rotation.x) * 0.045;
-        controller.update(elapsed, delta);
+        if (mode === 2) {
+          const pointerYaw = pointerRef.current.x * 0.045;
+          const pointerPitch = pointerRef.current.y * 0.018;
+          root.rotation.y +=
+            (rootBaseRotation.y + pointerYaw - root.rotation.y) * 0.045;
+          root.rotation.x +=
+            (rootBaseRotation.x + pointerPitch - root.rotation.x) * 0.045;
+        }
+        controller.update(elapsed, delta, pointerRef.current);
       }
       renderer.render(scene, camera);
       frame = window.requestAnimationFrame(animate);
