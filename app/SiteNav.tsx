@@ -85,7 +85,10 @@ export function SiteNav() {
         setFinderOpen((open) => !open);
       }
 
-      if (key === "d") {
+      if (
+        (themeRef.current === "light" && key === "d") ||
+        (themeRef.current === "dark" && key === "l")
+      ) {
         event.preventDefault();
         toggleTheme();
       }
@@ -163,7 +166,8 @@ export function SiteNav() {
             aria-pressed={theme === "dark"}
             onClick={toggleTheme}
           >
-            Dark <span>[D]</span>
+            {theme === "dark" ? "Light" : "Dark"}{" "}
+            <span>{theme === "dark" ? "[L]" : "[D]"}</span>
           </button>
         </nav>
       </header>
