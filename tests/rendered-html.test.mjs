@@ -142,6 +142,11 @@ test("serves registered posts as Collection subpages", async () => {
   assert.match(html, /About\s*<span>\[A\]<\/span>/);
   assert.match(html, /Collection\s*<span>\[C\]<\/span>/);
   assert.match(html, /Back\s*<span>\[B\]<\/span>/);
+  assert.match(html, /class="topbar-back"/);
+  assert.match(
+    html,
+    /<span class="title-bracket" aria-hidden="true">\[<\/span>Five<span class="title-bracket" aria-hidden="true">\]<\/span> Lines to Infinity/,
+  );
   assert.match(html, /href="\/collection"/);
   assert.match(html, /Two settings changed the apparent frontier/);
   assert.match(html, /The Session You Cannot Take With You/);

@@ -132,11 +132,6 @@ export function SiteNav({ backHref }: SiteNavProps = {}) {
           <Link href="/collection">
             Collection <span>[C]</span>
           </Link>
-          {backHref ? (
-            <Link href={backHref}>
-              Back <span>[B]</span>
-            </Link>
-          ) : null}
           <button
             type="button"
             onClick={() => {
@@ -160,6 +155,12 @@ export function SiteNav({ backHref }: SiteNavProps = {}) {
             Vibe <span>[V]</span>
           </button>
         </nav>
+
+        {backHref ? (
+          <Link className="topbar-back" href={backHref}>
+            Back <span>[B]</span>
+          </Link>
+        ) : null}
       </header>
 
       <div
