@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Script from "next/script";
 import { notFound } from "next/navigation";
-import { getPost, posts } from "../../content/posts";
+import { getPost, posts } from "../../../content/posts";
+import { SiteNav } from "../../SiteNav";
 
 type PostPageProps = {
   params: Promise<{ slug: string }>;
@@ -22,7 +23,7 @@ export async function generateMetadata({
   if (!post) return {};
 
   const title = `${post.title} — Saneel`;
-  const canonical = `/${post.slug}/`;
+  const canonical = `/collections/${post.slug}/`;
 
   return {
     title,
@@ -52,7 +53,8 @@ export default async function PostPage({ params }: PostPageProps) {
   if (!post) notFound();
 
   return (
-    <>
+    <div className="post-page">
+      <SiteNav backHref="/collection" />
       <style
         data-post-styles={post.slug}
         dangerouslySetInnerHTML={{ __html: post.styles }}
@@ -67,6 +69,6 @@ export default async function PostPage({ params }: PostPageProps) {
           {post.runtime}
         </Script>
       ) : null}
-    </>
+    </div>
   );
 }

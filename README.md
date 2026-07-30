@@ -10,9 +10,10 @@ camera rules, telemetry system, and production quality gate for every scene.
 
 ## Posts
 
-Posts are registered once and published as native root routes such as
-`/five_lines/`. The registry also supplies canonical metadata and Collection
-entries. See [`docs/POSTS.md`](docs/POSTS.md) for the authoring convention.
+Posts are registered once and published as native Collection subpages such as
+`/collections/five-lines/`. The registry also supplies canonical metadata and
+Collection entries. See [`docs/POSTS.md`](docs/POSTS.md) for the authoring
+convention.
 
 ## Runtime
 

@@ -22,7 +22,11 @@ function applySiteTheme(theme: SiteTheme) {
   );
 }
 
-export function SiteNav() {
+type SiteNavProps = {
+  backHref?: string;
+};
+
+export function SiteNav({ backHref }: SiteNavProps = {}) {
   const router = useRouter();
   const [finderOpen, setFinderOpen] = useState(false);
   const [finderQuery, setFinderQuery] = useState("");
@@ -71,6 +75,11 @@ export function SiteNav() {
         router.push("/collection");
       }
 
+      if (key === "b" && backHref) {
+        event.preventDefault();
+        router.push(backHref);
+      }
+
       if (key === "f") {
         event.preventDefault();
         setFinderIndex(0);
@@ -87,7 +96,7 @@ export function SiteNav() {
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [router, toggleTheme]);
+  }, [backHref, router, toggleTheme]);
 
   useEffect(() => {
     const storedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
@@ -123,6 +132,11 @@ export function SiteNav() {
           <Link href="/collection">
             Collection <span>[C]</span>
           </Link>
+          {backHref ? (
+            <Link href={backHref}>
+              Back <span>[B]</span>
+            </Link>
+          ) : null}
           <button
             type="button"
             onClick={() => {

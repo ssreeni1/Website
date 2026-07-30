@@ -15,7 +15,7 @@ const entries = [
   ...postSummaries.map((post) => ({
     title: post.title,
     date: post.publishedAt,
-    url: `/${post.slug}`,
+    url: `/collections/${post.slug}`,
   })),
   {
     title: "Tracebase",
