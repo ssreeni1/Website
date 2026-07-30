@@ -40,6 +40,7 @@ test("server-renders the personal site shell", async () => {
   assert.match(html, /ANTONELLI #12 \/ SILVERSTONE/);
   assert.match(html, /DATA \/ OPENF1/);
   assert.match(html, /Saneel Sreeni/);
+  assert.match(html, /Home\s*<span>\[H\]<\/span>/);
   assert.match(html, /About\s*<span>\[A\]<\/span>/);
   assert.match(html, /Contact\s*<span>\[C\]<\/span>/);
   assert.match(html, /Find\s*<span>\[F\]<\/span>/);
@@ -59,6 +60,7 @@ test("serves blank About and Contact page shells", async () => {
     assert.equal(response.status, 200);
     const html = await response.text();
     assert.match(html, /Saneel Sreeni/);
+    assert.match(html, /Home\s*<span>\[H\]<\/span>/);
     assert.match(html, /About\s*<span>\[A\]<\/span>/);
     assert.match(html, /Contact\s*<span>\[C\]<\/span>/);
     assert.doesNotMatch(html, /Interactive Formula car/);

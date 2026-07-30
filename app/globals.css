@@ -1031,8 +1031,11 @@ main {
 @media (max-width: 720px) {
   .topbar {
     width: calc(100vw - 24px);
-    height: 54px;
-    gap: 10px;
+    height: 86px;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 8px;
   }
 
   .mark {
@@ -1056,7 +1059,7 @@ main {
   }
 
   .system {
-    min-height: calc(100svh - 54px);
+    min-height: calc(100svh - 86px);
     height: auto;
     padding: 86px 0 74px;
   }

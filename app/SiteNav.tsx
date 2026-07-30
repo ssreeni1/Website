@@ -34,6 +34,11 @@ export function SiteNav() {
 
       const key = event.key.toLowerCase();
 
+      if (key === "h") {
+        event.preventDefault();
+        router.push("/");
+      }
+
       if (key === "a") {
         event.preventDefault();
         router.push("/about");
@@ -70,6 +75,9 @@ export function SiteNav() {
         </Link>
 
         <nav className="topbar-nav" aria-label="Primary navigation">
+          <Link href="/">
+            Home <span>[H]</span>
+          </Link>
           <Link href="/about">
             About <span>[A]</span>
           </Link>
