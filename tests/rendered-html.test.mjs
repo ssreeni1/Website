@@ -54,12 +54,24 @@ test("server-renders the personal site shell", async () => {
   assert.doesNotMatch(html, /codex-preview|Building your site|Open menu \[M\]/i);
 });
 
-test("serves the blank About page shell", async () => {
+test("serves the linked About page", async () => {
   for (const path of ["/about"]) {
     const response = await render(path);
     assert.equal(response.status, 200);
     const html = await response.text();
+    assert.match(html, /<title>About — Saneel Sreeni<\/title>/i);
     assert.match(html, /Saneel Sreeni/);
+    assert.match(html, /frontier agentic systems/);
+    assert.match(html, /https:\/\/ritual\.net/);
+    assert.match(html, /https:\/\/accomplice\.co/);
+    assert.match(html, /https:\/\/met\.berkeley\.edu\//);
+    assert.match(
+      html,
+      /https:\/\/x\.com\/sanlsrni\/status\/2054306602849652752/,
+    );
+    assert.match(html, /https:\/\/center\.study\//);
+    assert.match(html, /https:\/\/x\.com\/sanlsrni/);
+    assert.match(html, /https:\/\/www\.linkedin\.com\/in\/snlsrn\//);
     assert.match(html, /Home\s*<span>\[H\]<\/span>/);
     assert.match(html, /About\s*<span>\[A\]<\/span>/);
     assert.match(html, /Collection\s*<span>\[C\]<\/span>/);
