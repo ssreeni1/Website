@@ -13,6 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 const title = "Saneel — Independent Builder";
+const previewTitle = "Saneel";
 const description =
   "Saneel builds systems across software, design, and new ideas.";
 
@@ -40,14 +41,14 @@ export const metadata: Metadata = {
     shortcut: "/favicon.svg",
   },
   openGraph: {
-    title,
+    title: previewTitle,
     description,
     type: "website",
     images: [{ url: "/og.png", width: 1200, height: 630 }],
   },
   twitter: {
     card: "summary_large_image",
-    title,
+    title: previewTitle,
     description,
     images: ["/og.png"],
   },

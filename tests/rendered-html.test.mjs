@@ -31,6 +31,11 @@ test("server-renders the personal site shell", async () => {
   const html = await response.text();
   assert.match(html, /<html[^>]*data-theme="dark"/i);
   assert.match(html, /<title>Saneel — Independent Builder<\/title>/i);
+  assert.match(html, /property="og:title" content="Saneel"/i);
+  assert.match(html, /name="twitter:title" content="Saneel"/i);
+  assert.match(html, /property="og:image" content="https:\/\/saneel\.xyz\/og\.png"/i);
+  assert.match(html, /property="og:image:width" content="1200"/i);
+  assert.match(html, /property="og:image:height" content="630"/i);
   assert.doesNotMatch(html, /I build software, interfaces, and systems/);
   assert.doesNotMatch(html, /Formula \/ telemetry/);
   assert.match(
