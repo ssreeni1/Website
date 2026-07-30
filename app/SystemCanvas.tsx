@@ -5,7 +5,7 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { MeshoptDecoder } from "three/examples/jsm/libs/meshopt_decoder.module.js";
 
-type VisualMode = 1 | 2;
+type VisualMode = 1 | 2 | 3;
 
 type CarSample = {
   t: number;
@@ -1945,6 +1945,834 @@ function buildBackgammonScene(
   };
 }
 
+const SYMBOL_GRID_SIZE = 26;
+const SYMBOL_GRID_STEP = 0.32;
+const SYMBOL_GRID_HALF =
+  ((SYMBOL_GRID_SIZE - 1) * SYMBOL_GRID_STEP) / 2;
+const SYMBOL_PATH_COUNT = 8;
+const SYMBOL_VERTICES_PER_PATH = 64;
+const SYMBOL_VERTEX_COUNT =
+  SYMBOL_PATH_COUNT * SYMBOL_VERTICES_PER_PATH;
+const SYMBOL_EDGE_COUNT =
+  SYMBOL_PATH_COUNT * (SYMBOL_VERTICES_PER_PATH - 1);
+
+type SymbolName = "PHOENIX" | "OUROBOROS" | "GANDIVA";
+
+type SymbolShape = {
+  name: SymbolName;
+  paths: THREE.Vector3[][];
+  positions: Float32Array;
+};
+
+function samplePolyline(
+  controlPoints: THREE.Vector3[],
+  count = SYMBOL_VERTICES_PER_PATH,
+  closed = false,
+) {
+  const points = closed
+    ? [...controlPoints, controlPoints[0]]
+    : controlPoints;
+  const cumulative = [0];
+  for (let index = 1; index < points.length; index += 1) {
+    cumulative.push(
+      cumulative[index - 1] +
+        points[index - 1].distanceTo(points[index]),
+    );
+  }
+  const totalLength = cumulative[cumulative.length - 1];
+
+  return Array.from({ length: count }, (_, index) => {
+    const distance = (index / (count - 1)) * totalLength;
+    let segment = 0;
+    while (
+      segment < cumulative.length - 2 &&
+      cumulative[segment + 1] < distance
+    ) {
+      segment += 1;
+    }
+    const start = cumulative[segment];
+    const end = cumulative[segment + 1];
+    return points[segment]
+      .clone()
+      .lerp(
+        points[segment + 1],
+        (distance - start) / Math.max(0.0001, end - start),
+      );
+  });
+}
+
+function sampleCurve(
+  curve: (amount: number) => THREE.Vector3,
+  count = SYMBOL_VERTICES_PER_PATH,
+) {
+  return Array.from({ length: count }, (_, index) =>
+    curve(index / (count - 1)),
+  );
+}
+
+function snapSymbolPoint(point: THREE.Vector3) {
+  const snap = (value: number) =>
+    THREE.MathUtils.clamp(
+      Math.round(
+        (value + SYMBOL_GRID_HALF) / SYMBOL_GRID_STEP,
+      ) *
+        SYMBOL_GRID_STEP -
+        SYMBOL_GRID_HALF,
+      -SYMBOL_GRID_HALF,
+      SYMBOL_GRID_HALF,
+    );
+  return new THREE.Vector3(
+    snap(point.x),
+    snap(point.y),
+    snap(point.z),
+  );
+}
+
+function buildSymbolShape(
+  name: SymbolName,
+  sourcePaths: THREE.Vector3[][],
+): SymbolShape {
+  const paths = sourcePaths.map((path) =>
+    path.map((point) =>
+      snapSymbolPoint(
+        new THREE.Vector3(point.x, point.y, point.z * 1.45),
+      ),
+    ),
+  );
+  const positions = new Float32Array(SYMBOL_VERTEX_COUNT * 3);
+  paths.forEach((path, pathIndex) => {
+    path.forEach((point, vertexIndex) => {
+      const offset =
+        (pathIndex * SYMBOL_VERTICES_PER_PATH + vertexIndex) * 3;
+      positions[offset] = point.x;
+      positions[offset + 1] = point.y;
+      positions[offset + 2] = point.z;
+    });
+  });
+  return { name, paths, positions };
+}
+
+function buildPhoenixShape() {
+  const outer = samplePolyline(
+    [
+      new THREE.Vector3(-0.25, -3.35, -0.1),
+      new THREE.Vector3(-0.9, -2.4, 0.35),
+      new THREE.Vector3(-2.25, -2.05, -0.1),
+      new THREE.Vector3(-1.45, -1.25, 0.45),
+      new THREE.Vector3(-3.7, -0.35, -0.5),
+      new THREE.Vector3(-2.35, 0.15, 0.2),
+      new THREE.Vector3(-4.0, 1.45, -0.65),
+      new THREE.Vector3(-2.25, 1.15, 0.3),
+      new THREE.Vector3(-2.9, 2.65, -0.4),
+      new THREE.Vector3(-1.15, 1.95, 0.35),
+      new THREE.Vector3(-0.45, 2.55, 0.2),
+      new THREE.Vector3(-0.15, 3.25, 0.45),
+      new THREE.Vector3(0.65, 2.7, 0.3),
+      new THREE.Vector3(0.25, 2.3, 0.15),
+      new THREE.Vector3(1.15, 1.95, 0.35),
+      new THREE.Vector3(2.9, 2.65, -0.4),
+      new THREE.Vector3(2.25, 1.15, 0.3),
+      new THREE.Vector3(4.0, 1.45, -0.65),
+      new THREE.Vector3(2.35, 0.15, 0.2),
+      new THREE.Vector3(3.7, -0.35, -0.5),
+      new THREE.Vector3(1.45, -1.25, 0.45),
+      new THREE.Vector3(2.25, -2.05, -0.1),
+      new THREE.Vector3(0.9, -2.4, 0.35),
+      new THREE.Vector3(0.25, -3.35, -0.1),
+    ],
+    SYMBOL_VERTICES_PER_PATH,
+    true,
+  );
+  const body = samplePolyline([
+    new THREE.Vector3(-0.15, -2.55, 0.15),
+    new THREE.Vector3(-0.55, -1.25, 0.55),
+    new THREE.Vector3(-0.35, 0.1, 0.85),
+    new THREE.Vector3(-0.5, 1.4, 0.65),
+    new THREE.Vector3(-0.15, 2.45, 0.55),
+    new THREE.Vector3(0.65, 2.7, 0.3),
+    new THREE.Vector3(0.25, 2.3, 0.15),
+    new THREE.Vector3(0.45, 1.35, 0.65),
+    new THREE.Vector3(0.35, 0.1, 0.85),
+    new THREE.Vector3(0.55, -1.25, 0.55),
+    new THREE.Vector3(0.15, -2.55, 0.15),
+  ]);
+  const leftWing = samplePolyline([
+    new THREE.Vector3(-0.35, 1.25, 0.75),
+    new THREE.Vector3(-1.2, 1.35, 0.9),
+    new THREE.Vector3(-2.2, 1.8, 0.45),
+    new THREE.Vector3(-3.35, 1.65, -0.15),
+    new THREE.Vector3(-2.3, 0.85, 0.35),
+    new THREE.Vector3(-3.25, 0.45, -0.25),
+    new THREE.Vector3(-1.85, 0.35, 0.5),
+    new THREE.Vector3(-2.75, -0.25, -0.15),
+    new THREE.Vector3(-1.15, 0.0, 0.65),
+    new THREE.Vector3(-0.35, 0.45, 0.8),
+  ]);
+  const rightWing = leftWing.map(
+    (point) => new THREE.Vector3(-point.x, point.y, point.z),
+  );
+  const leftFeathers = samplePolyline([
+    new THREE.Vector3(-0.55, 1.05, 0.8),
+    new THREE.Vector3(-1.45, 2.15, 0.45),
+    new THREE.Vector3(-2.55, 2.45, -0.05),
+    new THREE.Vector3(-1.6, 1.45, 0.65),
+    new THREE.Vector3(-3.35, 1.25, -0.3),
+    new THREE.Vector3(-1.65, 0.8, 0.55),
+    new THREE.Vector3(-3.15, 0.05, -0.25),
+    new THREE.Vector3(-1.25, 0.25, 0.7),
+  ]);
+  const rightFeathers = leftFeathers.map(
+    (point) => new THREE.Vector3(-point.x, point.y, point.z),
+  );
+  const leftTail = samplePolyline([
+    new THREE.Vector3(-0.25, -1.1, 0.65),
+    new THREE.Vector3(-0.8, -1.65, 0.4),
+    new THREE.Vector3(-1.7, -2.6, -0.15),
+    new THREE.Vector3(-0.55, -2.05, 0.45),
+    new THREE.Vector3(-0.8, -3.35, -0.3),
+    new THREE.Vector3(-0.05, -2.4, 0.3),
+  ]);
+  const rightTail = leftTail.map(
+    (point) => new THREE.Vector3(-point.x, point.y, point.z),
+  );
+
+  return buildSymbolShape("PHOENIX", [
+    outer,
+    body,
+    leftWing,
+    rightWing,
+    leftFeathers,
+    rightFeathers,
+    leftTail,
+    rightTail,
+  ]);
+}
+
+function buildOuroborosShape() {
+  const ring = (
+    radius: number,
+    zOffset: number,
+    depth: number,
+    phase = 0,
+  ) =>
+    sampleCurve((amount) => {
+      const angle = amount * Math.PI * 2 + phase;
+      return new THREE.Vector3(
+        Math.cos(angle) * radius,
+        Math.sin(angle) * radius,
+        zOffset + Math.sin(angle * 2) * depth,
+      );
+    });
+  const headAngle = 0.22;
+  const headCenter = new THREE.Vector3(
+    Math.cos(headAngle) * 3.05,
+    Math.sin(headAngle) * 3.05,
+    0.48,
+  );
+  const head = samplePolyline(
+    [
+      new THREE.Vector3(
+        headCenter.x - 0.55,
+        headCenter.y + 0.55,
+        0.25,
+      ),
+      new THREE.Vector3(
+        headCenter.x + 0.45,
+        headCenter.y + 0.75,
+        0.4,
+      ),
+      new THREE.Vector3(
+        headCenter.x + 0.95,
+        headCenter.y + 0.2,
+        0.65,
+      ),
+      new THREE.Vector3(
+        headCenter.x + 0.7,
+        headCenter.y - 0.55,
+        0.35,
+      ),
+      new THREE.Vector3(
+        headCenter.x - 0.35,
+        headCenter.y - 0.45,
+        0.15,
+      ),
+    ],
+    SYMBOL_VERTICES_PER_PATH,
+    true,
+  );
+  const bite = samplePolyline([
+    new THREE.Vector3(3.85, 0.85, 0.55),
+    new THREE.Vector3(3.25, 0.45, 0.35),
+    new THREE.Vector3(2.7, 0.1, 0.1),
+    new THREE.Vector3(3.25, -0.15, -0.05),
+    new THREE.Vector3(3.75, 0.15, 0.25),
+  ]);
+  const eye = sampleCurve((amount) => {
+    const angle = amount * Math.PI * 2;
+    return new THREE.Vector3(
+      headCenter.x + 0.18 + Math.cos(angle) * 0.2,
+      headCenter.y + 0.26 + Math.sin(angle) * 0.2,
+      0.82,
+    );
+  });
+  const scales = sampleCurve((amount) => {
+    const angle = amount * Math.PI * 2 + 0.42;
+    const radius = 2.72 + Math.sin(angle * 12) * 0.17;
+    return new THREE.Vector3(
+      Math.cos(angle) * radius,
+      Math.sin(angle) * radius,
+      -0.42 + Math.cos(angle * 2) * 0.18,
+    );
+  });
+
+  return buildSymbolShape("OUROBOROS", [
+    ring(3.25, 0, 0.5),
+    ring(2.55, 0, 0.38),
+    ring(2.9, 0.48, 0.18, 0.12),
+    ring(2.9, -0.45, 0.18, -0.12),
+    head,
+    bite,
+    eye,
+    scales,
+  ]);
+}
+
+function buildGandivaShape() {
+  const limb = sampleCurve((amount) => {
+    const y = 3.35 - amount * 6.7;
+    const normalizedY = y / 3.35;
+    const x =
+      1.65 -
+      3.25 * Math.pow(1 - Math.abs(normalizedY), 0.72) +
+      Math.sign(normalizedY || 1) *
+        Math.sin(Math.abs(normalizedY) * Math.PI) *
+        0.18;
+    return new THREE.Vector3(x, y, Math.sin(amount * Math.PI) * 0.42);
+  });
+  const innerLimb = sampleCurve((amount) => {
+    const source = limb[Math.round(amount * (limb.length - 1))];
+    const taper = Math.sin(amount * Math.PI) * 0.34;
+    return new THREE.Vector3(
+      source.x + taper,
+      source.y,
+      source.z - 0.46,
+    );
+  });
+  const string = samplePolyline([
+    new THREE.Vector3(1.65, 3.35, 0),
+    new THREE.Vector3(0.95, 1.75, -0.2),
+    new THREE.Vector3(-1.65, 0, -0.08),
+    new THREE.Vector3(0.95, -1.75, -0.2),
+    new THREE.Vector3(1.65, -3.35, 0),
+  ]);
+  const arrow = samplePolyline([
+    new THREE.Vector3(-3.55, 0.05, 0.55),
+    new THREE.Vector3(2.9, 0.05, 0.55),
+  ]);
+  const arrowhead = samplePolyline(
+    [
+      new THREE.Vector3(3.65, 0.05, 0.55),
+      new THREE.Vector3(2.8, 0.52, 0.55),
+      new THREE.Vector3(2.95, 0.05, 0.55),
+      new THREE.Vector3(2.8, -0.42, 0.55),
+    ],
+    SYMBOL_VERTICES_PER_PATH,
+    true,
+  );
+  const grip = samplePolyline(
+    [
+      new THREE.Vector3(-1.85, 0.62, 0.3),
+      new THREE.Vector3(-1.35, 0.42, 0.75),
+      new THREE.Vector3(-1.25, -0.42, 0.75),
+      new THREE.Vector3(-1.85, -0.62, 0.3),
+      new THREE.Vector3(-2.15, -0.3, -0.15),
+      new THREE.Vector3(-2.15, 0.3, -0.15),
+    ],
+    SYMBOL_VERTICES_PER_PATH,
+    true,
+  );
+  const topRecurve = samplePolyline([
+    new THREE.Vector3(1.65, 3.35, 0),
+    new THREE.Vector3(2.2, 3.6, 0.25),
+    new THREE.Vector3(2.65, 3.25, 0.55),
+    new THREE.Vector3(2.15, 2.9, 0.35),
+    new THREE.Vector3(1.25, 3.05, -0.1),
+  ]);
+  const bottomRecurve = topRecurve.map(
+    (point) => new THREE.Vector3(point.x, -point.y, point.z),
+  );
+
+  return buildSymbolShape("GANDIVA", [
+    limb,
+    innerLimb,
+    string,
+    arrow,
+    arrowhead,
+    grip,
+    topRecurve,
+    bottomRecurve,
+  ]);
+}
+
+function roundPointMaterial(
+  color: number,
+  opacity: number,
+  pointSize: number,
+) {
+  return new THREE.ShaderMaterial({
+    uniforms: {
+      uColor: { value: new THREE.Color(color) },
+      uOpacity: { value: opacity },
+      uPointSize: { value: pointSize },
+    },
+    vertexShader: `
+      uniform float uPointSize;
+      varying float vDepth;
+      void main() {
+        vec4 viewPosition = modelViewMatrix * vec4(position, 1.0);
+        float perspective = clamp(10.0 / max(1.0, -viewPosition.z), 0.65, 1.65);
+        gl_PointSize = uPointSize * perspective;
+        gl_Position = projectionMatrix * viewPosition;
+        vDepth = perspective;
+      }
+    `,
+    fragmentShader: `
+      uniform vec3 uColor;
+      uniform float uOpacity;
+      varying float vDepth;
+      void main() {
+        float radius = length(gl_PointCoord - vec2(0.5));
+        float edge = 1.0 - smoothstep(0.32, 0.5, radius);
+        gl_FragColor = vec4(uColor, edge * uOpacity * mix(0.68, 1.0, vDepth));
+      }
+    `,
+    transparent: true,
+    depthWrite: false,
+  });
+}
+
+function formatSigned(value: number) {
+  const normalized = Math.abs(value) < 0.005 ? 0 : value;
+  return `${normalized >= 0 ? "+" : "−"}${Math.abs(normalized).toFixed(2)}`;
+}
+
+function buildSymbolScene(
+  scene: THREE.Scene,
+  camera: THREE.PerspectiveCamera,
+  hudRoot: HTMLDivElement | null,
+): SceneController {
+  const root = new THREE.Group();
+  scene.add(root);
+
+  const latticePositions = new Float32Array(
+    SYMBOL_GRID_SIZE ** 3 * 3,
+  );
+  let latticeOffset = 0;
+  for (let x = 0; x < SYMBOL_GRID_SIZE; x += 1) {
+    for (let y = 0; y < SYMBOL_GRID_SIZE; y += 1) {
+      for (let z = 0; z < SYMBOL_GRID_SIZE; z += 1) {
+        latticePositions[latticeOffset] =
+          -SYMBOL_GRID_HALF + x * SYMBOL_GRID_STEP;
+        latticePositions[latticeOffset + 1] =
+          -SYMBOL_GRID_HALF + y * SYMBOL_GRID_STEP;
+        latticePositions[latticeOffset + 2] =
+          -SYMBOL_GRID_HALF + z * SYMBOL_GRID_STEP;
+        latticeOffset += 3;
+      }
+    }
+  }
+  const latticeGeometry = new THREE.BufferGeometry();
+  latticeGeometry.setAttribute(
+    "position",
+    new THREE.BufferAttribute(latticePositions, 3),
+  );
+  const latticeMaterial = roundPointMaterial(INK, 0.16, 1.72);
+  const lattice = new THREE.Points(latticeGeometry, latticeMaterial);
+  lattice.frustumCulled = false;
+  root.add(lattice);
+
+  const boundary = new THREE.LineSegments(
+    new THREE.EdgesGeometry(
+      new THREE.BoxGeometry(
+        SYMBOL_GRID_HALF * 2 + SYMBOL_GRID_STEP,
+        SYMBOL_GRID_HALF * 2 + SYMBOL_GRID_STEP,
+        SYMBOL_GRID_HALF * 2 + SYMBOL_GRID_STEP,
+      ),
+    ),
+    new THREE.LineBasicMaterial({
+      color: INK,
+      transparent: true,
+      opacity: 0.12,
+      depthWrite: false,
+    }),
+  );
+  root.add(boundary);
+
+  const shapes = [
+    buildPhoenixShape(),
+    buildOuroborosShape(),
+    buildGandivaShape(),
+  ];
+  const activePositions = new Float32Array(shapes[0].positions);
+  const pointGeometry = new THREE.BufferGeometry();
+  const pointAttribute = new THREE.BufferAttribute(activePositions, 3);
+  pointAttribute.setUsage(THREE.DynamicDrawUsage);
+  pointGeometry.setAttribute("position", pointAttribute);
+  const activePointMaterial = roundPointMaterial(RED, 0.96, 4.3);
+  const activePoints = new THREE.Points(
+    pointGeometry,
+    activePointMaterial,
+  );
+  activePoints.frustumCulled = false;
+  root.add(activePoints);
+
+  const linePositions = new Float32Array(
+    SYMBOL_EDGE_COUNT * 2 * 3,
+  );
+  const lineGeometry = new THREE.BufferGeometry();
+  const lineAttribute = new THREE.BufferAttribute(linePositions, 3);
+  lineAttribute.setUsage(THREE.DynamicDrawUsage);
+  lineGeometry.setAttribute("position", lineAttribute);
+  const lineMaterial = new THREE.LineBasicMaterial({
+    color: RED,
+    transparent: true,
+    opacity: 0.88,
+    depthWrite: false,
+  });
+  const activeLines = new THREE.LineSegments(
+    lineGeometry,
+    lineMaterial,
+  );
+  activeLines.frustumCulled = false;
+  root.add(activeLines);
+
+  const arcFields = shapes.map((shape, shapeIndex) => {
+    const nextShape = shapes[(shapeIndex + 1) % shapes.length];
+    return Array.from({ length: SYMBOL_VERTEX_COUNT }, (_, index) => {
+      const offset = index * 3;
+      const from = new THREE.Vector3(
+        shape.positions[offset],
+        shape.positions[offset + 1],
+        shape.positions[offset + 2],
+      );
+      const to = new THREE.Vector3(
+        nextShape.positions[offset],
+        nextShape.positions[offset + 1],
+        nextShape.positions[offset + 2],
+      );
+      const direction = to.clone().sub(from);
+      const distance = direction.length();
+      if (distance < 0.001) return new THREE.Vector3();
+      const pathIndex = Math.floor(index / SYMBOL_VERTICES_PER_PATH);
+      const pathAmount =
+        (index % SYMBOL_VERTICES_PER_PATH) /
+        (SYMBOL_VERTICES_PER_PATH - 1);
+      const candidate = new THREE.Vector3(
+        Math.sin(pathIndex * 1.31 + pathAmount * Math.PI) * 0.4,
+        Math.cos(pathIndex * 0.83 + pathAmount * Math.PI * 0.75) *
+          0.28,
+        Math.sin(
+          shapeIndex * 1.4 +
+            pathIndex * 0.57 +
+            pathAmount * Math.PI,
+        ),
+      );
+      return candidate
+        .normalize()
+        .multiplyScalar(Math.min(0.58, distance * 0.12));
+    });
+  });
+
+  const desiredCamera = new THREE.Vector3();
+  const cameraLook = new THREE.Vector3(0, 0, 0);
+  const targetLook = new THREE.Vector3(0, 0.05, 0);
+  const startColor = new THREE.Color(INK);
+  const resolvedColor = new THREE.Color(RED);
+  const workingColor = new THREE.Color();
+  const previous = new THREE.Vector3();
+  const current = new THREE.Vector3();
+  const next = new THREE.Vector3();
+  const segmentA = new THREE.Vector3();
+  const segmentB = new THREE.Vector3();
+  const morphDuration = 3.15;
+  const holdDuration = 2.35;
+  const cycleDuration = morphDuration + holdDuration;
+  let hudFrame = 0;
+  camera.position.set(6.1, 3.45, 13.45);
+  camera.lookAt(targetLook);
+
+  const writeLinePositions = () => {
+    let writeOffset = 0;
+    for (let path = 0; path < SYMBOL_PATH_COUNT; path += 1) {
+      const startVertex = path * SYMBOL_VERTICES_PER_PATH;
+      for (
+        let vertex = 0;
+        vertex < SYMBOL_VERTICES_PER_PATH - 1;
+        vertex += 1
+      ) {
+        const a = (startVertex + vertex) * 3;
+        const b = (startVertex + vertex + 1) * 3;
+        linePositions[writeOffset] = activePositions[a];
+        linePositions[writeOffset + 1] = activePositions[a + 1];
+        linePositions[writeOffset + 2] = activePositions[a + 2];
+        linePositions[writeOffset + 3] = activePositions[b];
+        linePositions[writeOffset + 4] = activePositions[b + 1];
+        linePositions[writeOffset + 5] = activePositions[b + 2];
+        writeOffset += 6;
+      }
+    }
+    lineAttribute.needsUpdate = true;
+  };
+  writeLinePositions();
+
+  return {
+    root,
+    update(elapsed, delta, view) {
+      const cycleIndex = Math.floor(elapsed / cycleDuration);
+      const shapeIndex = cycleIndex % shapes.length;
+      const nextShapeIndex = (shapeIndex + 1) % shapes.length;
+      const localTime = elapsed % cycleDuration;
+      const isMorphing = localTime >= holdDuration;
+      const rawMorph = THREE.MathUtils.clamp(
+        (localTime - holdDuration) / morphDuration,
+        0,
+        1,
+      );
+      const fromShape = shapes[shapeIndex];
+      const toShape = shapes[nextShapeIndex];
+      const arcs = arcFields[shapeIndex];
+      let squaredDistance = 0;
+      let squaredRange = 0;
+
+      for (let index = 0; index < SYMBOL_VERTEX_COUNT; index += 1) {
+        const offset = index * 3;
+        const stagger =
+          ((index % SYMBOL_VERTICES_PER_PATH) /
+            (SYMBOL_VERTICES_PER_PATH - 1)) *
+            0.16 +
+          Math.floor(index / SYMBOL_VERTICES_PER_PATH) * 0.012;
+        const progress = isMorphing
+          ? THREE.MathUtils.smootherstep(
+              (rawMorph - stagger) / Math.max(0.001, 1 - stagger),
+              0,
+              1,
+            )
+          : 0;
+        const arcAmount = Math.sin(progress * Math.PI);
+        const fromX = fromShape.positions[offset];
+        const fromY = fromShape.positions[offset + 1];
+        const fromZ = fromShape.positions[offset + 2];
+        const toX = toShape.positions[offset];
+        const toY = toShape.positions[offset + 1];
+        const toZ = toShape.positions[offset + 2];
+        activePositions[offset] =
+          lerp(fromX, toX, progress) + arcs[index].x * arcAmount;
+        activePositions[offset + 1] =
+          lerp(fromY, toY, progress) + arcs[index].y * arcAmount;
+        activePositions[offset + 2] =
+          lerp(fromZ, toZ, progress) + arcs[index].z * arcAmount;
+        const metricX = isMorphing ? toX : fromX;
+        const metricY = isMorphing ? toY : fromY;
+        const metricZ = isMorphing ? toZ : fromZ;
+        const dx = activePositions[offset] - metricX;
+        const dy = activePositions[offset + 1] - metricY;
+        const dz = activePositions[offset + 2] - metricZ;
+        squaredDistance += dx * dx + dy * dy + dz * dz;
+        const rangeX = fromX - toX;
+        const rangeY = fromY - toY;
+        const rangeZ = fromZ - toZ;
+        squaredRange +=
+          rangeX * rangeX + rangeY * rangeY + rangeZ * rangeZ;
+      }
+      pointAttribute.needsUpdate = true;
+      writeLinePositions();
+
+      const convergence = isMorphing
+        ? THREE.MathUtils.clamp(
+            1 -
+              Math.sqrt(
+                squaredDistance / Math.max(0.0001, squaredRange),
+              ),
+            0,
+            1,
+          )
+        : 1;
+      const redResolve = isMorphing
+        ? THREE.MathUtils.smootherstep(convergence, 0.72, 0.99)
+        : 1;
+      workingColor.lerpColors(startColor, resolvedColor, redResolve);
+      lineMaterial.color.copy(workingColor);
+      lineMaterial.opacity = 0.46 + redResolve * 0.42;
+      (
+        activePointMaterial.uniforms.uColor.value as THREE.Color
+      ).copy(workingColor);
+      activePointMaterial.uniforms.uOpacity.value =
+        0.72 + redResolve * 0.24;
+
+      const horizontalDistance =
+        view.distance * Math.cos(view.pitch);
+      desiredCamera.set(
+        Math.sin(view.yaw) * horizontalDistance,
+        Math.sin(view.pitch) * view.distance,
+        Math.cos(view.yaw) * horizontalDistance,
+      );
+      const damping = 1 - Math.exp(-delta * 10);
+      camera.position.lerp(desiredCamera, damping);
+      cameraLook.lerp(targetLook, damping);
+      camera.lookAt(cameraLook);
+
+      hudFrame += 1;
+      if (hudFrame % 3 !== 0) return;
+
+      const minimum = new THREE.Vector3(Infinity, Infinity, Infinity);
+      const maximum = new THREE.Vector3(-Infinity, -Infinity, -Infinity);
+      const centroid = new THREE.Vector3();
+      for (let index = 0; index < SYMBOL_VERTEX_COUNT; index += 1) {
+        const offset = index * 3;
+        current.set(
+          activePositions[offset],
+          activePositions[offset + 1],
+          activePositions[offset + 2],
+        );
+        minimum.min(current);
+        maximum.max(current);
+        centroid.add(current);
+      }
+      centroid.multiplyScalar(1 / SYMBOL_VERTEX_COUNT);
+
+      let totalEdgeLength = 0;
+      let totalBend = 0;
+      let bendSamples = 0;
+      let closedPaths = 0;
+      for (let path = 0; path < SYMBOL_PATH_COUNT; path += 1) {
+        const start = path * SYMBOL_VERTICES_PER_PATH;
+        const firstOffset = start * 3;
+        const lastOffset =
+          (start + SYMBOL_VERTICES_PER_PATH - 1) * 3;
+        previous.set(
+          activePositions[firstOffset],
+          activePositions[firstOffset + 1],
+          activePositions[firstOffset + 2],
+        );
+        next.set(
+          activePositions[lastOffset],
+          activePositions[lastOffset + 1],
+          activePositions[lastOffset + 2],
+        );
+        if (previous.distanceTo(next) < SYMBOL_GRID_STEP * 0.8) {
+          closedPaths += 1;
+        }
+        for (
+          let vertex = 0;
+          vertex < SYMBOL_VERTICES_PER_PATH - 1;
+          vertex += 1
+        ) {
+          const a = (start + vertex) * 3;
+          const b = (start + vertex + 1) * 3;
+          segmentA.set(
+            activePositions[a],
+            activePositions[a + 1],
+            activePositions[a + 2],
+          );
+          segmentB.set(
+            activePositions[b],
+            activePositions[b + 1],
+            activePositions[b + 2],
+          );
+          totalEdgeLength += segmentA.distanceTo(segmentB);
+        }
+        for (
+          let vertex = 1;
+          vertex < SYMBOL_VERTICES_PER_PATH - 1;
+          vertex += 1
+        ) {
+          const a = (start + vertex - 1) * 3;
+          const b = (start + vertex) * 3;
+          const c = (start + vertex + 1) * 3;
+          previous.set(
+            activePositions[a],
+            activePositions[a + 1],
+            activePositions[a + 2],
+          );
+          current.set(
+            activePositions[b],
+            activePositions[b + 1],
+            activePositions[b + 2],
+          );
+          next.set(
+            activePositions[c],
+            activePositions[c + 1],
+            activePositions[c + 2],
+          );
+          segmentA.copy(previous).sub(current);
+          segmentB.copy(next).sub(current);
+          if (
+            segmentA.lengthSq() > 0.00001 &&
+            segmentB.lengthSq() > 0.00001
+          ) {
+            totalBend += Math.PI - segmentA.angleTo(segmentB);
+            bendSamples += 1;
+          }
+        }
+      }
+      const bounds = maximum.clone().sub(minimum);
+      const rmsDisplacement = Math.sqrt(
+        squaredDistance / SYMBOL_VERTEX_COUNT,
+      );
+      const shownName = isMorphing
+        ? `${fromShape.name} → ${toShape.name}`
+        : fromShape.name;
+      setHud(hudRoot, "symbol", shownName);
+      setHud(
+        hudRoot,
+        "symbol-state",
+        isMorphing ? "RECONFIGURING" : "RESOLVED",
+      );
+      setHud(
+        hudRoot,
+        "symbol-phase",
+        isMorphing
+          ? `TARGET / ${toShape.name}`
+          : `NEXT / ${toShape.name}`,
+      );
+      setHud(
+        hudRoot,
+        "symbol-convergence",
+        `${(convergence * 100).toFixed(1)}%`,
+      );
+      setHudWidth(hudRoot, "symbol-convergence-bar", convergence * 100);
+      setHud(hudRoot, "symbol-closed", String(closedPaths));
+      setHud(
+        hudRoot,
+        "symbol-bounds",
+        `${bounds.x.toFixed(2)} × ${bounds.y.toFixed(2)} × ${bounds.z.toFixed(2)}`,
+      );
+      setHud(
+        hudRoot,
+        "symbol-centroid",
+        `${formatSigned(centroid.x)} / ${formatSigned(centroid.y)} / ${formatSigned(centroid.z)}`,
+      );
+      setHud(
+        hudRoot,
+        "symbol-length",
+        totalEdgeLength.toFixed(2),
+      );
+      setHud(
+        hudRoot,
+        "symbol-bend",
+        `${THREE.MathUtils.radToDeg(
+          totalBend / Math.max(1, bendSamples),
+        ).toFixed(2)}°`,
+      );
+      setHud(
+        hudRoot,
+        "symbol-rms",
+        rmsDisplacement.toFixed(3),
+      );
+    },
+  };
+}
+
 function FormulaRail({
   side,
   trackCanvasRef,
@@ -2143,6 +2971,95 @@ function BackgammonRail({ side }: { side: "left" | "right" }) {
   );
 }
 
+function SymbolRail({ side }: { side: "left" | "right" }) {
+  if (side === "left") {
+    return (
+      <>
+        <section className="symbol-primary">
+          <span>CURRENT FIGURE</span>
+          <strong className="signal-copy" data-hud="symbol">
+            PHOENIX
+          </strong>
+          <div>
+            <span>STATE</span>
+            <b data-hud="symbol-state">RESOLVED</b>
+          </div>
+          <div>
+            <span data-hud="symbol-phase">NEXT / OUROBOROS</span>
+            <b data-hud="symbol-convergence">100.0%</b>
+          </div>
+          <i className="symbol-convergence">
+            <em data-hud="symbol-convergence-bar" />
+          </i>
+        </section>
+
+        <section className="symbol-lattice">
+          <strong>COORDINATE FIELD</strong>
+          <span>
+            LATTICE <b>26 × 26 × 26</b>
+          </span>
+          <span>
+            POINTS <b>17,576</b>
+          </span>
+          <span>
+            PITCH <b>0.32 U</b>
+          </span>
+          <span>
+            ACTIVE <b>512</b>
+          </span>
+        </section>
+
+        <p className="symbol-proof">
+          ONE VERTEX SET · THREE TARGET GEOMETRIES · CONTINUOUS
+          CORRESPONDENCE
+        </p>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <section className="symbol-topology">
+        <strong>LIVE GRAPH / CURRENT FRAME</strong>
+        <p>
+          <span>VERTICES</span>
+          <b>512</b>
+        </p>
+        <p>
+          <span>EDGES</span>
+          <b>504</b>
+        </p>
+        <p>
+          <span>PATHS</span>
+          <b>8</b>
+        </p>
+        <p>
+          <span>CLOSED PATHS</span>
+          <b data-hud="symbol-closed">3</b>
+        </p>
+      </section>
+
+      <section className="symbol-measures">
+        <strong>GEOMETRIC MEASURES / LIVE</strong>
+        <span>BOUNDS / X × Y × Z</span>
+        <b data-hud="symbol-bounds">8.00 × 6.72 × 1.60</b>
+        <span>CENTROID / X · Y · Z</span>
+        <b data-hud="symbol-centroid">+0.00 / +0.00 / +0.00</b>
+        <span>TOTAL EDGE LENGTH</span>
+        <b data-hud="symbol-length">–––</b>
+        <span>MEAN VERTEX BEND</span>
+        <b data-hud="symbol-bend">––°</b>
+        <span>RMS Δ TO TARGET</span>
+        <b data-hud="symbol-rms">0.000</b>
+      </section>
+
+      <p className="symbol-invariant">
+        ALL VALUES DERIVED FROM THE RENDERED POSITION BUFFER
+      </p>
+    </>
+  );
+}
+
 const DIE_PIPS: Record<number, number[]> = {
   1: [5],
   2: [1, 9],
@@ -2207,15 +3124,50 @@ function SceneOverlay({ mode }: { mode: VisualMode }) {
   );
 }
 
+const VIEW_CONFIG: Record<
+  VisualMode,
+  SceneView & { minimumPitch: number; minimumDistance: number; maximumDistance: number }
+> = {
+  1: {
+    yaw: 0.04,
+    pitch: 0.45,
+    distance: 9.15,
+    minimumPitch: 0.12,
+    minimumDistance: 6.4,
+    maximumDistance: 17,
+  },
+  2: {
+    yaw: 0.676,
+    pitch: 0.79,
+    distance: 13.95,
+    minimumPitch: 0.28,
+    minimumDistance: 8.5,
+    maximumDistance: 21,
+  },
+  3: {
+    yaw: 0.3,
+    pitch: 0.15,
+    distance: 15.2,
+    minimumPitch: -0.18,
+    minimumDistance: 9.2,
+    maximumDistance: 23,
+  },
+};
+
+function defaultView(mode: VisualMode): SceneView {
+  const config = VIEW_CONFIG[mode];
+  return {
+    yaw: config.yaw,
+    pitch: config.pitch,
+    distance: config.distance,
+  };
+}
+
 export function SystemCanvas({ mode }: { mode: VisualMode }) {
   const mountRef = useRef<HTMLDivElement>(null);
   const hudRootRef = useRef<HTMLDivElement>(null);
   const trackCanvasRef = useRef<HTMLCanvasElement>(null);
-  const viewRef = useRef<SceneView>(
-    mode === 1
-      ? { yaw: 0.04, pitch: 0.45, distance: 9.15 }
-      : { yaw: 0.676, pitch: 0.79, distance: 13.95 },
-  );
+  const viewRef = useRef<SceneView>(defaultView(mode));
   const dragRef = useRef({
     active: false,
     pointerId: -1,
@@ -2223,10 +3175,7 @@ export function SystemCanvas({ mode }: { mode: VisualMode }) {
     y: 0,
   });
   const resetView = () => {
-    viewRef.current =
-      mode === 1
-        ? { yaw: 0.04, pitch: 0.45, distance: 9.15 }
-        : { yaw: 0.676, pitch: 0.79, distance: 13.95 };
+    viewRef.current = defaultView(mode);
   };
 
   useEffect(() => {
@@ -2255,15 +3204,26 @@ export function SystemCanvas({ mode }: { mode: VisualMode }) {
 
     const setup = async () => {
       try {
-        controller =
-          mode === 1
-            ? await buildFormulaScene(
-                scene,
-                camera,
-                hudRootRef.current,
-                trackCanvasRef.current,
-              )
-            : buildBackgammonScene(scene, camera, hudRootRef.current);
+        if (mode === 1) {
+          controller = await buildFormulaScene(
+            scene,
+            camera,
+            hudRootRef.current,
+            trackCanvasRef.current,
+          );
+        } else if (mode === 2) {
+          controller = buildBackgammonScene(
+            scene,
+            camera,
+            hudRootRef.current,
+          );
+        } else {
+          controller = buildSymbolScene(
+            scene,
+            camera,
+            hudRootRef.current,
+          );
+        }
         if (disposed) {
           scene.remove(controller.root);
           controller = null;
@@ -2284,10 +3244,14 @@ export function SystemCanvas({ mode }: { mode: VisualMode }) {
         width < 720
           ? mode === 1
             ? 48
-            : 49
+            : mode === 2
+              ? 49
+              : 46
           : mode === 1
             ? 35
-            : 37;
+            : mode === 2
+              ? 37
+              : 34;
       camera.updateProjectionMatrix();
     };
     const observer = new ResizeObserver(resize);
@@ -2333,8 +3297,10 @@ export function SystemCanvas({ mode }: { mode: VisualMode }) {
       <aside className="telemetry-rail telemetry-rail-left">
         {mode === 1 ? (
           <FormulaRail side="left" trackCanvasRef={trackCanvasRef} />
-        ) : (
+        ) : mode === 2 ? (
           <BackgammonRail side="left" />
+        ) : (
+          <SymbolRail side="left" />
         )}
       </aside>
 
@@ -2361,7 +3327,7 @@ export function SystemCanvas({ mode }: { mode: VisualMode }) {
           viewRef.current.yaw -= deltaX * 0.0065;
           viewRef.current.pitch = THREE.MathUtils.clamp(
             viewRef.current.pitch - deltaY * 0.0055,
-            mode === 1 ? 0.12 : 0.28,
+            VIEW_CONFIG[mode].minimumPitch,
             1.3,
           );
           drag.x = event.clientX;
@@ -2387,8 +3353,8 @@ export function SystemCanvas({ mode }: { mode: VisualMode }) {
             viewRef.current.distance * Math.exp(event.deltaY * 0.001);
           viewRef.current.distance = THREE.MathUtils.clamp(
             next,
-            mode === 1 ? 6.4 : 8.5,
-            mode === 1 ? 17 : 21,
+            VIEW_CONFIG[mode].minimumDistance,
+            VIEW_CONFIG[mode].maximumDistance,
           );
         }}
         onDoubleClick={resetView}
@@ -2417,19 +3383,19 @@ export function SystemCanvas({ mode }: { mode: VisualMode }) {
           }
           if (event.key === "ArrowDown") {
             viewRef.current.pitch = Math.max(
-              mode === 1 ? 0.12 : 0.28,
+              VIEW_CONFIG[mode].minimumPitch,
               viewRef.current.pitch - 0.08,
             );
           }
           if (event.key === "+" || event.key === "=") {
             viewRef.current.distance = Math.max(
-              mode === 1 ? 6.4 : 8.5,
+              VIEW_CONFIG[mode].minimumDistance,
               viewRef.current.distance - 0.8,
             );
           }
           if (event.key === "-") {
             viewRef.current.distance = Math.min(
-              mode === 1 ? 17 : 21,
+              VIEW_CONFIG[mode].maximumDistance,
               viewRef.current.distance + 0.8,
             );
           }
@@ -2438,7 +3404,9 @@ export function SystemCanvas({ mode }: { mode: VisualMode }) {
         aria-label={
           mode === 1
             ? "Interactive Formula car replaying recorded Silverstone telemetry. Drag to orbit and scroll to zoom."
-            : "Interactive five-turn backgammon simulation with exact state analysis. Drag to orbit and scroll to zoom."
+            : mode === 2
+              ? "Interactive five-turn backgammon simulation with exact state analysis. Drag to orbit and scroll to zoom."
+              : "Interactive 26 by 26 by 26 lattice reconfiguring between a phoenix, ouroboros, and Gandiva bow. Drag to orbit and scroll to zoom."
         }
         role="application"
       >
@@ -2448,8 +3416,10 @@ export function SystemCanvas({ mode }: { mode: VisualMode }) {
       <aside className="telemetry-rail telemetry-rail-right">
         {mode === 1 ? (
           <FormulaRail side="right" trackCanvasRef={trackCanvasRef} />
-        ) : (
+        ) : mode === 2 ? (
           <BackgammonRail side="right" />
+        ) : (
+          <SymbolRail side="right" />
         )}
       </aside>
     </div>

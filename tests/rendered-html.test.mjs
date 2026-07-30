@@ -41,6 +41,7 @@ test("server-renders the personal site shell", async () => {
   assert.match(html, /DATA \/ OPENF1/);
   assert.match(html, /Find\s*<span>\[F\]<\/span>/);
   assert.match(html, /Select backgammon probability visual/);
+  assert.match(html, /Select symbol topology visual/);
   assert.doesNotMatch(html, /codex-preview|Building your site|Open menu \[M\]/i);
 });
 

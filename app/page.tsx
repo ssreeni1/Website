@@ -8,12 +8,13 @@ const routes = [
   { name: "Index", path: "/", href: "/" },
   { name: "Formula system", path: "visual/01", visual: 1 as const },
   { name: "Backgammon system", path: "visual/02", visual: 2 as const },
+  { name: "Symbol system", path: "visual/03", visual: 3 as const },
   { name: "About", path: "#about", href: "#about" },
 ] as const;
 
 export default function Home() {
   const [finderOpen, setFinderOpen] = useState(false);
-  const [activeVisual, setActiveVisual] = useState<1 | 2>(1);
+  const [activeVisual, setActiveVisual] = useState<1 | 2 | 3>(1);
   const [autoCycle, setAutoCycle] = useState(true);
   const [finderQuery, setFinderQuery] = useState("");
   const [finderIndex, setFinderIndex] = useState(0);
@@ -60,7 +61,7 @@ export default function Home() {
   useEffect(() => {
     if (!autoCycle) return;
     const interval = window.setInterval(() => {
-      setActiveVisual((visual) => (visual === 1 ? 2 : 1));
+      setActiveVisual((visual) => (visual === 3 ? 1 : ((visual + 1) as 2 | 3)));
     }, 26000);
 
     return () => window.clearInterval(interval);
@@ -87,7 +88,9 @@ export default function Home() {
           <strong>
             {activeVisual === 1
               ? "Formula / telemetry"
-              : "Backgammon / probability"}
+              : activeVisual === 2
+                ? "Backgammon / probability"
+                : "Symbols / topology"}
           </strong>
         </div>
 
@@ -104,13 +107,17 @@ export default function Home() {
 
       <footer className="controls">
         <nav className="visual-selector" aria-label="Visual selector">
-          {([1, 2] as const).map((number) => (
+          {([1, 2, 3] as const).map((number) => (
             <button
               className={number === activeVisual ? "is-active" : ""}
               type="button"
               key={number}
               aria-label={`Select ${
-                number === 1 ? "Formula telemetry" : "backgammon probability"
+                number === 1
+                  ? "Formula telemetry"
+                  : number === 2
+                    ? "backgammon probability"
+                    : "symbol topology"
               } visual`}
               aria-pressed={number === activeVisual}
               onClick={() => {
@@ -122,7 +129,11 @@ export default function Home() {
             </button>
           ))}
           <span className="selector-label">
-            {activeVisual === 1 ? "FORMULA" : "BACKGAMMON"}
+            {activeVisual === 1
+              ? "FORMULA"
+              : activeVisual === 2
+                ? "BACKGAMMON"
+                : "SYMBOLS"}
           </span>
         </nav>
 

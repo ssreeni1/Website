@@ -482,6 +482,111 @@ main {
   font-size: 8px;
 }
 
+.symbol-primary,
+.symbol-lattice,
+.symbol-topology,
+.symbol-measures {
+  display: grid;
+  gap: 5px;
+  padding: 9px 0 0;
+}
+
+.symbol-primary > span:first-child {
+  color: var(--muted);
+  font-size: 8px;
+  letter-spacing: 0.05em;
+}
+
+.symbol-primary > strong {
+  margin: 1px 0 8px;
+  font-size: 15px;
+  line-height: 1.05;
+  letter-spacing: -0.04em;
+}
+
+.symbol-primary div,
+.symbol-lattice span,
+.symbol-topology p {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0;
+}
+
+.symbol-primary div span,
+.symbol-lattice span,
+.symbol-topology p span,
+.symbol-measures span {
+  color: var(--muted);
+}
+
+.symbol-primary div b {
+  text-align: right;
+}
+
+.symbol-convergence {
+  height: 2px;
+  position: relative;
+  margin-top: 3px;
+  overflow: hidden;
+  background: rgba(22, 22, 22, 0.11);
+}
+
+.symbol-convergence em {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 100%;
+  background: var(--red);
+}
+
+.symbol-lattice strong,
+.symbol-topology strong,
+.symbol-measures strong {
+  margin-bottom: 3px;
+  letter-spacing: 0.02em;
+}
+
+.symbol-lattice span b,
+.symbol-topology p b,
+.symbol-measures b {
+  color: var(--red);
+  font-weight: 400;
+}
+
+.symbol-topology p {
+  padding-bottom: 3px;
+  border-bottom: 1px solid rgba(22, 22, 22, 0.08);
+}
+
+.symbol-measures {
+  margin-top: auto;
+  text-align: right;
+}
+
+.symbol-measures span {
+  margin-top: 5px;
+  font-size: 7px;
+  letter-spacing: 0.04em;
+}
+
+.symbol-measures b {
+  font-size: 10px;
+}
+
+.symbol-proof,
+.symbol-invariant {
+  margin: auto 0 0;
+  padding: 8px 0 0;
+  border-top: 1px solid var(--ink);
+  color: var(--muted);
+  font-size: 8px;
+}
+
+.symbol-invariant {
+  margin-top: 0;
+  text-align: right;
+}
+
 .dice-roll-vignette {
   left: 18px;
   bottom: 18px;
@@ -975,13 +1080,19 @@ main {
   .board-primary,
   .pip-panel,
   .board-topology,
-  .dice-analysis {
+  .dice-analysis,
+  .symbol-primary,
+  .symbol-lattice,
+  .symbol-topology,
+  .symbol-measures {
     padding-top: 7px;
   }
 
   .formula-source span:first-of-type,
   .scene-credits,
   .board-proof,
+  .symbol-proof,
+  .symbol-invariant,
   .view-hint {
     display: none;
   }
@@ -1039,6 +1150,25 @@ main {
 
   .dice-analysis-copy span {
     font-size: 8px;
+  }
+
+  .symbol-primary > strong {
+    margin-bottom: 3px;
+    font-size: 12px;
+  }
+
+  .symbol-lattice,
+  .symbol-topology,
+  .symbol-measures {
+    gap: 3px;
+  }
+
+  .symbol-measures {
+    margin-top: 0;
+  }
+
+  .symbol-measures span {
+    margin-top: 2px;
   }
 
   .dice-roll-vignette {
