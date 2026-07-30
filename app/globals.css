@@ -50,13 +50,14 @@ main {
 }
 
 .topbar {
+  width: min(96vw, 1500px);
   height: 60px;
+  margin: 0 auto;
   position: relative;
   z-index: 5;
   display: flex;
   align-items: center;
-  gap: 20px;
-  padding: 0 24px;
+  gap: 26px;
 }
 
 .mark {
@@ -69,7 +70,7 @@ main {
 .topbar-nav {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 12px;
 }
 
 .topbar-nav a,
@@ -1029,9 +1030,9 @@ main {
 
 @media (max-width: 720px) {
   .topbar {
+    width: calc(100vw - 24px);
     height: 54px;
     gap: 10px;
-    padding: 0 12px;
   }
 
   .mark {
@@ -1039,7 +1040,7 @@ main {
   }
 
   .topbar-nav {
-    gap: 5px;
+    gap: 7px;
   }
 
   .topbar-nav a,
