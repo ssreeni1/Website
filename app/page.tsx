@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { SiteNav } from "./SiteNav";
 import { SystemCanvas } from "./SystemCanvas";
+
+type VisualNumber = 1 | 2 | 3;
 
 const visualLabels = {
   1: "FROM OLD, THE NEW",
@@ -10,18 +12,69 @@ const visualLabels = {
   3: "SIGNIFIERS AS CENTERS",
 } as const;
 
+const visualNames = {
+  1: "Formula telemetry",
+  2: "backgammon probability",
+  3: "symbol topology",
+} as const;
+
+function adjacentVisual(
+  visual: VisualNumber,
+  direction: -1 | 1,
+): VisualNumber {
+  if (direction === -1) return visual === 1 ? 3 : ((visual - 1) as VisualNumber);
+  return visual === 3 ? 1 : ((visual + 1) as VisualNumber);
+}
+
 export default function Home() {
-  const [activeVisual, setActiveVisual] = useState<1 | 2 | 3>(1);
+  const [activeVisual, setActiveVisual] = useState<VisualNumber>(1);
   const [autoCycle, setAutoCycle] = useState(true);
+
+  const shiftVisual = useCallback((direction: -1 | 1) => {
+    setAutoCycle(false);
+    setActiveVisual((visual) => adjacentVisual(visual, direction));
+  }, []);
 
   useEffect(() => {
     if (!autoCycle) return;
     const interval = window.setInterval(() => {
-      setActiveVisual((visual) => (visual === 3 ? 1 : ((visual + 1) as 2 | 3)));
+      setActiveVisual((visual) => adjacentVisual(visual, 1));
     }, 26000);
 
     return () => window.clearInterval(interval);
   }, [autoCycle]);
+
+  useEffect(() => {
+    const onKeyUp = (event: KeyboardEvent) => {
+      if (
+        event.defaultPrevented ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.altKey ||
+        event.shiftKey ||
+        !["ArrowLeft", "ArrowRight"].includes(event.key)
+      ) {
+        return;
+      }
+
+      const target = event.target as HTMLElement | null;
+      if (
+        target?.closest("input, textarea, select, [contenteditable='true']") ||
+        document.querySelector(".finder-scrim.is-open")
+      ) {
+        return;
+      }
+
+      event.preventDefault();
+      shiftVisual(event.key === "ArrowLeft" ? -1 : 1);
+    };
+
+    window.addEventListener("keyup", onKeyUp);
+    return () => window.removeEventListener("keyup", onKeyUp);
+  }, [shiftVisual]);
+
+  const previousVisual = adjacentVisual(activeVisual, -1);
+  const nextVisual = adjacentVisual(activeVisual, 1);
 
   return (
     <main className="home-page">
@@ -38,6 +91,26 @@ export default function Home() {
           onKeyDownCapture={() => setAutoCycle(false)}
         >
           <SystemCanvas mode={activeVisual} />
+
+          <div className="visual-shift-group">
+            <button
+              className="visual-shift"
+              type="button"
+              aria-label={`Show previous visual: ${visualNames[previousVisual]}`}
+              onClick={() => shiftVisual(-1)}
+            >
+              <span aria-hidden="true">←</span>
+            </button>
+
+            <button
+              className="visual-shift"
+              type="button"
+              aria-label={`Show next visual: ${visualNames[nextVisual]}`}
+              onClick={() => shiftVisual(1)}
+            >
+              <span aria-hidden="true">→</span>
+            </button>
+          </div>
         </div>
       </section>
 
@@ -48,13 +121,7 @@ export default function Home() {
               className={number === activeVisual ? "is-active" : ""}
               type="button"
               key={number}
-              aria-label={`Select ${
-                number === 1
-                  ? "Formula telemetry"
-                  : number === 2
-                    ? "backgammon probability"
-                    : "symbol topology"
-              } visual`}
+              aria-label={`Select ${visualNames[number]} visual`}
               aria-pressed={number === activeVisual}
               onClick={() => {
                 setAutoCycle(false);
@@ -71,7 +138,6 @@ export default function Home() {
 
         <p>© 2026 / NEW YORK</p>
       </footer>
-
     </main>
   );
 }

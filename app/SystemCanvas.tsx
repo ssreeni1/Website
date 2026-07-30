@@ -3603,10 +3603,12 @@ export function SystemCanvas({ mode }: { mode: VisualMode }) {
         onKeyDown={(event) => {
           if (
             [
-              "ArrowLeft",
-              "ArrowRight",
               "ArrowUp",
               "ArrowDown",
+              "a",
+              "A",
+              "d",
+              "D",
               "+",
               "=",
               "-",
@@ -3615,8 +3617,12 @@ export function SystemCanvas({ mode }: { mode: VisualMode }) {
           ) {
             event.preventDefault();
           }
-          if (event.key === "ArrowLeft") viewRef.current.yaw += 0.12;
-          if (event.key === "ArrowRight") viewRef.current.yaw -= 0.12;
+          if (event.key === "a" || event.key === "A") {
+            viewRef.current.yaw += 0.12;
+          }
+          if (event.key === "d" || event.key === "D") {
+            viewRef.current.yaw -= 0.12;
+          }
           if (event.key === "ArrowUp") {
             viewRef.current.pitch = Math.min(
               1.3,
