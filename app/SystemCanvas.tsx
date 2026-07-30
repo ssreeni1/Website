@@ -2233,8 +2233,8 @@ export function SystemCanvas({ mode }: { mode: VisualMode }) {
   const trackCanvasRef = useRef<HTMLCanvasElement>(null);
   const viewRef = useRef<SceneView>(
     mode === 1
-      ? { yaw: 0.92, pitch: 0.45, distance: 8.35 }
-      : { yaw: 0.676, pitch: 0.79, distance: 13.15 },
+      ? { yaw: 0.04, pitch: 0.45, distance: 9.15 }
+      : { yaw: 0.676, pitch: 0.79, distance: 13.95 },
   );
   const dragRef = useRef({
     active: false,
@@ -2245,8 +2245,8 @@ export function SystemCanvas({ mode }: { mode: VisualMode }) {
   const resetView = () => {
     viewRef.current =
       mode === 1
-        ? { yaw: 0.92, pitch: 0.45, distance: 8.35 }
-        : { yaw: 0.676, pitch: 0.79, distance: 13.15 };
+        ? { yaw: 0.04, pitch: 0.45, distance: 9.15 }
+        : { yaw: 0.676, pitch: 0.79, distance: 13.95 };
   };
 
   useEffect(() => {

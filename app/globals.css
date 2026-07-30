@@ -730,13 +730,43 @@ main {
 }
 
 .visual-selector button {
+  width: 18px;
+  height: 18px;
   padding: 0;
-  font: inherit;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
 }
 
-.visual-selector button:hover,
-.visual-selector button.is-active {
-  color: var(--red);
+.visual-selector button span {
+  width: 6px;
+  height: 6px;
+  border: 1px solid rgba(22, 22, 22, 0.5);
+  border-radius: 50%;
+  background: transparent;
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.visual-selector button:hover span {
+  border-color: var(--red);
+}
+
+.visual-selector button.is-active span {
+  border-color: var(--red);
+  background: var(--red);
+  box-shadow: 0 0 0 3px rgba(240, 43, 29, 0.08);
+}
+
+.visual-selector button:focus-visible {
+  outline: 0;
+}
+
+.visual-selector button:focus-visible span {
+  border-color: var(--red);
+  box-shadow: 0 0 0 3px rgba(240, 43, 29, 0.11);
 }
 
 .selector-label {
