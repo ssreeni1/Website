@@ -10,12 +10,32 @@ const routes = [
   { name: "Collection", path: "/collection", href: "/collection" },
 ] as const;
 
+type SiteTheme = "light" | "dark";
+
+const THEME_STORAGE_KEY = "saneel-theme";
+
+function getSystemTheme(): SiteTheme {
+  return window.matchMedia("(prefers-color-scheme: dark)").matches
+    ? "dark"
+    : "light";
+}
+
+function applySiteTheme(theme: SiteTheme) {
+  document.documentElement.dataset.theme = theme;
+  document.documentElement.style.colorScheme = theme;
+  window.dispatchEvent(
+    new CustomEvent<SiteTheme>("site-themechange", { detail: theme }),
+  );
+}
+
 export function SiteNav() {
   const router = useRouter();
   const [finderOpen, setFinderOpen] = useState(false);
   const [finderQuery, setFinderQuery] = useState("");
   const [finderIndex, setFinderIndex] = useState(0);
   const finderInputRef = useRef<HTMLInputElement>(null);
+  const themeRef = useRef<SiteTheme>("light");
+  const themeOverrideRef = useRef<SiteTheme | null>(null);
   const filteredRoutes = routes.filter((route) =>
     `${route.name} ${route.path}`
       .toLowerCase()
@@ -55,12 +75,44 @@ export function SiteNav() {
         setFinderOpen((open) => !open);
       }
 
+      if (key === "d") {
+        event.preventDefault();
+        const nextTheme = themeRef.current === "dark" ? "light" : "dark";
+        themeRef.current = nextTheme;
+        themeOverrideRef.current = nextTheme;
+        window.localStorage.setItem(THEME_STORAGE_KEY, nextTheme);
+        applySiteTheme(nextTheme);
+      }
+
       if (event.key === "Escape") setFinderOpen(false);
     };
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [router]);
+
+  useEffect(() => {
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    const storedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
+    const override =
+      storedTheme === "light" || storedTheme === "dark"
+        ? storedTheme
+        : null;
+    themeOverrideRef.current = override;
+
+    const syncTheme = () => {
+      const theme = themeOverrideRef.current ?? getSystemTheme();
+      themeRef.current = theme;
+      applySiteTheme(theme);
+    };
+    const onSystemThemeChange = () => {
+      if (!themeOverrideRef.current) syncTheme();
+    };
+
+    syncTheme();
+    media.addEventListener("change", onSystemThemeChange);
+    return () => media.removeEventListener("change", onSystemThemeChange);
+  }, []);
 
   useEffect(() => {
     if (!finderOpen) return;

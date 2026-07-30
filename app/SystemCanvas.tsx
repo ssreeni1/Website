@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useRef, type RefObject } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { MeshoptDecoder } from "three/examples/jsm/libs/meshopt_decoder.module.js";
 
 type VisualMode = 1 | 2 | 3;
+type SceneTheme = "light" | "dark";
 
 type CarSample = {
   t: number;
@@ -68,10 +69,55 @@ type SmoothLocation = {
   index: number;
 };
 
-const INK = 0x171717;
-const PAPER = 0xf6f6f3;
-const RED = 0xf02b1d;
-const MUTED = 0xa6a69f;
+let SCENE_IS_DARK = false;
+let INK = 0x171717;
+let PAPER = 0xf6f6f3;
+let RED = 0xf02b1d;
+let MUTED = 0xa6a69f;
+let ROAD_SURFACE = 0xe4e4de;
+let FORMULA_WHEEL = 0x282828;
+let FORMULA_INTERIOR = 0x565652;
+let FORMULA_BODY = 0x3b3b39;
+let FORMULA_WHEEL_EDGE = 0x101010;
+let BOARD_BODY = 0xededE8;
+let BOARD_BAR = 0xe6e6e0;
+let BOARD_POINT_A = 0xd8d8d1;
+let BOARD_POINT_B = 0xebebe6;
+let CHECKER_DARK = 0x171717;
+let CHECKER_DARK_EDGE = 0x000000;
+let CHECKER_LIGHT = 0xe4e4de;
+let TRAIL_MUTED = 0xbdbdb6;
+
+function applySceneTheme(theme: SceneTheme) {
+  SCENE_IS_DARK = theme === "dark";
+  INK = SCENE_IS_DARK ? 0xe8e8e2 : 0x171717;
+  PAPER = SCENE_IS_DARK ? 0x0d0f10 : 0xf6f6f3;
+  RED = SCENE_IS_DARK ? 0xff4938 : 0xf02b1d;
+  MUTED = SCENE_IS_DARK ? 0x8a8d88 : 0xa6a69f;
+  ROAD_SURFACE = SCENE_IS_DARK ? 0x292c2e : 0xe4e4de;
+  FORMULA_WHEEL = SCENE_IS_DARK ? 0x17191b : 0x282828;
+  FORMULA_INTERIOR = SCENE_IS_DARK ? 0x34383a : 0x565652;
+  FORMULA_BODY = SCENE_IS_DARK ? 0x25282a : 0x3b3b39;
+  FORMULA_WHEEL_EDGE = SCENE_IS_DARK ? 0x9b9d98 : 0x101010;
+  BOARD_BODY = SCENE_IS_DARK ? 0x26292b : 0xededE8;
+  BOARD_BAR = SCENE_IS_DARK ? 0x313436 : 0xe6e6e0;
+  BOARD_POINT_A = SCENE_IS_DARK ? 0x3a3d40 : 0xd8d8d1;
+  BOARD_POINT_B = SCENE_IS_DARK ? 0x181a1c : 0xebebe6;
+  CHECKER_DARK = SCENE_IS_DARK ? 0x202326 : 0x171717;
+  CHECKER_DARK_EDGE = SCENE_IS_DARK ? 0x8e918d : 0x000000;
+  CHECKER_LIGHT = SCENE_IS_DARK ? 0xd8d9d3 : 0xe4e4de;
+  TRAIL_MUTED = SCENE_IS_DARK ? 0x7b7e7a : 0xbdbdb6;
+}
+
+function currentSceneTheme(): SceneTheme {
+  const explicitTheme = document.documentElement.dataset.theme;
+  if (explicitTheme === "light" || explicitTheme === "dark") {
+    return explicitTheme;
+  }
+  return window.matchMedia("(prefers-color-scheme: dark)").matches
+    ? "dark"
+    : "light";
+}
 
 function setHud(
   root: HTMLDivElement | null,
@@ -331,8 +377,17 @@ function technicalSolid(
 }
 
 function addFormulaLights(scene: THREE.Scene) {
-  scene.add(new THREE.HemisphereLight(PAPER, 0xb5b5af, 2.4));
-  const key = new THREE.DirectionalLight(0xffffff, 3.1);
+  scene.add(
+    new THREE.HemisphereLight(
+      SCENE_IS_DARK ? 0xaeb2ae : PAPER,
+      SCENE_IS_DARK ? 0x17191b : 0xb5b5af,
+      SCENE_IS_DARK ? 1.7 : 2.4,
+    ),
+  );
+  const key = new THREE.DirectionalLight(
+    SCENE_IS_DARK ? 0xe8e9e4 : 0xffffff,
+    SCENE_IS_DARK ? 2.2 : 3.1,
+  );
   key.position.set(-4, 8, -6);
   scene.add(key);
   const rim = new THREE.DirectionalLight(RED, 0.9);
@@ -400,7 +455,7 @@ function buildRoadRibbon(locations: LocationSample[]) {
   const mesh = new THREE.Mesh(
     geometry,
     new THREE.MeshStandardMaterial({
-      color: 0xe4e4de,
+      color: ROAD_SURFACE,
       transparent: true,
       opacity: 0.52,
       roughness: 1,
@@ -516,13 +571,15 @@ function drawTrackMap(
   });
   context.closePath();
   context.lineWidth = Math.max(1, dpr * 0.8);
-  context.strokeStyle = "rgba(23,23,23,.42)";
+  context.strokeStyle = SCENE_IS_DARK
+    ? "rgba(232,232,226,.48)"
+    : "rgba(23,23,23,.42)";
   context.stroke();
 
   const active = project(locations[Math.min(activeIndex, locations.length - 1)]);
   context.beginPath();
   context.arc(active.x, active.y, 2.5 * dpr, 0, Math.PI * 2);
-  context.fillStyle = "#f02b1d";
+  context.fillStyle = SCENE_IS_DARK ? "#ff4938" : "#f02b1d";
   context.fill();
 }
 
@@ -670,7 +727,11 @@ async function buildFormulaScene(
           : 0.24;
     const baseDepthWrite = !isGlass;
     const material = new THREE.MeshStandardMaterial({
-      color: isWheel ? 0x282828 : isInterior ? 0x565652 : 0x3b3b39,
+      color: isWheel
+        ? FORMULA_WHEEL
+        : isInterior
+          ? FORMULA_INTERIOR
+          : FORMULA_BODY,
       roughness: isWheel ? 0.82 : 0.62,
       metalness: isInterior ? 0.28 : 0.08,
       transparent: true,
@@ -691,7 +752,7 @@ async function buildFormulaScene(
           ? 0.07
           : 0.52;
     const edgeMaterial = new THREE.LineBasicMaterial({
-      color: isWheel ? 0x101010 : INK,
+      color: isWheel ? FORMULA_WHEEL_EDGE : INK,
       transparent: true,
       opacity: edgeOpacity,
       depthWrite: false,
@@ -853,7 +914,7 @@ async function buildFormulaScene(
     "position",
     new THREE.BufferAttribute(trailPositions, 3),
   );
-  const trailMuted = new THREE.Color(0xbdbdb6);
+  const trailMuted = new THREE.Color(TRAIL_MUTED);
   const trailRed = new THREE.Color(RED);
   for (let index = 0; index < trailSampleCount; index += 1) {
     const mix = index / (trailSampleCount - 1);
@@ -1342,8 +1403,17 @@ function buildBackgammonScene(
   camera: THREE.PerspectiveCamera,
   hudRoot: HTMLDivElement | null,
 ): SceneController {
-  scene.add(new THREE.HemisphereLight(PAPER, 0xa7a79f, 2.5));
-  const key = new THREE.DirectionalLight(0xffffff, 2.5);
+  scene.add(
+    new THREE.HemisphereLight(
+      SCENE_IS_DARK ? 0xb3b7b2 : PAPER,
+      SCENE_IS_DARK ? 0x17191b : 0xa7a79f,
+      SCENE_IS_DARK ? 1.85 : 2.5,
+    ),
+  );
+  const key = new THREE.DirectionalLight(
+    SCENE_IS_DARK ? 0xe9eae5 : 0xffffff,
+    SCENE_IS_DARK ? 2 : 2.5,
+  );
   key.position.set(-3, 9, -5);
   scene.add(key);
 
@@ -1363,7 +1433,7 @@ function buildBackgammonScene(
   root.add(grid);
 
   const board = technicalSolid(new THREE.BoxGeometry(8.55, 0.3, 5.4), {
-    color: 0xededE8,
+    color: BOARD_BODY,
     opacity: 0.18,
     edgeOpacity: 0.68,
   });
@@ -1377,7 +1447,7 @@ function buildBackgammonScene(
   root.add(surface);
 
   const bar = technicalSolid(new THREE.BoxGeometry(0.24, 0.16, 4.95), {
-    color: 0xe6e6e0,
+    color: BOARD_BAR,
     opacity: 0.14,
     edgeOpacity: 0.52,
   });
@@ -1473,7 +1543,7 @@ function buildBackgammonScene(
       const bottom = technicalSolid(
         pointGeometry(pointStart, pointStart + slot, -2.42, -0.48),
         {
-          color: index % 2 === 0 ? 0xd8d8d1 : 0xebebe6,
+          color: index % 2 === 0 ? BOARD_POINT_A : BOARD_POINT_B,
           opacity: index % 2 === 0 ? 0.14 : 0.07,
           edgeOpacity: index % 2 === 0 ? 0.54 : 0.28,
           threshold: 1,
@@ -1482,7 +1552,7 @@ function buildBackgammonScene(
       const top = technicalSolid(
         pointGeometry(pointStart, pointStart + slot, 2.42, 0.48),
         {
-          color: index % 2 === 0 ? 0xebebe6 : 0xd8d8d1,
+          color: index % 2 === 0 ? BOARD_POINT_B : BOARD_POINT_A,
           opacity: index % 2 === 0 ? 0.07 : 0.14,
           edgeOpacity: index % 2 === 0 ? 0.28 : 0.54,
           threshold: 1,
@@ -1534,7 +1604,7 @@ function buildBackgammonScene(
   (Object.keys(initialPoints) as Player[]).forEach((player) => {
     initialPoints[player].forEach((point, pieceIndex, allPoints) => {
       const fill = new THREE.MeshStandardMaterial({
-        color: player === "BLACK" ? INK : 0xe4e4de,
+        color: player === "BLACK" ? CHECKER_DARK : CHECKER_LIGHT,
         roughness: player === "BLACK" ? 0.72 : 0.9,
         metalness: player === "BLACK" ? 0.08 : 0,
         transparent: true,
@@ -1547,7 +1617,7 @@ function buildBackgammonScene(
         new THREE.LineSegments(
           new THREE.EdgesGeometry(checkerGeometry, 18),
           new THREE.LineBasicMaterial({
-            color: player === "BLACK" ? 0x000000 : INK,
+            color: player === "BLACK" ? CHECKER_DARK_EDGE : INK,
             transparent: true,
             opacity: player === "BLACK" ? 0.68 : 0.58,
           }),
@@ -1779,7 +1849,9 @@ function buildBackgammonScene(
 
       pieces.forEach((piece) => {
         piece.object.position.copy(piece.initialPosition);
-        piece.fill.color.set(piece.player === "BLACK" ? INK : 0xe4e4de);
+        piece.fill.color.set(
+          piece.player === "BLACK" ? CHECKER_DARK : CHECKER_LIGHT,
+        );
         currentPoints.set(piece, piece.initialPoint);
       });
       timeline.forEach((move) => {
@@ -3327,6 +3399,7 @@ export function SystemCanvas({ mode }: { mode: VisualMode }) {
   const mountRef = useRef<HTMLDivElement>(null);
   const hudRootRef = useRef<HTMLDivElement>(null);
   const trackCanvasRef = useRef<HTMLCanvasElement>(null);
+  const [sceneTheme, setSceneTheme] = useState<SceneTheme | null>(null);
   const viewRef = useRef<SceneView>(defaultView(mode));
   const dragRef = useRef({
     active: false,
@@ -3339,8 +3412,17 @@ export function SystemCanvas({ mode }: { mode: VisualMode }) {
   };
 
   useEffect(() => {
+    const syncTheme = () => setSceneTheme(currentSceneTheme());
+    syncTheme();
+    window.addEventListener("site-themechange", syncTheme);
+    return () => window.removeEventListener("site-themechange", syncTheme);
+  }, []);
+
+  useEffect(() => {
     const mount = mountRef.current;
-    if (!mount) return;
+    if (!mount || !sceneTheme) return;
+
+    applySceneTheme(sceneTheme);
 
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(36, 1, 0.05, 120);
@@ -3352,7 +3434,7 @@ export function SystemCanvas({ mode }: { mode: VisualMode }) {
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.15;
+    renderer.toneMappingExposure = sceneTheme === "dark" ? 1 : 1.15;
     renderer.domElement.className = "scene-webgl";
     mount.prepend(renderer.domElement);
 
@@ -3450,7 +3532,7 @@ export function SystemCanvas({ mode }: { mode: VisualMode }) {
       renderer.dispose();
       renderer.domElement.remove();
     };
-  }, [mode]);
+  }, [mode, sceneTheme]);
 
   return (
     <div className={`system-frame mode-${mode}`} ref={hudRootRef}>

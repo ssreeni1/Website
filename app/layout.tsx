@@ -16,6 +16,18 @@ const title = "Saneel — Independent Builder";
 const description =
   "Saneel builds systems across software, design, and new ideas.";
 
+const themeBootstrap = `
+  (() => {
+    try {
+      const theme = window.localStorage.getItem("saneel-theme");
+      if (theme === "light" || theme === "dark") {
+        document.documentElement.dataset.theme = theme;
+        document.documentElement.style.colorScheme = theme;
+      }
+    } catch {}
+  })();
+`;
+
 export const metadata: Metadata = {
   metadataBase: new URL("https://saneel.xyz"),
   title,
@@ -47,7 +59,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeBootstrap }} />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >

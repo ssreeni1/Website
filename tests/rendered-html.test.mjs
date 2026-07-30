@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFile, stat } from "node:fs/promises";
+import { readFile, readdir, stat } from "node:fs/promises";
 import test from "node:test";
 
 async function render(path = "/") {
@@ -120,9 +120,28 @@ test("exports the complete GitHub Pages artifact", async () => {
   ]);
 
   assert.match(home, /<title>Saneel — Independent Builder<\/title>/);
+  assert.match(home, /localStorage\.getItem\("saneel-theme"\)/);
   assert.match(home, /href="https:\/\/saneel\.xyz\/"/);
   assert.match(about, /href="https:\/\/saneel\.xyz\/about\/"/);
   assert.match(collection, /href="https:\/\/saneel\.xyz\/collection\/"/);
+
+  const assetDirectory = new URL("../dist/client/assets/", import.meta.url);
+  const assetNames = await readdir(assetDirectory);
+  const [styles, scripts] = await Promise.all([
+    Promise.all(
+      assetNames
+        .filter((name) => name.endsWith(".css"))
+        .map((name) => readFile(new URL(name, assetDirectory), "utf8")),
+    ),
+    Promise.all(
+      assetNames
+        .filter((name) => name.endsWith(".js"))
+        .map((name) => readFile(new URL(name, assetDirectory), "utf8")),
+    ),
+  ]);
+  assert.match(styles.join("\n"), /data-theme=dark/);
+  assert.match(styles.join("\n"), /prefers-color-scheme:\s*dark/);
+  assert.match(scripts.join("\n"), /site-themechange/);
 });
 
 test("ships bounded model assets and recorded telemetry", async () => {
