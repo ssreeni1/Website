@@ -182,7 +182,7 @@ main {
   position: absolute;
   top: 50%;
   color: var(--red);
-  font: 400 0.72em/1 var(--font-geist-mono), monospace;
+  font: 500 0.82em/1 var(--font-geist-mono), monospace;
   opacity: 0;
   transition:
     opacity 150ms ease,
@@ -1200,9 +1200,12 @@ main {
     font-size: 15px;
   }
 
-  .collection-list a::before,
+  .collection-list a::before {
+    right: calc(100% + 3px);
+  }
+
   .collection-list a::after {
-    display: none;
+    left: calc(100% + 5px);
   }
 
   .collection-list time {
