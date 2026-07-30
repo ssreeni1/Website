@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
+import { SystemCanvas } from "./SystemCanvas";
 
 const routes = [
   { name: "Index", path: "/" },
@@ -9,26 +10,9 @@ const routes = [
   { name: "Notes", path: "#notes" },
 ];
 
-const nodes = [
-  { x: 18, y: 46, kind: "plus", delay: "-1s" },
-  { x: 24, y: 58, kind: "square", delay: "-3s" },
-  { x: 32, y: 39, kind: "plus", delay: "-6s" },
-  { x: 38, y: 63, kind: "plus", delay: "-2s" },
-  { x: 43, y: 49, kind: "square", delay: "-8s" },
-  { x: 48, y: 69, kind: "plus", delay: "-4s" },
-  { x: 54, y: 41, kind: "plus", delay: "-7s" },
-  { x: 59, y: 56, kind: "square", delay: "-5s" },
-  { x: 65, y: 34, kind: "plus", delay: "-9s" },
-  { x: 69, y: 64, kind: "plus", delay: "-2s" },
-  { x: 76, y: 47, kind: "square", delay: "-6s" },
-  { x: 82, y: 57, kind: "plus", delay: "-4s" },
-];
-
 export default function Home() {
   const [finderOpen, setFinderOpen] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [activeVisual, setActiveVisual] = useState(1);
-  const fieldRef = useRef<HTMLDivElement>(null);
+  const [activeVisual, setActiveVisual] = useState<1 | 2>(1);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -39,33 +23,22 @@ export default function Home() {
       if (event.key.toLowerCase() === "f" && !isTyping) {
         event.preventDefault();
         setFinderOpen((open) => !open);
-        setMenuOpen(false);
       }
 
-      if (event.key.toLowerCase() === "m" && !isTyping) {
-        event.preventDefault();
-        setMenuOpen((open) => !open);
-        setFinderOpen(false);
-      }
-
-      if (event.key === "Escape") {
-        setFinderOpen(false);
-        setMenuOpen(false);
-      }
+      if (event.key === "Escape") setFinderOpen(false);
     };
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  const onPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (!fieldRef.current) return;
-    const bounds = fieldRef.current.getBoundingClientRect();
-    const x = (event.clientX - bounds.left) / bounds.width - 0.5;
-    const y = (event.clientY - bounds.top) / bounds.height - 0.5;
-    fieldRef.current.style.setProperty("--rx", `${y * -4}deg`);
-    fieldRef.current.style.setProperty("--ry", `${x * 5}deg`);
-  };
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      setActiveVisual((visual) => (visual === 1 ? 2 : 1));
+    }, 14000);
+
+    return () => window.clearInterval(interval);
+  }, []);
 
   return (
     <main>
@@ -73,42 +46,7 @@ export default function Home() {
         <a className="mark" href="/" aria-label="Saneel, home">
           Saneel
         </a>
-        <button
-          className="key-control menu-control"
-          type="button"
-          aria-label={menuOpen ? "Close menu" : "Open menu"}
-          aria-expanded={menuOpen}
-          onClick={() => {
-            setMenuOpen((open) => !open);
-            setFinderOpen(false);
-          }}
-        >
-          [{menuOpen ? "×" : "M"}]
-        </button>
       </header>
-
-      <section
-        className={`menu-panel ${menuOpen ? "is-open" : ""}`}
-        aria-hidden={!menuOpen}
-      >
-        <nav aria-label="Main navigation">
-          {routes.slice(1).map((route) => (
-            <a
-              href={route.path}
-              key={route.name}
-              tabIndex={menuOpen ? 0 : -1}
-              onClick={() => setMenuOpen(false)}
-            >
-              {route.name}
-            </a>
-          ))}
-        </nav>
-        <p>
-          Independent builder working across
-          <br />
-          software, interfaces, and new ideas.
-        </p>
-      </section>
 
       <section className="system" aria-labelledby="system-title">
         <h1 id="system-title">Saneel</h1>
@@ -118,79 +56,45 @@ export default function Home() {
           for a more interesting world.
         </p>
 
-        <div
-          className="field"
-          ref={fieldRef}
-          onPointerMove={onPointerMove}
-          onPointerLeave={() => {
-            fieldRef.current?.style.setProperty("--rx", "0deg");
-            fieldRef.current?.style.setProperty("--ry", "0deg");
-          }}
-          role="img"
-          aria-label="A live wireframe system of orbiting nodes"
-        >
-          <div className="field-label">
-            <span>00:01 / LIVE SYSTEM</span>
-            <span>40.7128 N, 74.0060 W</span>
-            <span>NEW YORK, US</span>
-          </div>
+        <div className="mode-title" aria-live="polite">
+          <span>0{activeVisual}</span>
+          <strong>
+            {activeVisual === 1
+              ? "Formula / telemetry"
+              : "Backgammon / probability"}
+          </strong>
+        </div>
 
-          <div className="wireframe">
-            <div className="axis axis-x" />
-            <div className="axis axis-y" />
-            <div className="ring ring-a" />
-            <div className="ring ring-b" />
-            <div className="ring ring-c" />
-            <div className="ring ring-d" />
-            <div className="live-core">
-              <span />
-            </div>
-            {nodes.map((node, index) => (
-              <i
-                className={`node node-${node.kind}`}
-                key={`${node.x}-${node.y}`}
-                style={{
-                  left: `${node.x}%`,
-                  top: `${node.y}%`,
-                  animationDelay: node.delay,
-                }}
-              >
-                {node.kind === "plus" ? "+" : ""}
-                <b>{String(index + 1).padStart(2, "0")}</b>
-              </i>
-            ))}
-          </div>
-
-          <div className="field-caption">
-            <span className="status-dot" />
-            ACTIVE NODE / HUMAN–MACHINE INTERFACE
-          </div>
+        <div className="canvas-shell" key={activeVisual}>
+          <SystemCanvas mode={activeVisual} />
         </div>
       </section>
 
       <footer className="controls">
         <nav className="visual-selector" aria-label="Visual selector">
-          {[1, 2, 3, 4].map((number) => (
+          {([1, 2] as const).map((number) => (
             <button
               className={number === activeVisual ? "is-active" : ""}
               type="button"
               key={number}
-              aria-label={`Select visual ${number}`}
+              aria-label={`Select ${
+                number === 1 ? "Formula telemetry" : "backgammon probability"
+              } visual`}
               aria-pressed={number === activeVisual}
               onClick={() => setActiveVisual(number)}
             >
               [{number === activeVisual ? "" : number}]
             </button>
           ))}
+          <span className="selector-label">
+            {activeVisual === 1 ? "FORMULA" : "BACKGAMMON"}
+          </span>
         </nav>
 
         <button
           className="find-control"
           type="button"
-          onClick={() => {
-            setFinderOpen(true);
-            setMenuOpen(false);
-          }}
+          onClick={() => setFinderOpen(true)}
           aria-label="Open directory"
         >
           Find <span>[F]</span>
