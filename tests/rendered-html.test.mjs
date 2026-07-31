@@ -180,6 +180,39 @@ test("preserves lists and clean embeds in imported X articles", async () => {
   assert.doesNotMatch(permanence, /<strong>\s*<br>\s*<\/strong>/i);
 });
 
+test("keeps every imported article structurally legible", async () => {
+  const expectations = [
+    ["when-everything-goes-to-zero", 2, 1],
+    ["hyperspeculation-genesis-ii", 5, 7],
+    ["shigetas-dream", 6, 12],
+    ["genesis-i", 2, 1],
+    ["the-hedonists-stone", 8, 0],
+    ["speculation-is-dead", 0, 1],
+    ["building-trading", 0, 4],
+    ["permanence-is-the-rarest-asset-class", 6, 0],
+  ];
+
+  for (const [slug, headingCount, listCount] of expectations) {
+    const html = await readFile(
+      new URL(`../content/posts/${slug}/index.html`, import.meta.url),
+      "utf8",
+    );
+
+    assert.equal((html.match(/<h2>/g) ?? []).length, headingCount, slug);
+    assert.equal(
+      (html.match(/class="imported-prose"><(?:ol|ul)>/g) ?? []).length,
+      listCount,
+      slug,
+    );
+    assert.match(html, /class="imported-cover"/);
+    assert.match(html, /Originally published on X/);
+    assert.doesNotMatch(html, /<p>\s*<\/p>/);
+    assert.doesNotMatch(html, /<p>\s*<br>/);
+    assert.doesNotMatch(html, /(?:<br>\s*){2,}/);
+    assert.doesNotMatch(html, /<strong>\s*(?:<br>)?\s*<\/strong>/);
+  }
+});
+
 test("exports the complete GitHub Pages artifact", async () => {
   const [home, about, collection, fiveLines] = await Promise.all([
     readFile(new URL("../dist/client/index.html", import.meta.url), "utf8"),

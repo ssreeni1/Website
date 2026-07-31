@@ -27,8 +27,56 @@ const cleanRichHtml = (html) =>
     .replace(/<(strong|em|u)>\s*<br>\s*<\/\1>/gi, "<br>")
     .replace(/<(strong|em|u)>(\s*)<\/\1>/gi, "$2")
     .replace(/<h2><strong>([\s\S]*?)<\/strong><\/h2>/gi, "<h2>$1</h2>")
+    .replace(
+      /<p class="imported-emphasis"><strong>((?:I|II|III|IV|V|VI|VII|VIII|IX|X)\.\s[\s\S]*?)<\/strong><\/p>/gi,
+      "<h2>$1</h2>",
+    )
+    .replace(
+      /<p class="imported-emphasis"><strong>([\s\S]*?)<\/strong><\/p>/gi,
+      '<p class="imported-emphasis">$1</p>',
+    )
     .replace(/<h2>\s+/gi, "<h2>")
-    .replace(/\s+<\/h2>/gi, "</h2>");
+    .replace(/\s+<\/h2>/gi, "</h2>")
+    .replace(/<p>\s*(?:<br>\s*)+/gi, "<p>")
+    .replace(/(?:\s*<br>)+\s*<\/p>/gi, "</p>")
+    .replace(/(?:<br>\s*){2,}/gi, "<br>")
+    .replace(/<p>\s*<\/p>/gi, "");
+
+const formatEmbedText = (value) => {
+  const normalized = String(value ?? "")
+    .trim()
+    .replace(/-\s*\n+\s*(@[A-Za-z0-9_]+)/g, "- $1")
+    .replace(/(@[A-Za-z0-9_]+)\s*\n+\s*\/\s*\n+\s*(@[A-Za-z0-9_]+)/g, "$1 / $2")
+    .replace(/(@[A-Za-z0-9_]+)\s*\n+\s*(\([^\n)]+\))/g, "$1 $2");
+  const output = [];
+  let listItems = [];
+  const flushList = () => {
+    if (!listItems.length) return;
+    output.push(`<ul>${listItems.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`);
+    listItems = [];
+  };
+
+  for (const group of normalized.split(/\n{2,}/).filter(Boolean)) {
+    const lines = group.split("\n").map((line) => line.trim()).filter(Boolean);
+    const prose = [];
+    for (const line of lines) {
+      if (line.startsWith("- ")) {
+        if (prose.length) {
+          flushList();
+          output.push(`<p>${prose.map(escapeHtml).join("<br>")}</p>`);
+          prose.length = 0;
+        }
+        listItems.push(line.slice(2).trim());
+      } else {
+        flushList();
+        prose.push(line);
+      }
+    }
+    if (prose.length) output.push(`<p>${prose.map(escapeHtml).join("<br>")}</p>`);
+  }
+  flushList();
+  return output.join("");
+};
 
 const imageExtension = (url) => {
   const format = new URL(url).searchParams.get("format")?.toLowerCase();
@@ -94,7 +142,7 @@ for (const article of articles) {
         .join("");
       body.push(`<blockquote class="imported-embed">
         <header><strong>${escapeHtml(block.byline || "Post on X")}</strong>${block.href ? `<a href="${escapeHtml(block.href)}" target="_blank" rel="noreferrer">${escapeHtml(block.date || "View on X")} ↗</a>` : ""}</header>
-        <p>${escapeHtml(block.text).replaceAll("\n", "<br>")}</p>
+        ${formatEmbedText(block.text)}
 ${embeddedImages ? `        ${embeddedImages}\n` : ""}
       </blockquote>`);
     }

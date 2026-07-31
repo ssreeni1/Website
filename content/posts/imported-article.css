@@ -101,6 +101,10 @@
   margin: 0 0 1.45em;
 }
 
+.imported-prose .imported-emphasis {
+  font-weight: 500;
+}
+
 .imported-prose h2 {
   margin: clamp(56px, 8vw, 92px) 0 28px;
   font-size: clamp(29px, 4vw, 44px);
@@ -119,6 +123,9 @@
   font-size: clamp(17px, 1.55vw, 20px);
   line-height: 1.58;
 }
+
+.imported-prose ol { list-style: decimal; }
+.imported-prose ul { list-style: disc; }
 
 .imported-prose li {
   margin: 0 0 .72em;
@@ -194,6 +201,15 @@
 }
 
 .imported-embed p { margin: 0; }
+.imported-embed p + p { margin-top: .9em; }
+
+.imported-embed ul {
+  margin: .8em 0 0;
+  padding-left: 1.35em;
+  list-style: disc;
+}
+
+.imported-embed li { margin: 0 0 .35em; }
 .imported-embed img { margin-top: 22px; }
 
 .imported-embed a {
