@@ -29,7 +29,7 @@ export const posts: readonly Post[] = [
   {
     slug: "five-lines",
     title: "Five Lines to Infinity",
-    description: "A brief on harness history and where we're going.",
+    description: "A brief history of the systems that turned model calls into agents. Model providers will absorb generic harness logic through co-training, but the last mile remains irreducible: the tools, state, permissions, verification, and recovery specific to an enterprise, domain, workflow, or person.",
     publishedAt: "2026-07-30",
     document: extractBody(fiveLinesDocument),
     styles: fiveLinesStyles,
