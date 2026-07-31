@@ -1,6 +1,6 @@
 .imported-article {
   --article-width: 750px;
-  --media-width: 1040px;
+  --media-width: var(--article-width);
   padding: clamp(70px, 10vw, 130px) 20px 120px;
   color: var(--ink);
   font-family: Arial, Helvetica, sans-serif;
@@ -109,8 +109,36 @@
   line-height: 1.08;
 }
 
-.imported-prose strong { font-weight: 650; }
+.imported-prose strong { font-weight: 600; }
 .imported-prose em { font-family: Georgia, "Times New Roman", serif; }
+
+.imported-prose ol,
+.imported-prose ul {
+  margin: 0 0 1.7em;
+  padding-left: 1.45em;
+  font-size: clamp(17px, 1.55vw, 20px);
+  line-height: 1.58;
+}
+
+.imported-prose li {
+  margin: 0 0 .72em;
+  padding-left: .35em;
+}
+
+.imported-prose:has(+ .imported-prose ol) p:last-child,
+.imported-prose:has(+ .imported-prose ul) p:last-child {
+  margin-bottom: .65em;
+  font-weight: 600;
+}
+
+.imported-pullquote {
+  margin: 48px 0;
+  padding: 4px 0 4px 24px;
+  border-left: 2px solid var(--red);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(22px, 2.6vw, 30px);
+  line-height: 1.35;
+}
 
 .imported-prose a {
   color: inherit;
@@ -140,8 +168,29 @@
   padding: 24px 26px;
   border: 1px solid rgb(var(--ink-rgb) / .13);
   background: rgb(var(--ink-rgb) / .025);
+  color: var(--ink);
+  font: 400 14px/1.55 Arial, Helvetica, sans-serif;
+}
+
+.imported-embed header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 18px;
+  font: 500 10px/1.3 var(--font-geist-mono), monospace;
+}
+
+.imported-embed header strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.imported-embed header a {
+  flex: none;
+  margin: 0;
   color: var(--muted);
-  font: 400 13px/1.65 var(--font-geist-mono), monospace;
 }
 
 .imported-embed p { margin: 0; }
@@ -156,9 +205,6 @@
 @media (max-width: 700px) {
   .imported-article { padding-top: 58px; padding-bottom: 80px; }
   .imported-header h1 { font-size: clamp(43px, 13vw, 64px); }
-  .imported-cover,
-  .imported-media { width: calc(100% + 40px); margin-left: -20px; }
-  .imported-cover img,
-  .imported-media img { border-left: 0; border-right: 0; }
   .imported-embed { padding: 20px; }
+  .imported-embed header { align-items: flex-start; flex-direction: column; gap: 6px; }
 }

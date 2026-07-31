@@ -159,6 +159,27 @@ test("serves registered posts as Collection subpages", async () => {
   assert.doesNotMatch(html, /<footer/i);
 });
 
+test("preserves lists and clean embeds in imported X articles", async () => {
+  const [hyperspeculationResponse, permanenceResponse] = await Promise.all([
+    render("/collections/hyperspeculation-genesis-ii/"),
+    render("/collections/permanence-is-the-rarest-asset-class/"),
+  ]);
+
+  assert.equal(hyperspeculationResponse.status, 200);
+  assert.equal(permanenceResponse.status, 200);
+
+  const hyperspeculation = await hyperspeculationResponse.text();
+  const permanence = await permanenceResponse.text();
+
+  assert.match(hyperspeculation, /Processing information at unprecedented scale/);
+  assert.match(hyperspeculation, /Open environment for incentive engineering/);
+  assert.match(hyperspeculation, /<ol><li>/);
+  assert.match(hyperspeculation, /--media-width: var\(--article-width\)/);
+  assert.match(permanence, /class="imported-embed"/);
+  assert.doesNotMatch(permanence, /\d+ (?:reposts|likes|bookmarks|views)/i);
+  assert.doesNotMatch(permanence, /<strong>\s*<br>\s*<\/strong>/i);
+});
+
 test("exports the complete GitHub Pages artifact", async () => {
   const [home, about, collection, fiveLines] = await Promise.all([
     readFile(new URL("../dist/client/index.html", import.meta.url), "utf8"),

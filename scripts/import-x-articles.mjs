@@ -22,6 +22,14 @@ const escapeHtml = (value) =>
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;");
 
+const cleanRichHtml = (html) =>
+  html
+    .replace(/<(strong|em|u)>\s*<br>\s*<\/\1>/gi, "<br>")
+    .replace(/<(strong|em|u)>(\s*)<\/\1>/gi, "$2")
+    .replace(/<h2><strong>([\s\S]*?)<\/strong><\/h2>/gi, "<h2>$1</h2>")
+    .replace(/<h2>\s+/gi, "<h2>")
+    .replace(/\s+<\/h2>/gi, "</h2>");
+
 const imageExtension = (url) => {
   const format = new URL(url).searchParams.get("format")?.toLowerCase();
   return format === "png" || format === "webp" ? format : "jpg";
@@ -69,8 +77,10 @@ for (const article of articles) {
 
   const body = [];
   for (const block of source.blocks) {
-    if (block.type === "text") {
-      body.push(`<div class="imported-prose">${block.html}</div>`);
+    if (block.type === "html") {
+      body.push(`<div class="imported-prose">${cleanRichHtml(block.html)}</div>`);
+    } else if (block.type === "text") {
+      body.push(`<div class="imported-prose">${cleanRichHtml(block.html)}</div>`);
     } else if (block.type === "separator") {
       body.push('<hr class="imported-rule" aria-hidden="true">');
     } else if (block.type === "media") {
@@ -82,7 +92,11 @@ for (const article of articles) {
       const embeddedImages = (block.images ?? [])
         .map((image) => `<img src="${localImages.get(image.src)}" alt="${escapeHtml(image.alt || "Embedded post image")}" loading="lazy">`)
         .join("");
-      body.push(`<blockquote class="imported-embed"><p>${escapeHtml(block.text).replaceAll("\n", "<br>")}</p>${embeddedImages}${block.href ? `<a href="${escapeHtml(block.href)}" target="_blank" rel="noreferrer">View original post ↗</a>` : ""}</blockquote>`);
+      body.push(`<blockquote class="imported-embed">
+        <header><strong>${escapeHtml(block.byline || "Post on X")}</strong>${block.href ? `<a href="${escapeHtml(block.href)}" target="_blank" rel="noreferrer">${escapeHtml(block.date || "View on X")} ↗</a>` : ""}</header>
+        <p>${escapeHtml(block.text).replaceAll("\n", "<br>")}</p>
+${embeddedImages ? `        ${embeddedImages}\n` : ""}
+      </blockquote>`);
     }
   }
 
