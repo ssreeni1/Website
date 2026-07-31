@@ -283,6 +283,7 @@ main {
 
 .collection-years {
   display: grid;
+  margin-top: clamp(14px, 1.5vw, 22px);
   gap: 34px;
 }
 
