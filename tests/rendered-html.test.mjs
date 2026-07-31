@@ -125,6 +125,19 @@ test("serves the linked Collection archive without descriptions", async () => {
   assert.match(html, /RICKS Mechanism Analysis/);
   assert.match(html, /https:\/\/observablehq\.com\/@ssreeni1\/picklerick/);
   assert.match(html, /Collection entries/);
+  assert.match(html, /Collection entries by year/);
+  assert.match(
+    html,
+    /id="collection-year-2026"[^>]*>\[(?:<!-- -->)?2026(?:<!-- -->)?\]<\/h2>/,
+  );
+  assert.match(
+    html,
+    /id="collection-year-2025"[^>]*>\[(?:<!-- -->)?2025(?:<!-- -->)?\]<\/h2>/,
+  );
+  assert.match(
+    html,
+    /id="collection-year-2021"[^>]*>\[(?:<!-- -->)?2021(?:<!-- -->)?\]<\/h2>/,
+  );
   assert.match(html, /Use up and down arrow keys to change selection/);
   assert.match(html, /\[↓\]\s*\[↑\]/);
   assert.doesNotMatch(html, /Investing in early-stage|Products for BTC Miners/);

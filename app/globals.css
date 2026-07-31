@@ -281,6 +281,36 @@ main {
   list-style: none;
 }
 
+.collection-years {
+  display: grid;
+  gap: 34px;
+}
+
+.collection-year-heading {
+  min-height: 34px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  border-bottom: 1px solid rgb(var(--ink-rgb) / 0.34);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+}
+
+.collection-year-heading h2,
+.collection-year-heading span {
+  margin: 0;
+  font: inherit;
+  font-weight: 400;
+}
+
+.collection-year-heading h2 {
+  color: var(--red);
+}
+
+.collection-year-heading span {
+  color: var(--muted);
+}
+
 .collection-list li {
   min-height: 52px;
   padding: 0 1px;
@@ -1376,6 +1406,15 @@ main {
 
   .collection-heading {
     min-height: 28px;
+    font-size: 8px;
+  }
+
+  .collection-years {
+    gap: 26px;
+  }
+
+  .collection-year-heading {
+    min-height: 26px;
     font-size: 8px;
   }
 
