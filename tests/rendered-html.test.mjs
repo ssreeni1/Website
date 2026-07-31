@@ -102,7 +102,7 @@ test("serves the linked Collection archive without descriptions", async () => {
   assert.equal(response.status, 200);
   const html = await response.text();
   assert.match(html, /<title>Collection — Saneel Sreeni<\/title>/i);
-  assert.match(html, /13(?:<!-- -->)? ENTRIES/);
+  assert.match(html, /14(?:<!-- -->)? ENTRIES/);
   assert.match(html, /Five Lines to Infinity/);
   assert.match(html, /2026\.07\.30/);
   assert.match(html, /href="\/collections\/five-lines"/);
@@ -115,8 +115,13 @@ test("serves the linked Collection archive without descriptions", async () => {
   assert.match(html, /Eternal Atlas/);
   assert.match(html, /2026\.05\.08/);
   assert.match(html, /https:\/\/atlaseternal\.xyz/);
-  assert.match(html, /GENESIS I/);
-  assert.doesNotMatch(html, /GENESIS Pt\. I/);
+  assert.match(html, /GENESIS Pt\. I/);
+  assert.match(html, /href="\/collections\/genesis-i"/);
+  assert.match(html, /Permanence Is the Rarest Asset Class/);
+  assert.match(
+    html,
+    /href="\/collections\/permanence-is-the-rarest-asset-class"/,
+  );
   assert.match(html, /RICKS Mechanism Analysis/);
   assert.match(html, /https:\/\/observablehq\.com\/@ssreeni1\/picklerick/);
   assert.match(html, /Collection entries/);
