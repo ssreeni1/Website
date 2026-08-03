@@ -128,16 +128,19 @@ test("serves the linked Collection archive without descriptions", async () => {
   assert.match(html, /Collection entries by year/);
   assert.match(
     html,
-    /id="collection-year-2026"[^>]*>\[(?:<!-- -->)?2026(?:<!-- -->)?\]<\/h2>/,
+    /id="collection-year-2026"[^>]*aria-controls="collection-year-list-2026"[^>]*aria-expanded="true"/,
   );
   assert.match(
     html,
-    /id="collection-year-2025"[^>]*>\[(?:<!-- -->)?2025(?:<!-- -->)?\]<\/h2>/,
+    /id="collection-year-2025"[^>]*aria-controls="collection-year-list-2025"[^>]*aria-expanded="false"/,
   );
   assert.match(
     html,
-    /id="collection-year-2021"[^>]*>\[(?:<!-- -->)?2021(?:<!-- -->)?\]<\/h2>/,
+    /id="collection-year-2021"[^>]*aria-controls="collection-year-list-2021"[^>]*aria-expanded="false"/,
   );
+  assert.match(html, /id="collection-year-list-2026"/);
+  assert.match(html, /id="collection-year-list-2025" hidden=""/);
+  assert.match(html, /id="collection-year-list-2021" hidden=""/);
   assert.match(html, /Use up and down arrow keys to change selection/);
   assert.match(html, /\[↓\]\s*\[↑\]/);
   assert.doesNotMatch(html, /Investing in early-stage|Products for BTC Miners/);

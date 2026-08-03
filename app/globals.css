@@ -298,18 +298,52 @@ main {
 }
 
 .collection-year-heading h2,
-.collection-year-heading span {
+.collection-year-heading > span {
   margin: 0;
   font: inherit;
   font-weight: 400;
 }
 
 .collection-year-heading h2 {
+  margin: 0;
+}
+
+.collection-year-toggle {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--red);
+  font: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+}
+
+.collection-year-toggle i {
+  color: var(--muted);
+  font-style: normal;
+  transition: color 150ms ease;
+}
+
+.collection-year-toggle:hover i,
+.collection-year-toggle:focus-visible i {
   color: var(--red);
 }
 
-.collection-year-heading span {
+.collection-year-toggle:focus-visible {
+  outline: 1px solid var(--red);
+  outline-offset: 4px;
+}
+
+.collection-year-heading > span {
   color: var(--muted);
+}
+
+.collection-list[hidden] {
+  display: none;
 }
 
 .collection-list li {
