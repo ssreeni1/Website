@@ -1,0 +1,12 @@
+{
+  "provider": "google-docs",
+  "documentId": "1VHDCKzgJAR0vx2qCjvFm79FPo3J29eQb0UIUzdbZTSg",
+  "documentUrl": "https://docs.google.com/document/d/1VHDCKzgJAR0vx2qCjvFm79FPo3J29eQb0UIUzdbZTSg/edit",
+  "sourceFile": "content/posts/five_lines/index.html",
+  "syncMode": "prose-on-demand",
+  "protectedMarkers": [
+    "[FIGURE PLACEHOLDER]",
+    "[CODE BLOCK]",
+    "[STRUCTURED VISUAL]"
+  ]
+}
