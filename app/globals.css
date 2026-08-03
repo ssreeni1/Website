@@ -1308,6 +1308,30 @@ main {
   font: 400 11px/1 var(--font-geist-mono), monospace;
 }
 
+.finder nav {
+  max-height: min(520px, calc(100vh - 150px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.finder nav a.is-subroute {
+  padding-left: 27px;
+}
+
+.finder nav a.is-subroute span::before {
+  margin-right: 8px;
+  color: var(--muted);
+  content: "↳";
+}
+
+.finder nav a > span,
+.finder nav a > i {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .finder nav a:hover,
 .finder nav a.is-selected {
   color: var(--red);

@@ -3,12 +3,24 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { writingRoutes } from "../content/posts/writing-routes";
 
 const routes = [
-  { name: "Home", path: "/", href: "/" },
-  { name: "About", path: "/about", href: "/about" },
-  { name: "Collection", path: "/collection", href: "/collection" },
-] as const;
+  { name: "Home", path: "/", href: "/", depth: 0 },
+  { name: "About", path: "/about", href: "/about", depth: 0 },
+  {
+    name: "Collection",
+    path: "/collection",
+    href: "/collection",
+    depth: 0,
+  },
+  ...writingRoutes.map(({ slug, title }) => ({
+    name: title,
+    path: `/collections/${slug}`,
+    href: `/collections/${slug}`,
+    depth: 1,
+  })),
+];
 
 type SiteTheme = "light" | "dark";
 
@@ -33,6 +45,7 @@ export function SiteNav({ backHref }: SiteNavProps = {}) {
   const [finderIndex, setFinderIndex] = useState(0);
   const [theme, setTheme] = useState<SiteTheme>("dark");
   const finderInputRef = useRef<HTMLInputElement>(null);
+  const finderRouteRefs = useRef<Array<HTMLAnchorElement | null>>([]);
   const themeRef = useRef<SiteTheme>("dark");
   const filteredRoutes = routes.filter((route) =>
     `${route.name} ${route.path}`
@@ -114,6 +127,11 @@ export function SiteNav({ backHref }: SiteNavProps = {}) {
     if (!finderOpen) return;
     window.requestAnimationFrame(() => finderInputRef.current?.focus());
   }, [finderOpen]);
+
+  useEffect(() => {
+    if (!finderOpen) return;
+    finderRouteRefs.current[finderIndex]?.scrollIntoView({ block: "nearest" });
+  }, [filteredRoutes.length, finderIndex, finderOpen]);
 
   return (
     <>
@@ -213,10 +231,16 @@ export function SiteNav({ backHref }: SiteNavProps = {}) {
           <nav aria-label="Directory navigation">
             {filteredRoutes.map((route, index) => (
               <Link
-                className={index === finderIndex ? "is-selected" : ""}
+                className={`${route.depth === 1 ? "is-subroute " : ""}${
+                  index === finderIndex ? "is-selected" : ""
+                }`}
                 href={route.href}
-                key={route.name}
+                key={route.href}
                 tabIndex={finderOpen ? 0 : -1}
+                ref={(element) => {
+                  finderRouteRefs.current[index] = element;
+                }}
+                onPointerEnter={() => setFinderIndex(index)}
                 onClick={() => setFinderOpen(false)}
               >
                 <span>{route.name}</span>

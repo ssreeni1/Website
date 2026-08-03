@@ -56,6 +56,21 @@ test("server-renders the personal site shell", async () => {
   assert.match(html, />Home<\/span>\s*<i>\/<\/i>/);
   assert.match(html, />About<\/span>\s*<i>\/about<\/i>/);
   assert.match(html, />Collection<\/span>\s*<i>\/collection<\/i>/);
+  for (const slug of [
+    "five-lines",
+    "permanence-is-the-rarest-asset-class",
+    "when-everything-goes-to-zero",
+    "hyperspeculation-genesis-ii",
+    "shigetas-dream",
+    "genesis-i",
+    "the-hedonists-stone",
+    "speculation-is-dead",
+    "building-trading",
+  ]) {
+    assert.match(html, new RegExp(`href="/collections/${slug}"`));
+  }
+  assert.match(html, /class="is-subroute/);
+  assert.match(html, />Five Lines to Infinity<\/span>\s*<i>\/collections\/five-lines<\/i>/);
   assert.doesNotMatch(html, />Formula system<\/span>/);
   assert.match(html, /Select backgammon probability visual/);
   assert.match(

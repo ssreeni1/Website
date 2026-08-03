@@ -10,6 +10,7 @@ import hedonistsStoneDocument from "./the-hedonists-stone/index.html?raw";
 import speculationDocument from "./speculation-is-dead/index.html?raw";
 import buildingTradingDocument from "./building-trading/index.html?raw";
 import permanenceDocument from "./permanence-is-the-rarest-asset-class/index.html?raw";
+import { writingRoutes } from "./writing-routes";
 
 export type Post = {
   slug: string;
@@ -116,6 +117,23 @@ const duplicateSlug = posts.find(
 
 if (duplicateSlug) {
   throw new Error(`Duplicate post slug: ${duplicateSlug.slug}`);
+}
+
+const mismatchedWritingRoute = posts.find(
+  (post) =>
+    !writingRoutes.some(
+      (route) => route.slug === post.slug && route.title === post.title,
+    ),
+);
+const staleWritingRoute = writingRoutes.find(
+  (route) =>
+    !posts.some(
+      (post) => post.slug === route.slug && post.title === route.title,
+    ),
+);
+
+if (mismatchedWritingRoute || staleWritingRoute) {
+  throw new Error("Writing routes must match the registered collection posts");
 }
 
 for (const post of posts) {
