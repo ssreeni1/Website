@@ -239,6 +239,11 @@ figure { margin-top: 46px; margin-bottom: 54px; }
   margin-left: 50%;
   transform: translateX(-50%);
 }
+.tweet-figure img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
 .figure-title {
   display: flex;
   align-items: baseline;
