@@ -12,77 +12,74 @@ type CollectionListProps = {
   entries: readonly CollectionEntry[];
 };
 
+type IndexedEntry = {
+  entry: CollectionEntry;
+  index: number;
+};
+
+type CollectionPeriod = {
+  id: "current" | "archive";
+  label: string;
+  entries: IndexedEntry[];
+};
+
 const formatDate = (date: string) => date.replaceAll("-", ".");
-const DEFAULT_COLLAPSED_THROUGH_YEAR = 2025;
 
 export function CollectionList({ entries }: CollectionListProps) {
+  const [activePeriod, setActivePeriod] =
+    useState<CollectionPeriod["id"]>("current");
   const [selectedIndex, setSelectedIndex] = useState(0);
   const linkRefs = useRef<Array<HTMLAnchorElement | null>>([]);
-  const yearGroups = useMemo(
-    () =>
-      entries.reduce<
-        Array<{
-          year: string;
-          entries: Array<{ entry: CollectionEntry; index: number }>;
-        }>
-      >((groups, entry, index) => {
-        const year = entry.date.slice(0, 4);
-        const currentGroup = groups.at(-1);
+  const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const periods = useMemo<CollectionPeriod[]>(() => {
+    const indexedEntries = entries.map((entry, index) => ({ entry, index }));
+    const currentYear = entries.at(0)?.date.slice(0, 4) ?? "2026";
 
-        if (currentGroup?.year === year) {
-          currentGroup.entries.push({ entry, index });
-        } else {
-          groups.push({ year, entries: [{ entry, index }] });
-        }
-
-        return groups;
-      }, []),
-    [entries],
-  );
-  const [collapsedYears, setCollapsedYears] = useState(
-    () =>
-      new Set(
-        yearGroups
-          .filter(
-            ({ year }) => Number(year) <= DEFAULT_COLLAPSED_THROUGH_YEAR,
-          )
-          .map(({ year }) => year),
-      ),
+    return [
+      {
+        id: "current",
+        label: currentYear,
+        entries: indexedEntries.filter(
+          ({ entry }) => entry.date.slice(0, 4) === currentYear,
+        ),
+      },
+      {
+        id: "archive",
+        label: "ARCHIVE",
+        entries: indexedEntries.filter(
+          ({ entry }) => entry.date.slice(0, 4) !== currentYear,
+        ),
+      },
+    ];
+  }, [entries]);
+  const activeEntries = useMemo(
+    () => periods.find(({ id }) => id === activePeriod)?.entries ?? [],
+    [activePeriod, periods],
   );
   const visibleIndices = useMemo(
-    () =>
-      yearGroups.flatMap((group) =>
-        collapsedYears.has(group.year)
-          ? []
-          : group.entries.map(({ index }) => index),
-      ),
-    [collapsedYears, yearGroups],
+    () => activeEntries.map(({ index }) => index),
+    [activeEntries],
   );
 
-  const toggleYear = (year: string, groupIndices: readonly number[]) => {
-    const willCollapse = !collapsedYears.has(year);
+  const selectPeriod = (period: CollectionPeriod) => {
+    setActivePeriod(period.id);
 
-    if (willCollapse && groupIndices.includes(selectedIndex)) {
-      const nextVisibleIndex = visibleIndices.find(
-        (index) => !groupIndices.includes(index),
-      );
+    const firstIndex = period.entries.at(0)?.index;
+    if (firstIndex !== undefined) setSelectedIndex(firstIndex);
+  };
 
-      if (nextVisibleIndex !== undefined) {
-        setSelectedIndex(nextVisibleIndex);
-      }
-    }
+  const onPeriodKeyDown = (
+    event: React.KeyboardEvent<HTMLButtonElement>,
+    periodIndex: number,
+  ) => {
+    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
 
-    setCollapsedYears((currentYears) => {
-      const nextYears = new Set(currentYears);
-
-      if (nextYears.has(year)) {
-        nextYears.delete(year);
-      } else {
-        nextYears.add(year);
-      }
-
-      return nextYears;
-    });
+    event.preventDefault();
+    const direction = event.key === "ArrowRight" ? 1 : -1;
+    const nextIndex =
+      (periodIndex + direction + periods.length) % periods.length;
+    selectPeriod(periods[nextIndex]);
+    tabRefs.current[nextIndex]?.focus();
   };
 
   useEffect(() => {
@@ -139,64 +136,84 @@ export function CollectionList({ entries }: CollectionListProps) {
   }, [selectedIndex]);
 
   return (
-    <div className="collection-years" aria-label="Collection entries by year">
-      {yearGroups.map((group) => {
-        const isCollapsed = collapsedYears.has(group.year);
-        const groupIndices = group.entries.map(({ index }) => index);
-        const listId = `collection-year-list-${group.year}`;
+    <section
+      className="collection-periods"
+      aria-label="Collection entries by period"
+    >
+      <header className="collection-period-heading">
+        <div
+          className="collection-period-tabs"
+          role="tablist"
+          aria-label="Collection period"
+        >
+          {periods.map((period, periodIndex) => {
+            const isActive = period.id === activePeriod;
+            const tabId = `collection-period-${period.id}`;
+            const panelId = `collection-period-list-${period.id}`;
+
+            return (
+              <button
+                id={tabId}
+                className="collection-period-toggle"
+                type="button"
+                role="tab"
+                aria-controls={panelId}
+                aria-selected={isActive}
+                tabIndex={isActive ? 0 : -1}
+                key={period.id}
+                ref={(element) => {
+                  tabRefs.current[periodIndex] = element;
+                }}
+                onClick={() => selectPeriod(period)}
+                onKeyDown={(event) => onPeriodKeyDown(event, periodIndex)}
+              >
+                [{period.label}]
+              </button>
+            );
+          })}
+        </div>
+        <span>
+          {String(activeEntries.length).padStart(2, "0")} {" "}
+          {activeEntries.length === 1 ? "ENTRY" : "ENTRIES"}
+        </span>
+      </header>
+
+      {periods.map((period) => {
+        const isActive = period.id === activePeriod;
 
         return (
-          <section
-            className="collection-year-group"
-            aria-labelledby={`collection-year-${group.year}`}
-            key={group.year}
+          <ol
+            className="collection-list collection-period-panel"
+            id={`collection-period-list-${period.id}`}
+            role="tabpanel"
+            aria-labelledby={`collection-period-${period.id}`}
+            hidden={!isActive}
+            key={period.id}
           >
-            <header className="collection-year-heading">
-              <h2>
-                <button
-                  id={`collection-year-${group.year}`}
-                  className="collection-year-toggle"
-                  type="button"
-                  aria-controls={listId}
-                  aria-expanded={!isCollapsed}
-                  onClick={() => toggleYear(group.year, groupIndices)}
-                >
-                  <span>[{group.year}]</span>
-                  <i aria-hidden="true">{isCollapsed ? "[+]" : "[−]"}</i>
-                </button>
-              </h2>
-              <span>
-                {String(group.entries.length).padStart(2, "0")}{" "}
-                {group.entries.length === 1 ? "ENTRY" : "ENTRIES"}
-              </span>
-            </header>
-
-            <ol className="collection-list" id={listId} hidden={isCollapsed}>
-              {group.entries.map(({ entry, index }) => (
-                <li
+            {period.entries.map(({ entry, index }) => (
+              <li
+                className={index === selectedIndex ? "is-selected" : ""}
+                key={entry.url}
+                onPointerEnter={() => setSelectedIndex(index)}
+              >
+                <a
                   className={index === selectedIndex ? "is-selected" : ""}
-                  key={entry.url}
-                  onPointerEnter={() => setSelectedIndex(index)}
+                  href={entry.url}
+                  target={entry.url.startsWith("http") ? "_blank" : undefined}
+                  rel={entry.url.startsWith("http") ? "noreferrer" : undefined}
+                  ref={(element) => {
+                    linkRefs.current[index] = element;
+                  }}
+                  onFocus={() => setSelectedIndex(index)}
                 >
-                  <a
-                    className={index === selectedIndex ? "is-selected" : ""}
-                    href={entry.url}
-                    target={entry.url.startsWith("http") ? "_blank" : undefined}
-                    rel={entry.url.startsWith("http") ? "noreferrer" : undefined}
-                    ref={(element) => {
-                      linkRefs.current[index] = element;
-                    }}
-                    onFocus={() => setSelectedIndex(index)}
-                  >
-                    {entry.title}
-                  </a>
-                  <time dateTime={entry.date}>{formatDate(entry.date)}</time>
-                </li>
-              ))}
-            </ol>
-          </section>
+                  {entry.title}
+                </a>
+                <time dateTime={entry.date}>{formatDate(entry.date)}</time>
+              </li>
+            ))}
+          </ol>
         );
       })}
-    </div>
+    </section>
   );
 }

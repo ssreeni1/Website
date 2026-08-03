@@ -281,13 +281,11 @@ main {
   list-style: none;
 }
 
-.collection-years {
-  display: grid;
+.collection-periods {
   margin-top: clamp(14px, 1.5vw, 22px);
-  gap: 34px;
 }
 
-.collection-year-heading {
+.collection-period-heading {
   min-height: 34px;
   display: flex;
   align-items: flex-start;
@@ -297,52 +295,43 @@ main {
   letter-spacing: 0.06em;
 }
 
-.collection-year-heading h2,
-.collection-year-heading > span {
+.collection-period-heading > span {
   margin: 0;
   font: inherit;
   font-weight: 400;
+  color: var(--muted);
 }
 
-.collection-year-heading h2 {
-  margin: 0;
-}
-
-.collection-year-toggle {
+.collection-period-tabs {
   display: flex;
   align-items: baseline;
-  gap: 8px;
+  gap: 16px;
+}
+
+.collection-period-toggle {
   margin: 0;
   padding: 0;
   border: 0;
   background: transparent;
-  color: var(--red);
+  color: var(--muted);
   font: inherit;
   letter-spacing: inherit;
   cursor: pointer;
-}
-
-.collection-year-toggle i {
-  color: var(--muted);
-  font-style: normal;
   transition: color 150ms ease;
 }
 
-.collection-year-toggle:hover i,
-.collection-year-toggle:focus-visible i {
+.collection-period-toggle:hover,
+.collection-period-toggle:focus-visible,
+.collection-period-toggle[aria-selected="true"] {
   color: var(--red);
 }
 
-.collection-year-toggle:focus-visible {
+.collection-period-toggle:focus-visible {
   outline: 1px solid var(--red);
   outline-offset: 4px;
 }
 
-.collection-year-heading > span {
-  color: var(--muted);
-}
-
-.collection-list[hidden] {
+.collection-period-panel[hidden] {
   display: none;
 }
 
@@ -1444,13 +1433,13 @@ main {
     font-size: 8px;
   }
 
-  .collection-years {
-    gap: 26px;
-  }
-
-  .collection-year-heading {
+  .collection-period-heading {
     min-height: 26px;
     font-size: 8px;
+  }
+
+  .collection-period-tabs {
+    gap: 14px;
   }
 
   .collection-list li {
