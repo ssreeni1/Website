@@ -237,6 +237,29 @@ main {
   letter-spacing: inherit;
 }
 
+.truth-page {
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+}
+
+.truth-figure {
+  flex: 1;
+  margin: 0;
+  padding: clamp(8px, 2vh, 24px) max(12px, 2vw) clamp(32px, 6vh, 64px);
+  display: grid;
+  place-items: center;
+}
+
+.truth-figure img {
+  max-width: min(92vw, 620px);
+  max-height: 76svh;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+}
+
 .collection-page {
   min-height: 100svh;
   overflow: auto;

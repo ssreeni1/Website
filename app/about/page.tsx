@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { SiteNav } from "../SiteNav";
 
 export const metadata: Metadata = {
@@ -79,6 +80,7 @@ export default function AboutPage() {
           >
             LI
           </a>
+          <Link href="/truth/">?</Link>
         </nav>
       </article>
     </main>
