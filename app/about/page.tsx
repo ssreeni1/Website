@@ -26,8 +26,8 @@ export default function AboutPage() {
 
         <p>
           Currently, I&apos;m exploring while independently working with
-          companies to implement frontier agentic systems. My work spans both
-          legacy and technology-forward industries.
+          companies to build and deploy frontier agentic systems for them. My
+          work spans both legacy and technology-forward industries.
         </p>
 
         <p>
@@ -54,8 +54,8 @@ export default function AboutPage() {
         </p>
 
         <p>
-          I&apos;m interested in the synthesis of new institutions/structures,
-          the{" "}
+          I&apos;m strongly interested in the diffusion of technology in
+          service of humanity, the synthesis of new institutions/structures,{" "}
           <a
             href="https://x.com/sanlsrni/status/2054306602849652752"
             {...externalLinkProps}
@@ -66,9 +66,10 @@ export default function AboutPage() {
           <a href="https://center.study/" {...externalLinkProps}>
             center studies
           </a>
-          , and philosophy/theology generally. And motorsports (if you
-          couldn&apos;t tell).
+          , and philosophy/theology generally.
         </p>
+
+        <p>And backgammon (if you couldn&apos;t tell).</p>
 
         <nav className="about-socials" aria-label="Social profiles">
           <a href="https://x.com/sanlsrni" {...externalLinkProps}>
