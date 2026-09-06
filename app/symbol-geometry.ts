@@ -126,14 +126,46 @@ function ouroboros(): Path[] {
       paths.push(smooth([body(t, phase), body(t + 0.011, phase + 0.37), body(t + 0.022, phase), body(t + 0.011, phase - 0.37)], true));
     }
   }
-  // Head points down towards the tapered tail; jaws meet it at y≈0.45.
-  ellipsoid(paths, v(2.67, 0.72, 0.02), v(0.5, 0.64, 0.4), 8, 5);
-  for (const z of [-0.26, 0.26]) {
-    paths.push(smooth([v(2.26, 0.68, z), v(2.29, 0.19, z), v(2.73, 0.02, z), v(3.08, 0.24, z), v(3.03, 0.69, z)]));
-    paths.push(smooth([v(2.33, 0.43, z), v(2.71, 0.35, z), v(3.02, 0.44, z)]));
-    paths.push(ellipse(v(2.94, 0.9, z > 0 ? 0.35 : -0.35), v(0.09, 0), v(0, 0.13)));
-    paths.push(straight(v(2.94, 0.81, z > 0 ? 0.36 : -0.36), v(2.94, 0.98, z > 0 ? 0.36 : -0.36)));
+  // A short, faceted serpent skull, continuous with the neck's radial frame.
+  // Flatten and taper towards a blunt snout instead of capping an oval head
+  // with rounded jaw loops. The returning tail ends inside the mouth volume.
+  const neckAngle = 0.32;
+  const origin = v(2.72 * Math.cos(neckAngle), 2.72 * Math.sin(neckAngle), 0.09 * Math.sin(neckAngle * 2));
+  const outward = v(Math.cos(neckAngle), Math.sin(neckAngle));
+  const forward = v(Math.sin(neckAngle), -Math.cos(neckAngle));
+  const sections = [
+    { s: 0, width: 0.43, depth: 0.43 },
+    { s: 0.17, width: 0.49, depth: 0.32 },
+    { s: 0.4, width: 0.35, depth: 0.22 },
+    { s: 0.67, width: 0.21, depth: 0.12 },
+    { s: 0.71, width: 0.2, depth: 0.1 },
+  ];
+  const headPoint = (s: number, phase: number) => {
+    let i = 0;
+    while (i < sections.length - 2 && sections[i + 1].s < s) i += 1;
+    const a = sections[i], b = sections[i + 1];
+    const t = THREE.MathUtils.clamp((s - a.s) / (b.s - a.s), 0, 1);
+    const width = THREE.MathUtils.lerp(a.width, b.width, t);
+    const depth = THREE.MathUtils.lerp(a.depth, b.depth, t);
+    const sector = phase / (TAU / 8), corner = Math.floor(sector);
+    const angleA = corner * TAU / 8, angleB = (corner + 1) * TAU / 8;
+    return origin.clone().addScaledVector(forward, s)
+      .addScaledVector(outward, width * THREE.MathUtils.lerp(Math.cos(angleA), Math.cos(angleB), sector - corner))
+      .add(v(0, 0, depth * THREE.MathUtils.lerp(Math.sin(angleA), Math.sin(angleB), sector - corner)));
+  };
+  for (let i = 0; i < 8; i += 1) paths.push(sections.map(({ s }) => headPoint(s, i * TAU / 8)));
+  for (const { s } of sections) paths.push(Array.from({ length: 9 }, (_, i) => headPoint(s, i * TAU / 8)));
+  for (const side of [1, -1]) {
+    const phase = (angle: number) => side === 1 ? angle : Math.PI - angle;
+    // Almond eyes, narrow pupils and brows lie on the same faceted surface.
+    paths.push(curve((t) => headPoint(0.23 + 0.08 * Math.cos(TAU * t), phase(0.86 + 0.2 * Math.sin(TAU * t)))));
+    paths.push(curve((t) => headPoint(0.185 + t * 0.09, phase(0.86))));
+    paths.push(curve((t) => headPoint(0.12 + t * 0.19, phase(1.13 - 0.08 * t))));
+    // Recessed-looking lip seams replace the oversized, protruding jaw loops.
+    paths.push(curve((t) => headPoint(0.22 + t * 0.49, phase(0.18))));
   }
+  paths.push(straight(headPoint(0.71, 0.18), headPoint(0.71, Math.PI - 0.18)));
+  paths.push(straight(headPoint(0.71, Math.PI / 2), headPoint(0.71, -Math.PI / 2)));
   return paths;
 }
 
