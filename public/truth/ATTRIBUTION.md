@@ -58,7 +58,7 @@ Title and artist verified with YouTube oEmbed; YouTube reports embedding allowed
 Local WebP posters derive from the official video thumbnail:
 https://i.ytimg.com/vi/6pmdglykhjE/maxresdefault.jpg
 Audio/video remain on YouTube and only load after the viewer presses Play.
-Inserted immediately before Nolan / Time. Retrieved 6 September 2026.
+Retrieved 6 September 2026.
 
 ## If—
 
