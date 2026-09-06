@@ -2,12 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-
-type CollectionEntry = {
-  title: string;
-  date: string;
-  url: string;
-};
+import type { CollectionEntry } from "../../content/collection";
 
 type CollectionListProps = {
   entries: readonly CollectionEntry[];
@@ -41,14 +36,14 @@ export function CollectionList({ entries }: CollectionListProps) {
         id: "current",
         label: currentYear,
         entries: indexedEntries.filter(
-          ({ entry }) => entry.date.slice(0, 4) === currentYear,
+          ({ entry }) => !entry.archived,
         ),
       },
       {
         id: "archive",
         label: "ARCHIVE",
         entries: indexedEntries.filter(
-          ({ entry }) => entry.date.slice(0, 4) !== currentYear,
+          ({ entry }) => entry.archived,
         ),
       },
     ];

@@ -90,7 +90,7 @@ test("server-renders the personal site shell", async () => {
     html,
     /Interactive full-game backgammon simulation with exact state analysis/,
   );
-  assert.match(html, /DRAG \/ ORBIT · SCROLL \/ ZOOM/);
+  assert.doesNotMatch(html, /class="(?:view-hint|scene-overlay)"/);
   assert.match(html, /PIP COUNT \/ EXACT BOARD STATE/);
   assert.match(html, /Live dice roll/);
   assert.doesNotMatch(html, />SILVERSTONE<\/strong>/);
@@ -205,10 +205,39 @@ test("serves the linked Collection archive without descriptions", async () => {
   assert.match(html, /\[(?:<!-- -->)?ARCHIVE(?:<!-- -->)?\]/);
   assert.match(html, /id="collection-period-list-current"/);
   assert.match(html, /id="collection-period-list-archive"[^>]*hidden=""/);
+  const current = html.match(/<ol[^>]*id="collection-period-list-current"[^>]*>([\s\S]*?)<\/ol>/)?.[1];
+  const archive = html.match(/<ol[^>]*id="collection-period-list-archive"[^>]*>([\s\S]*?)<\/ol>/)?.[1];
+  assert.ok(current && archive);
+  for (const href of ["https://pain.flights", "/collections/when-everything-goes-to-zero", "/collections/permanence-is-the-rarest-asset-class"]) {
+    assert.ok(!current.includes(`href="${href}"`));
+    assert.ok(archive.includes(`href="${href}"`));
+  }
   assert.doesNotMatch(html, /id="collection-year-(?:2025|2021)"/);
   assert.match(html, /Use up and down arrow keys to change selection/);
   assert.match(html, /\[↓\]\s*\[↑\]/);
   assert.doesNotMatch(html, /Investing in early-stage|Products for BTC Miners/);
+});
+
+test("Find numbers Collection entries with current first, then archive, both newest first", async () => {
+  const html = await (await render("/")).text();
+  const directory = html.match(/<nav aria-label="Directory navigation">([\s\S]*?)<\/nav>/)?.[1];
+  assert.ok(directory);
+  const expected = [
+    "/", "/about", "/truth", "/collection",
+    "/collections/five-lines",
+    "https://x.com/sanlsrni/status/2059710155881677025",
+    "https://atlaseternal.xyz",
+    "https://superpositioned.co",
+    "/collections/permanence-is-the-rarest-asset-class",
+    "https://pain.flights",
+    "/collections/when-everything-goes-to-zero",
+    "/collections/hyperspeculation-genesis-ii",
+    "/collections/shigetas-dream", "/collections/genesis-i",
+    "/collections/the-hedonists-stone", "/collections/speculation-is-dead",
+    "/collections/building-trading", "https://observablehq.com/@ssreeni1/picklerick",
+  ];
+  assert.deepEqual([...directory.matchAll(/href="([^"]+)"/g)].map(match => match[1]), expected);
+  assert.deepEqual([...directory.matchAll(/<b class="finder-number">(\d+)<\/b>/g)].map(match => match[1]), expected.map((_, i) => String(i + 1).padStart(2, "0")));
 });
 
 test("serves registered posts as Collection subpages", async () => {

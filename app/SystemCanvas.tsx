@@ -2503,19 +2503,6 @@ function DiceVignette() {
   );
 }
 
-function SceneOverlay() {
-  return (
-    <div className="scene-overlay">
-      <p className="view-hint">
-        <span className="desktop-view-hint">
-        DRAG / ORBIT · SCROLL / ZOOM · DOUBLE-CLICK / RESET
-        </span>
-        <span className="touch-view-hint">SWIPE / SWITCH · TWO FINGERS / ORBIT + ZOOM</span>
-      </p>
-    </div>
-  );
-}
-
 const VIEW_CONFIG: Record<
   VisualMode,
   SceneView & { minimumPitch: number; minimumDistance: number; maximumDistance: number }
@@ -2926,7 +2913,6 @@ export function SystemCanvas({ mode, onSwipe }: { mode: VisualMode; onSwipe?: (d
         }
         role="application"
       >
-        <SceneOverlay />
       </div>
 
       <aside className="telemetry-rail telemetry-rail-right">

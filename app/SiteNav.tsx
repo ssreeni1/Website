@@ -1,11 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { writingRoutes } from "../content/posts/writing-routes";
+import type { CollectionEntry } from "../content/collection";
 
-const routes = [
+const pageRoutes = [
   { name: "Home", path: "/", href: "/", depth: 0 },
   { name: "About", path: "/about", href: "/about", depth: 0 },
   { name: "Truth", path: "/truth", href: "/truth", depth: 0 },
@@ -15,12 +15,6 @@ const routes = [
     href: "/collection",
     depth: 0,
   },
-  ...writingRoutes.map(({ slug, title }) => ({
-    name: title,
-    path: `/collections/${slug}`,
-    href: `/collections/${slug}`,
-    depth: 1,
-  })),
 ];
 
 type SiteTheme = "light" | "dark";
@@ -35,7 +29,13 @@ function applySiteTheme(theme: SiteTheme) {
   );
 }
 
-export function SiteNav() {
+export function SiteNav({ collectionEntries }: { collectionEntries: readonly CollectionEntry[] }) {
+  const routes = useMemo(() => [
+    ...pageRoutes,
+    ...collectionEntries
+      .toSorted((a, b) => Number(a.archived) - Number(b.archived) || b.date.localeCompare(a.date))
+      .map(entry => ({ name: entry.title, path: entry.url, href: entry.url, depth: 1 })),
+  ], [collectionEntries]);
   const router = useRouter();
   const pathname = usePathname();
   const isTruth = /^\/truth\/?$/.test(pathname);
@@ -45,6 +45,7 @@ export function SiteNav() {
   const [finderIndex, setFinderIndex] = useState(0);
   const [theme, setTheme] = useState<SiteTheme>("dark");
   const finderInputRef = useRef<HTMLInputElement>(null);
+  const finderTriggerRef = useRef<HTMLButtonElement>(null);
   const finderRouteRefs = useRef<Array<HTMLAnchorElement | null>>([]);
   const themeRef = useRef<SiteTheme>("dark");
   const filteredRoutes = routes.filter((route) =>
@@ -77,10 +78,16 @@ export function SiteNav() {
     };
     document.addEventListener("click", onClick);
     return () => document.removeEventListener("click", onClick);
-  }, [router]);
+  }, [router, routes]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && finderOpen) {
+        event.preventDefault();
+        setFinderOpen(false);
+        finderTriggerRef.current?.focus();
+        return;
+      }
       const target = event.target as HTMLElement;
       const isTyping =
         target.tagName === "INPUT" ||
@@ -122,12 +129,11 @@ export function SiteNav() {
         toggleTheme();
       }
 
-      if (event.key === "Escape") setFinderOpen(false);
     };
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [backHref, router, toggleTheme]);
+  }, [backHref, router, toggleTheme, finderOpen]);
 
   useEffect(() => {
     const storedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
@@ -143,7 +149,16 @@ export function SiteNav() {
 
   useEffect(() => {
     if (!finderOpen) return;
-    window.requestAnimationFrame(() => finderInputRef.current?.focus());
+    const input = finderInputRef.current;
+    const trigger = finderTriggerRef.current;
+    const frame = window.requestAnimationFrame(() => input?.focus());
+    return () => {
+      window.cancelAnimationFrame(frame);
+      // A fast Escape must not lose focus to the deferred autofocus above.
+      if (input?.closest(".finder")?.contains(document.activeElement)) {
+        trigger?.focus();
+      }
+    };
   }, [finderOpen]);
 
   useEffect(() => {
@@ -175,6 +190,7 @@ export function SiteNav() {
           </Link>
           <button
             type="button"
+            ref={finderTriggerRef}
             onClick={() => {
               setFinderIndex(0);
               setFinderOpen(true);
@@ -245,8 +261,7 @@ export function SiteNav() {
                   setFinderIndex((index) => Math.max(0, index - 1));
                 }
                 if (event.key === "Enter" && filteredRoutes[finderIndex]) {
-                  router.push(filteredRoutes[finderIndex].href);
-                  setFinderOpen(false);
+                  finderRouteRefs.current[finderIndex]?.click();
                 }
               }}
             />
@@ -259,6 +274,8 @@ export function SiteNav() {
                   index === finderIndex ? "is-selected" : ""
                 }`}
                 href={route.href}
+                target={route.href.startsWith("http") ? "_blank" : undefined}
+                rel={route.href.startsWith("http") ? "noreferrer" : undefined}
                 key={route.href}
                 tabIndex={finderOpen ? 0 : -1}
                 ref={(element) => {
@@ -269,7 +286,7 @@ export function SiteNav() {
               >
                 <span>{route.name}</span>
                 <i>{route.path}</i>
-                <b>{String(index + 1).padStart(2, "0")}</b>
+                <b className="finder-number">{String(index + 1).padStart(2, "0")}</b>
               </Link>
             ))}
             {filteredRoutes.length === 0 && (
