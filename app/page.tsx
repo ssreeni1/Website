@@ -84,6 +84,8 @@ export default function Home() {
 
   return (
     <main className="home-page">
+      {/* Fetch alongside the page, not after the visitor clicks the car. */}
+      <link rel="preload" as="fetch" href="/models/formula-runtime-v1.bin.gz" crossOrigin="anonymous" fetchPriority="low" />
       <SiteNav />
 
       <section className="system" id="about" aria-labelledby="system-title">

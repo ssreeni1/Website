@@ -17,7 +17,7 @@ function interval(values: number[], target: number) {
   return lo;
 }
 
-export function buildRacingPath(locations: Location[], speeds: Speed[], recordedDuration: number) {
+export function buildRacingPath(locations: Location[], speeds: Speed[], recordedDuration: number, precomputedOffsets?: readonly number[]) {
   if (locations.length < 4 || speeds.length < 2 || recordedDuration <= 0) throw new Error('A complete lap is required');
   const source = locations.filter((p, i) => !i || Math.hypot(p.x-locations[i-1].x,p.y-locations[i-1].y)>0.01);
   const distances=[0];
@@ -48,7 +48,8 @@ export function buildRacingPath(locations: Location[], speeds: Speed[], recorded
   // The 6m control bound guarantees <=6m displacement
   // everywhere: cubic B-spline basis functions are positive and sum to one.
   const maxOffset=6, slopePenalty=0.001, anchorPenalty=0.000002;
-  let offsets=new Float64Array(count), momentum=1;
+  if(precomputedOffsets && (precomputedOffsets.length!==count || precomputedOffsets.some(value=>!Number.isFinite(value)||Math.abs(value)>maxOffset))) throw new Error('Invalid prepared racing line');
+  let offsets=precomputedOffsets?Float64Array.from(precomputedOffsets):new Float64Array(count), momentum=1;
   const extrapolated=new Float64Array(count);
   const qx=new Float64Array(count),qy=new Float64Array(count),tx=new Float64Array(count),ty=new Float64Array(count),edgeLength=new Float64Array(count);
   const gx=new Float64Array(count),gy=new Float64Array(count),gradient=new Float64Array(count);
@@ -71,7 +72,7 @@ export function buildRacingPath(locations: Location[], speeds: Speed[], recorded
     return cost;
   }
   let step=.04;
-  for(let iteration=0;iteration<3200;iteration++){
+  for(let iteration=0;!precomputedOffsets && iteration<3200;iteration++){
     const baseCost=objective(extrapolated,true),next=new Float64Array(count),nextMomentum=(1+Math.sqrt(1+4*momentum*momentum))/2;
     for(let search=0;search<20;search++){
       let bound=baseCost;
@@ -151,6 +152,6 @@ export function buildRacingPath(locations: Location[], speeds: Speed[], recorded
       modeledThrottle:motion.acceleration<-.15?0:100*clamp((motion.acceleration+drag)/(acceleration(motion.speed)+drag),0,1),
       modeledBrake:100*clamp(-motion.acceleration/braking,0,1),recordedTime,recordedSpeed:recordedSpeedAt(recordedTime)};
   }
-  return {atTime,atDistance,distanceAt,roadSamples,length,roadLength,integratedLength,duration,recordedDuration,
+  return {atTime,atDistance,distanceAt,roadSamples,length,roadLength,integratedLength,duration,recordedDuration,controlOffsets:Array.from(offsets),
     model:{maxOffset,mechanicalGrip,downforceGrip,braking,topSpeed,method:'bounded discrete-curvature-energy approximation'}};
 }

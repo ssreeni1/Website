@@ -2,12 +2,11 @@
 
 import { useCallback, useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import * as THREE from "three";
-import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import { MeshoptDecoder } from "three/examples/jsm/libs/meshopt_decoder.module.js";
+import { loadFormulaAsset, instantiateFormulaAsset } from "./formula-assets";
 import { generateGame, barPoint, offPoint, opponent, validateGame } from "./backgammon-engine";
 import { buildSymbolForms, SYMBOL_FEATURE_PATH_COUNT, SYMBOL_FEATURE_SAMPLES } from "./symbol-geometry";
 import { buildRacingPath } from "./racing-path";
-import { buildModernFormulaModel, formulaWheelYaw, formulaTireContours, wheelDetailVisibility } from "./formula-model";
+import { formulaWheelYaw, wheelDetailVisibility } from "./formula-model";
 
 type VisualMode = 1 | 2 | 3;
 type SceneTheme = "light" | "dark";
@@ -391,24 +390,38 @@ function drawTrackMap(
   context.fill();
 }
 
-async function buildFormulaScene(
+function fetchFormulaResources() {
+  return Promise.all([
+    loadFormulaAsset(),
+    fetch("/data/silverstone-antonelli-l18.json").then(response => {
+      if (!response.ok) throw new Error("Formula telemetry could not be loaded");
+      return response.json() as Promise<TelemetryData>;
+    }),
+  ]).then(([template, telemetry]) => ({
+    template, telemetry,
+    racingPath: buildRacingPath(telemetry.location, telemetry.car, telemetry.source.lapDurationMs, template.metadata.racingOffsets),
+  }));
+}
+
+let formulaResources: ReturnType<typeof fetchFormulaResources> | undefined;
+function loadFormulaResources() {
+  return formulaResources ??= fetchFormulaResources().catch(error => {
+    formulaResources = undefined;
+    throw error;
+  });
+}
+
+function buildFormulaScene(
   scene: THREE.Scene,
   camera: THREE.PerspectiveCamera,
   hudRoot: HTMLDivElement | null,
   trackCanvas: HTMLCanvasElement | null,
-): Promise<SceneController> {
+  resources: Awaited<ReturnType<typeof fetchFormulaResources>>,
+): SceneController {
   setHud(hudRoot, "model-state", "LOADING / GEOMETRY + LAP");
   scene.fog = new THREE.Fog(PAPER, 34, 110);
 
-  const loader = new GLTFLoader();
-  loader.setMeshoptDecoder(MeshoptDecoder);
-  const [gltf, telemetry] = await Promise.all([
-    loader.loadAsync("/models/formula-w14.glb"),
-    fetch("/data/silverstone-antonelli-l18.json").then(
-      (response) => response.json() as Promise<TelemetryData>,
-    ),
-  ]);
-  const racingPath = buildRacingPath(telemetry.location, telemetry.car, telemetry.source.lapDurationMs);
+  const { template, racingPath } = resources;
   const motionDuration = racingPath.duration;
   const trackLocations = racingPath.roadSamples;
 
@@ -424,7 +437,7 @@ async function buildFormulaScene(
   carRig.add(wheelKey);
   carRig.add(wheelKey.target);
 
-  const prepared = buildModernFormulaModel(gltf.scene);
+  const { prepared, edges: preparedEdges } = instantiateFormulaAsset(template);
   const model = prepared.root;
   carRig.add(model);
   const chassis = prepared.chassis;
@@ -551,7 +564,7 @@ async function buildFormulaScene(
     };
     edgeMaterial.customProgramCacheKey = () => "schematic-scan-v1";
     const edges = new THREE.LineSegments(
-      isTire ? formulaTireContours(mesh.geometry) : new THREE.EdgesGeometry(mesh.geometry, isWheel ? 35 : 16),
+      preparedEdges.get(mesh.geometry)!,
       edgeMaterial,
     );
     if (isTire) {
@@ -2569,6 +2582,13 @@ export function SystemCanvas({ mode }: { mode: VisualMode }) {
   }, []);
 
   useEffect(() => {
+    // Start after the initial scene has had an opportunity to paint. This only
+    // warms immutable data; it never creates another WebGL context or scene.
+    const timer = window.setTimeout(() => { void loadFormulaResources().catch(() => {}); }, 120);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
     const mount = mountRef.current;
     if (!mount || !sceneTheme) return;
 
@@ -2599,11 +2619,16 @@ export function SystemCanvas({ mode }: { mode: VisualMode }) {
     const setup = async () => {
       try {
         if (mode === 1) {
-          controller = await buildFormulaScene(
+          setHud(hudRootRef.current, "model-state", "LOADING / GEOMETRY + LAP");
+          const resources = await loadFormulaResources();
+          // A user may switch away while the shared prefetch is in flight.
+          if (disposed) return;
+          controller = buildFormulaScene(
             scene,
             camera,
             hudRootRef.current,
             trackCanvasRef.current,
+            resources,
           );
         } else if (mode === 2) {
           controller = buildBackgammonScene(

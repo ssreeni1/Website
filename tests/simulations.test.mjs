@@ -4,6 +4,8 @@ import {readFileSync} from 'node:fs';
 import {buildRacingPath} from '../app/racing-path.ts';
 import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+import {gunzipSync} from 'node:zlib';
+import {decodeFormulaAsset, instantiateFormulaAsset} from '../app/formula-assets.ts';
 import {buildModernFormulaModel, formulaWheelYaw, formulaTireContours, wheelDetailVisibility} from '../app/formula-model.ts';
 import { initialState, pipCount, legalMoves, legalPlays, applyMove, generateGame, validateGame, offPoint } from '../app/backgammon-engine.ts';
 import { buildSymbolForms, SYMBOL_FEATURE_PATH_COUNT, SYMBOL_FEATURE_SAMPLES } from '../app/symbol-geometry.ts';
@@ -128,6 +130,55 @@ test('actual GLTF loader preserves four hub-centered steering and spin rigs', as
   loader.register(parser=>({name:'QA_MATERIALS',loadMaterial:index=>Promise.resolve(new THREE.MeshStandardMaterial({name:parser.json.materials[index].name}))}));
   const gltf=await loader.parseAsync(binary.buffer.slice(binary.byteOffset,binary.byteOffset+binary.byteLength),'');
   const model=buildModernFormulaModel(gltf.scene);
+  const packed=readFileSync(new URL('../public/models/formula-runtime-v1.bin.gz',import.meta.url));
+  assert.ok(packed.length<1600000,'runtime transfer budget');
+  const unpacked=gunzipSync(packed);
+  const template=await decodeFormulaAsset(unpacked.buffer.slice(unpacked.byteOffset,unpacked.byteOffset+unpacked.byteLength));
+  const telemetry=JSON.parse(readFileSync(new URL('../public/data/silverstone-antonelli-l18.json',import.meta.url),'utf8'));
+  const slowPath=buildRacingPath(telemetry.location,telemetry.car,telemetry.source.lapDurationMs);
+  const fastPath=buildRacingPath(telemetry.location,telemetry.car,telemetry.source.lapDurationMs,template.metadata.racingOffsets);
+  assert.deepEqual(fastPath.roadSamples,slowPath.roadSamples);
+  assert.equal(fastPath.duration,slowPath.duration);
+  for(let t=-100;t<slowPath.duration+100;t+=137)assert.deepEqual(fastPath.atTime(t),slowPath.atTime(t));
+  const {prepared:fast,edges}=instantiateFormulaAsset(template);
+  assert.equal(fast.wheelbase,model.wheelbase);
+  assert.equal(fast.frontTrack,model.frontTrack);
+  assert.deepEqual(fast.bounds,model.bounds);
+  let meshes=0;
+  const restoredMeshes=[];
+  fast.root.traverse(object=>{if(object.isMesh)restoredMeshes.push(object)});
+  model.root.traverse(original=>{
+    if(!original.isMesh)return;
+    const restored=restoredMeshes[meshes++];
+    assert.ok(restored?.isMesh,original.name);
+    assert.deepEqual(restored.position.toArray(),original.position.toArray());
+    assert.deepEqual(restored.userData,original.userData);
+    for(const key of ['position','normal']){
+      if(key==='normal' && original.userData.formulaRole!=='wheel')continue;
+      const before=original.geometry.getAttribute(key).array;
+      const after=restored.geometry.getAttribute(key).array;
+      assert.equal(before.length,after.length);
+      for(let i=0;i<before.length;i++)assert.ok(Math.abs(before[i]-after[i])<(key==='normal'?0.0001:0.0000105),original.name+' '+key);
+    }
+    const before=original.geometry.index?.array,after=restored.geometry.index?.array;
+    assert.equal(before?.length,after?.length);
+    if(before)for(let i=0;i<before.length;i+=3){
+      // Meshopt may cyclically rotate a triangle, never alter its winding.
+      assert.ok([0,1,2].some(shift=>[0,1,2].every(k=>before[i+k]===after[i+(k+shift)%3])));
+    }
+    const tire=original.userData.formulaRole==='wheel' && original.userData.sourceMaterial==='Material.001';
+    const oldEdges=tire?formulaTireContours(original.geometry):new THREE.EdgesGeometry(original.geometry,original.userData.formulaRole==='wheel'?35:16);
+    const beforeEdges=oldEdges.getAttribute('position').array;
+    const afterEdges=edges.get(restored.geometry).getAttribute('position').array;
+    assert.equal(beforeEdges.length,afterEdges.length);
+    for(let i=0;i<beforeEdges.length;i++)assert.ok(Math.abs(beforeEdges[i]-afterEdges[i])<0.0000105);
+    oldEdges.dispose();
+  });
+  assert.equal(edges.size,meshes,'no mesh or outline omitted');
+  // GPU wrappers must not be shared with independently mounted scenes.
+  const second=instantiateFormulaAsset(template);
+  assert.notEqual(second.prepared.root,fast.root);
+  assert.notEqual(second.edges.keys().next().value,edges.keys().next().value);
   assert.equal(model.wheels.length,4);
   assert.ok(Math.abs(model.bounds.max.x-model.bounds.min.x-2)<0.001);
   assert.ok(Math.abs(model.bounds.min.y)<0.001);

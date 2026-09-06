@@ -54,6 +54,7 @@ test("server-renders the personal site shell", async () => {
 
   const html = await response.text();
   assert.match(html, /<html[^>]*data-theme="dark"/i);
+  assert.match(html, /<link[^>]*href="\/models\/formula-runtime-v1.bin.gz"[^>]*>/);
   assert.match(html, /<title>Saneel — Independent Builder<\/title>/i);
   assert.match(html, /property="og:title" content="Saneel"/i);
   assert.match(html, /name="twitter:title" content="Saneel"/i);
