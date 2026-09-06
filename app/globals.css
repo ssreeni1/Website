@@ -134,15 +134,22 @@ main {
     background-color 160ms ease;
 }
 
-.topbar-nav a:hover,
-.topbar-nav button:hover,
 .topbar-nav a:focus-visible,
 .topbar-nav button:focus-visible,
-.topbar-back:hover,
 .topbar-back:focus-visible {
   color: var(--red);
   border-color: var(--red);
   outline: 0;
+}
+
+/* Touch browsers can retain :hover after a tap, including during later swipes. */
+@media (hover: hover) and (pointer: fine) {
+  .topbar-nav a:hover,
+  .topbar-nav button:hover,
+  .topbar-back:hover {
+    color: var(--red);
+    border-color: var(--red);
+  }
 }
 
 /* Primary navigation has more presence than the small carousel controls. */
