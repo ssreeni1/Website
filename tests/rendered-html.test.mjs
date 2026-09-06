@@ -40,7 +40,7 @@ test("server-renders the personal site shell", async () => {
   assert.doesNotMatch(html, /Formula \/ telemetry/);
   assert.match(
     html,
-    /Interactive five-turn backgammon simulation with exact state analysis/,
+    /Interactive full-game backgammon simulation with exact state analysis/,
   );
   assert.match(html, /DRAG \/ ORBIT · SCROLL \/ ZOOM/);
   assert.match(html, /PIP COUNT \/ EXACT BOARD STATE/);
@@ -293,7 +293,7 @@ test("exports the complete GitHub Pages artifact", async () => {
 });
 
 test("ships bounded model assets and recorded telemetry", async () => {
-  const modelUrl = new URL("../public/models/formula1.glb", import.meta.url);
+  const modelUrl = new URL("../public/models/formula-w14.glb", import.meta.url);
   const telemetryUrl = new URL(
     "../public/data/silverstone-antonelli-l18.json",
     import.meta.url,
@@ -309,7 +309,8 @@ test("ships bounded model assets and recorded telemetry", async () => {
   ]);
 
   assert.ok(modelStats.size > 1_000_000);
-  assert.ok(modelStats.size < 3_000_000);
+  // Modern 232k-triangle model replaces the simpler historic asset.
+  assert.ok(modelStats.size < 8_000_000);
 
   const telemetry = JSON.parse(telemetryRaw);
   assert.equal(telemetry.source.name, "OpenF1");

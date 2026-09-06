@@ -42,13 +42,13 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    if (!autoCycle) return;
+    if (!autoCycle || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     const interval = window.setInterval(() => {
       setActiveVisual((visual) => adjacentVisual(visual, 1));
-    }, 26000);
+    }, activeVisual === 2 ? 100000 : 30000);
 
     return () => window.clearInterval(interval);
-  }, [autoCycle]);
+  }, [autoCycle, activeVisual]);
 
   useEffect(() => {
     const onKeyUp = (event: KeyboardEvent) => {

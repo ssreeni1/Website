@@ -1,9 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState, type RefObject } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { MeshoptDecoder } from "three/examples/jsm/libs/meshopt_decoder.module.js";
+import { generateGame, barPoint, offPoint, opponent, validateGame } from "./backgammon-engine";
+import { buildSymbolForms, SYMBOL_FEATURE_PATH_COUNT, SYMBOL_FEATURE_SAMPLES } from "./symbol-geometry";
+import { buildRacingPath } from "./racing-path";
+import { buildModernFormulaModel, formulaWheelYaw } from "./formula-model";
 
 type VisualMode = 1 | 2 | 3;
 type SceneTheme = "light" | "dark";
@@ -39,13 +43,6 @@ type TelemetryData = {
   location: LocationSample[];
 };
 
-type SampleWindow<T> = {
-  a: T;
-  b: T;
-  mix: number;
-  index: number;
-};
-
 type SceneController = {
   root: THREE.Group;
   update: (
@@ -61,24 +58,11 @@ type SceneView = {
   distance: number;
 };
 
-type SmoothLocation = {
-  x: number;
-  y: number;
-  dx: number;
-  dy: number;
-  index: number;
-};
-
 let SCENE_IS_DARK = false;
 let INK = 0x171717;
 let PAPER = 0xf6f6f3;
 let RED = 0xf02b1d;
 let MUTED = 0xa6a69f;
-let ROAD_SURFACE = 0xe4e4de;
-let FORMULA_WHEEL = 0x282828;
-let FORMULA_INTERIOR = 0x565652;
-let FORMULA_BODY = 0x3b3b39;
-let FORMULA_WHEEL_EDGE = 0x101010;
 let BOARD_BODY = 0xededE8;
 let BOARD_BAR = 0xe6e6e0;
 let BOARD_POINT_A = 0xd8d8d1;
@@ -92,20 +76,16 @@ function applySceneTheme(theme: SceneTheme) {
   SCENE_IS_DARK = theme === "dark";
   INK = SCENE_IS_DARK ? 0xe8e8e2 : 0x171717;
   PAPER = SCENE_IS_DARK ? 0x0d0f10 : 0xf6f6f3;
-  RED = SCENE_IS_DARK ? 0xff4938 : 0xf02b1d;
+  // Fine strokes need a deeper red on paper than large CSS labels do.
+  RED = SCENE_IS_DARK ? 0xff4938 : 0xc92b20;
   MUTED = SCENE_IS_DARK ? 0x8a8d88 : 0xa6a69f;
-  ROAD_SURFACE = SCENE_IS_DARK ? 0x292c2e : 0xe4e4de;
-  FORMULA_WHEEL = SCENE_IS_DARK ? 0x17191b : 0x282828;
-  FORMULA_INTERIOR = SCENE_IS_DARK ? 0x34383a : 0x565652;
-  FORMULA_BODY = SCENE_IS_DARK ? 0x25282a : 0x3b3b39;
-  FORMULA_WHEEL_EDGE = SCENE_IS_DARK ? 0x9b9d98 : 0x101010;
   BOARD_BODY = SCENE_IS_DARK ? 0x26292b : 0xededE8;
   BOARD_BAR = SCENE_IS_DARK ? 0x313436 : 0xe6e6e0;
   BOARD_POINT_A = SCENE_IS_DARK ? 0x3a3d40 : 0xd8d8d1;
   BOARD_POINT_B = SCENE_IS_DARK ? 0x181a1c : 0xebebe6;
   CHECKER_DARK = SCENE_IS_DARK ? 0x202326 : 0x171717;
-  CHECKER_DARK_EDGE = SCENE_IS_DARK ? 0x8e918d : 0x000000;
-  CHECKER_LIGHT = SCENE_IS_DARK ? 0xd8d9d3 : 0xe4e4de;
+  CHECKER_DARK_EDGE = SCENE_IS_DARK ? 0xbec3bb : 0x000000;
+  CHECKER_LIGHT = SCENE_IS_DARK ? 0xd8d9d3 : 0xb7bcb3;
   TRAIL_MUTED = SCENE_IS_DARK ? 0x7b7e7a : 0xbdbdb6;
 }
 
@@ -137,185 +117,9 @@ function setHudWidth(
   if (node) node.style.width = `${THREE.MathUtils.clamp(value, 0, 100)}%`;
 }
 
-function sampleWindow<T extends { t: number }>(
-  samples: T[],
-  time: number,
-): SampleWindow<T> {
-  let low = 0;
-  let high = samples.length - 1;
-
-  while (low < high) {
-    const middle = Math.floor((low + high + 1) / 2);
-    if (samples[middle].t <= time) low = middle;
-    else high = middle - 1;
-  }
-
-  const index = Math.min(low, samples.length - 2);
-  const a = samples[index];
-  const b = samples[index + 1] ?? a;
-  const duration = Math.max(1, b.t - a.t);
-  return {
-    a,
-    b,
-    mix: THREE.MathUtils.clamp((time - a.t) / duration, 0, 1),
-    index,
-  };
-}
 
 function lerp(a: number, b: number, amount: number) {
   return a + (b - a) * amount;
-}
-
-function smoothLocation(
-  samples: LocationSample[],
-  time: number,
-  lapDuration: number,
-): SmoothLocation {
-  const first = samples[0];
-  const last = samples[samples.length - 1];
-  if (time <= first.t) {
-    const next = samples[1] ?? first;
-    return {
-      x: first.x,
-      y: first.y,
-      dx: next.x - first.x,
-      dy: next.y - first.y,
-      index: 0,
-    };
-  }
-
-  let index: number;
-  let p0: LocationSample;
-  let p1: LocationSample;
-  let p2: LocationSample;
-  let p3: LocationSample;
-  let segmentStart: number;
-  let segmentEnd: number;
-
-  if (time >= last.t) {
-    index = samples.length - 1;
-    p0 = samples[Math.max(0, samples.length - 2)];
-    p1 = last;
-    p2 = { ...first, t: lapDuration };
-    const second = samples[1] ?? first;
-    p3 = {
-      ...second,
-      t: lapDuration + Math.max(1, second.t - first.t),
-    };
-    segmentStart = last.t;
-    segmentEnd = lapDuration;
-  } else {
-    const window = sampleWindow(samples, time);
-    index = window.index;
-    p0 = samples[Math.max(0, index - 1)];
-    p1 = samples[index];
-    p2 = samples[index + 1];
-    p3 =
-      index + 2 < samples.length
-        ? samples[index + 2]
-        : { ...first, t: lapDuration };
-    segmentStart = p1.t;
-    segmentEnd = p2.t;
-  }
-
-  const duration = Math.max(1, segmentEnd - segmentStart);
-  const amount = THREE.MathUtils.clamp(
-    (time - segmentStart) / duration,
-    0,
-    1,
-  );
-  const amount2 = amount * amount;
-  const amount3 = amount2 * amount;
-  const h00 = 2 * amount3 - 3 * amount2 + 1;
-  const h10 = amount3 - 2 * amount2 + amount;
-  const h01 = -2 * amount3 + 3 * amount2;
-  const h11 = amount3 - amount2;
-  const dh00 = 6 * amount2 - 6 * amount;
-  const dh10 = 3 * amount2 - 4 * amount + 1;
-  const dh01 = -6 * amount2 + 6 * amount;
-  const dh11 = 3 * amount2 - 2 * amount;
-  const p0Time = p0.t > p1.t ? p0.t - lapDuration : p0.t;
-  const p3Time = p3.t < p2.t ? p3.t + lapDuration : p3.t;
-  const tangent1Scale = Math.max(1, p2.t - p0Time);
-  const tangent2Scale = Math.max(1, p3Time - p1.t);
-  const tangent1X = (p2.x - p0.x) / tangent1Scale;
-  const tangent1Y = (p2.y - p0.y) / tangent1Scale;
-  const tangent2X = (p3.x - p1.x) / tangent2Scale;
-  const tangent2Y = (p3.y - p1.y) / tangent2Scale;
-
-  return {
-    x:
-      h00 * p1.x +
-      h10 * duration * tangent1X +
-      h01 * p2.x +
-      h11 * duration * tangent2X,
-    y:
-      h00 * p1.y +
-      h10 * duration * tangent1Y +
-      h01 * p2.y +
-      h11 * duration * tangent2Y,
-    dx:
-      dh00 * p1.x +
-      dh10 * duration * tangent1X +
-      dh01 * p2.x +
-      dh11 * duration * tangent2X,
-    dy:
-      dh00 * p1.y +
-      dh10 * duration * tangent1Y +
-      dh01 * p2.y +
-      dh11 * duration * tangent2Y,
-    index,
-  };
-}
-
-function buildSmoothTrackLocations(
-  samples: LocationSample[],
-  lapDuration: number,
-) {
-  const smoothingWindow = 520;
-  const filtered = samples.map((sample) => {
-    let totalWeight = 0;
-    let x = 0;
-    let y = 0;
-    let z = 0;
-
-    samples.forEach((candidate) => {
-      const directDistance = Math.abs(candidate.t - sample.t);
-      const timeDistance = Math.min(
-        directDistance,
-        lapDuration - directDistance,
-      );
-      if (timeDistance > smoothingWindow) return;
-      const weight = Math.pow(1 - timeDistance / smoothingWindow, 2);
-      totalWeight += weight;
-      x += candidate.x * weight;
-      y += candidate.y * weight;
-      z += candidate.z * weight;
-    });
-
-    return {
-      ...sample,
-      x: x / Math.max(totalWeight, 1),
-      y: y / Math.max(totalWeight, 1),
-      z: z / Math.max(totalWeight, 1),
-    };
-  });
-  const sampleCount = Math.max(
-    samples.length * 4,
-    Math.ceil(lapDuration / 55),
-  );
-
-  return Array.from({ length: sampleCount }, (_, index) => {
-    const t = (index / sampleCount) * lapDuration;
-    const position = smoothLocation(filtered, t, lapDuration);
-    const rawWindow = sampleWindow(filtered, t);
-    return {
-      t,
-      x: position.x,
-      y: position.y,
-      z: lerp(rawWindow.a.z, rawWindow.b.z, rawWindow.mix),
-    };
-  });
 }
 
 function lineFromPoints(
@@ -330,6 +134,7 @@ function lineFromPoints(
       transparent: true,
       opacity,
       depthWrite: false,
+      toneMapped: false,
     }),
   );
 }
@@ -370,29 +175,11 @@ function technicalSolid(
       transparent: true,
       opacity: edgeOpacity,
       depthWrite: false,
+      toneMapped: false,
     }),
   );
   group.add(fill, edges);
   return group;
-}
-
-function addFormulaLights(scene: THREE.Scene) {
-  scene.add(
-    new THREE.HemisphereLight(
-      SCENE_IS_DARK ? 0xaeb2ae : PAPER,
-      SCENE_IS_DARK ? 0x17191b : 0xb5b5af,
-      SCENE_IS_DARK ? 1.7 : 2.4,
-    ),
-  );
-  const key = new THREE.DirectionalLight(
-    SCENE_IS_DARK ? 0xe8e9e4 : 0xffffff,
-    SCENE_IS_DARK ? 2.2 : 3.1,
-  );
-  key.position.set(-4, 8, -6);
-  scene.add(key);
-  const rim = new THREE.DirectionalLight(RED, 0.9);
-  rim.position.set(7, 3, 5);
-  scene.add(rim);
 }
 
 function buildRoadRibbon(locations: LocationSample[]) {
@@ -452,20 +239,36 @@ function buildRoadRibbon(locations: LocationSample[]) {
   geometry.setIndex(indices);
   geometry.computeVertexNormals();
 
+  // A barely-there surface and longitudinal contours retain the road's
+  // continuous geometry without introducing an asphalt slab behind the diagram.
   const mesh = new THREE.Mesh(
     geometry,
-    new THREE.MeshStandardMaterial({
-      color: ROAD_SURFACE,
+    new THREE.MeshBasicMaterial({
+      color: INK,
       transparent: true,
-      opacity: 0.52,
-      roughness: 1,
-      metalness: 0,
+      opacity: SCENE_IS_DARK ? 0.025 : 0.035,
       side: THREE.DoubleSide,
       depthWrite: false,
     }),
   );
-  const left = lineFromPoints([...leftPoints, leftPoints[0]], INK, 0.34);
-  const right = lineFromPoints([...rightPoints, rightPoints[0]], INK, 0.34);
+  const furniture = new THREE.Group();
+  for (const fraction of [0.25, 0.75]) {
+    const contour = leftPoints.map((point, i) =>
+      point.clone().lerp(rightPoints[i], fraction).setY(-0.03),
+    );
+    furniture.add(lineFromPoints([...contour, contour[0]], INK, SCENE_IS_DARK ? 0.18 : 0.14));
+  }
+  // Outlined kerb rails, not filled paint or verge panels. Their width is
+  // illustrative; the reconstructed road and simulated racing line are unchanged.
+  for (const edge of [leftPoints, rightPoints]) {
+    const outer = edge.map((point, i) => point.clone().addScaledVector(
+      point.clone().sub(centerPoints[i]).setY(0).normalize(), 0.72,
+    ));
+    furniture.add(lineFromPoints([...outer, outer[0]], INK, 0.26));
+  }
+  const roadEdgeOpacity = SCENE_IS_DARK ? 0.60 : 0.52;
+  const left = lineFromPoints([...leftPoints, leftPoints[0]], INK, roadEdgeOpacity);
+  const right = lineFromPoints([...rightPoints, rightPoints[0]], INK, roadEdgeOpacity);
   const minorTickPoints: THREE.Vector3[] = [];
   const sectorTickPoints: THREE.Vector3[] = [];
   for (let index = 0; index < centerPoints.length; index += 4) {
@@ -504,11 +307,11 @@ function buildRoadRibbon(locations: LocationSample[]) {
       centerPoints[0],
     ]),
     new THREE.LineDashedMaterial({
-      color: RED,
+      color: INK,
       dashSize: 3.2,
       gapSize: 5.2,
       transparent: true,
-      opacity: 0.38,
+      opacity: 0.10,
       depthWrite: false,
     }),
   );
@@ -521,6 +324,7 @@ function buildRoadRibbon(locations: LocationSample[]) {
     center,
     minorTicks,
     sectorTicks,
+    furniture,
     originX,
     originY,
   };
@@ -590,113 +394,37 @@ async function buildFormulaScene(
   trackCanvas: HTMLCanvasElement | null,
 ): Promise<SceneController> {
   setHud(hudRoot, "model-state", "LOADING / GEOMETRY + LAP");
-  addFormulaLights(scene);
+  scene.fog = new THREE.Fog(PAPER, 34, 110);
 
   const loader = new GLTFLoader();
   loader.setMeshoptDecoder(MeshoptDecoder);
   const [gltf, telemetry] = await Promise.all([
-    loader.loadAsync("/models/formula1.glb"),
+    loader.loadAsync("/models/formula-w14.glb"),
     fetch("/data/silverstone-antonelli-l18.json").then(
       (response) => response.json() as Promise<TelemetryData>,
     ),
   ]);
-  const motionDuration = telemetry.source.lapDurationMs;
-  const trackLocations = buildSmoothTrackLocations(
-    telemetry.location,
-    motionDuration,
-  );
+  const racingPath = buildRacingPath(telemetry.location, telemetry.car, telemetry.source.lapDurationMs);
+  const motionDuration = racingPath.duration;
+  const trackLocations = racingPath.roadSamples;
 
   const root = new THREE.Group();
   const carRig = new THREE.Group();
   root.add(carRig);
   scene.add(root);
 
-  const model = gltf.scene;
-  model.updateMatrixWorld(true);
-  const bounds = new THREE.Box3().setFromObject(model);
-  const center = bounds.getCenter(new THREE.Vector3());
-  model.position.set(-center.x, -bounds.min.y, -center.z);
+  const prepared = buildModernFormulaModel(gltf.scene);
+  const model = prepared.root;
   carRig.add(model);
-  const frontWheels = model.getObjectByName("front_wheels_7");
-  const rearWheels = model.getObjectByName("back_wheels_1");
-  const frontWheelBaseRotation = frontWheels?.rotation.x ?? 0;
-  const rearWheelBaseRotation = rearWheels?.rotation.x ?? 0;
-  const frontSteeringRigs: Array<{
-    side: -1 | 1;
-    yaw: THREE.Group;
-    spin: THREE.Mesh;
-  }> = [];
+  const chassis = prepared.chassis;
+  const chassisRest = chassis.position.y;
+  const cockpitWheel = prepared.cockpit;
+  const cockpitWheelRest = cockpitWheel.quaternion.clone();
+  const frontSteeringRigs = prepared.wheels.filter(wheel => wheel.front);
 
-  if (frontWheels) {
-    const sourceWheelMesh = frontWheels.children.find(
-      (child) => (child as THREE.Mesh).isMesh,
-    ) as THREE.Mesh | undefined;
-    const sourceIndex = sourceWheelMesh?.geometry.index;
-    const sourcePositions =
-      sourceWheelMesh?.geometry.getAttribute("position");
-    if (sourceWheelMesh && sourceIndex && sourcePositions) {
-      sourceWheelMesh.updateMatrix();
-      const axleGeometry = sourceWheelMesh.geometry.clone();
-      axleGeometry.applyMatrix4(sourceWheelMesh.matrix);
-      const axlePositions = axleGeometry.getAttribute("position");
-      const axleIndex = axleGeometry.index;
-      if (axleIndex) {
-        ([-1, 1] as const).forEach((side) => {
-          const sideIndices: number[] = [];
-          for (let index = 0; index < axleIndex.count; index += 3) {
-            const a = axleIndex.getX(index);
-            const b = axleIndex.getX(index + 1);
-            const c = axleIndex.getX(index + 2);
-            const centerX =
-              (axlePositions.getX(a) +
-                axlePositions.getX(b) +
-                axlePositions.getX(c)) /
-              3;
-            if ((side < 0 && centerX < 0) || (side > 0 && centerX >= 0)) {
-              sideIndices.push(a, b, c);
-            }
-          }
-          if (sideIndices.length === 0) return;
-
-          const sideBounds = new THREE.Box3();
-          const vertex = new THREE.Vector3();
-          sideIndices.forEach((vertexIndex) => {
-            vertex.fromBufferAttribute(axlePositions, vertexIndex);
-            sideBounds.expandByPoint(vertex);
-          });
-          const sourceWheelCenter = sideBounds.getCenter(
-            new THREE.Vector3(),
-          );
-          const steeringPivot = sourceWheelCenter.clone();
-          steeringPivot.x = side * 1.441;
-          const wheelGeometry = axleGeometry.clone();
-          wheelGeometry.setIndex(sideIndices);
-          wheelGeometry.translate(
-            -sourceWheelCenter.x,
-            -sourceWheelCenter.y,
-            -sourceWheelCenter.z,
-          );
-          wheelGeometry.computeBoundingBox();
-
-          const yaw = new THREE.Group();
-          yaw.name = `front_${side < 0 ? "left" : "right"}_steering`;
-          yaw.position.copy(steeringPivot);
-          const spin = new THREE.Mesh(
-            wheelGeometry,
-            sourceWheelMesh.material,
-          );
-          spin.name = `front_${side < 0 ? "left" : "right"}_wheel`;
-          yaw.add(spin);
-          frontWheels.add(yaw);
-          frontSteeringRigs.push({ side, yaw, spin });
-        });
-        sourceWheelMesh.removeFromParent();
-      }
-    }
-  }
 
   const shellMaterials: Array<{
-    material: THREE.MeshStandardMaterial;
+    material: THREE.MeshBasicMaterial;
     baseOpacity: number;
     baseDepthWrite: boolean;
   }> = [];
@@ -705,6 +433,13 @@ async function buildFormulaScene(
     baseOpacity: number;
     scanOpacity: number;
   }> = [];
+  const scanUniforms = {
+    uScanOrigin: { value: new THREE.Vector3() },
+    uScanForward: { value: new THREE.Vector3(0, 0, 1) },
+    uScanPosition: { value: 0 },
+    uScanEnabled: { value: 0 },
+    uScanColor: { value: new THREE.Color(RED) },
+  };
   const sourceMeshes: THREE.Mesh[] = [];
   model.traverse((object) => {
     if ((object as THREE.Mesh).isMesh) sourceMeshes.push(object as THREE.Mesh);
@@ -715,50 +450,79 @@ async function buildFormulaScene(
       ? mesh.material[0]
       : mesh.material;
     const role = existing?.name ?? "body";
-    const isWheel = role.includes("wheel");
+    const isWheel = mesh.userData.formulaRole === "wheel";
     const isGlass = role.includes("glass");
     const isInterior = role.includes("interior") || role.includes("bottom");
     const baseOpacity = isWheel
-      ? 0.74
+      ? 1
       : isInterior
-        ? 0.12
+        ? 0.90
         : isGlass
-          ? 0.08
-          : 0.24;
+          ? 0.012
+          : 0.97;
     const baseDepthWrite = !isGlass;
-    const material = new THREE.MeshStandardMaterial({
+    const material = new THREE.MeshBasicMaterial({
+      // Explicit theme tones: the chassis must remain readable at the default
+      // zoom without relying on specular lighting or hairline edges alone.
       color: isWheel
-        ? FORMULA_WHEEL
+        ? (SCENE_IS_DARK ? 0x202527 : 0xe0e2dd)
         : isInterior
-          ? FORMULA_INTERIOR
-          : FORMULA_BODY,
-      roughness: isWheel ? 0.82 : 0.62,
-      metalness: isInterior ? 0.28 : 0.08,
+          ? (SCENE_IS_DARK ? 0x292e30 : 0xd0d3cd)
+          : (SCENE_IS_DARK ? 0x41494c : 0xdaddd6),
       transparent: true,
       opacity: baseOpacity,
       side: THREE.DoubleSide,
       depthWrite: baseDepthWrite,
+      polygonOffset: true,
+      polygonOffsetFactor: 1,
+      polygonOffsetUnits: 1,
     });
     mesh.material = material;
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
+    mesh.castShadow = false;
+    mesh.receiveShadow = false;
     shellMaterials.push({ material, baseOpacity, baseDepthWrite });
 
     const edgeOpacity = isWheel
-      ? 0.64
+      ? 0.85
       : isInterior
-        ? 0.08
+        ? 0.38
         : isGlass
-          ? 0.07
-          : 0.52;
+          ? 0.30
+          : (SCENE_IS_DARK ? 0.90 : 0.82);
     const edgeMaterial = new THREE.LineBasicMaterial({
-      color: isWheel ? FORMULA_WHEEL_EDGE : INK,
+      color: INK,
       transparent: true,
       opacity: edgeOpacity,
       depthWrite: false,
+      toneMapped: false,
     });
+    // The sweep is evaluated on actual transformed edges: it cannot detach
+    // from the steering hubs, spinning wheels, or articulated chassis.
+    edgeMaterial.onBeforeCompile = (shader) => {
+      Object.assign(shader.uniforms, scanUniforms);
+      shader.vertexShader = "varying vec3 vScanWorld;\n" + shader.vertexShader;
+      shader.vertexShader = shader.vertexShader.replace(
+        "#include <begin_vertex>",
+        "#include <begin_vertex>\nvScanWorld = (modelMatrix * vec4(transformed, 1.0)).xyz;",
+      );
+      shader.fragmentShader = `
+        varying vec3 vScanWorld;
+        uniform vec3 uScanOrigin, uScanForward, uScanColor;
+        uniform float uScanPosition, uScanEnabled;
+      ` + shader.fragmentShader;
+      shader.fragmentShader = shader.fragmentShader.replace(
+        "#include <opaque_fragment>",
+        `float scanDistance = abs(dot(vScanWorld - uScanOrigin, uScanForward) - uScanPosition);
+        float scanBand = (1.0 - smoothstep(0.10, 0.65, scanDistance)) * uScanEnabled;
+        diffuseColor.rgb = mix(diffuseColor.rgb, uScanColor, scanBand);
+        outgoingLight = diffuseColor.rgb;
+        diffuseColor.a = max(diffuseColor.a, scanBand * 0.95);
+        #include <opaque_fragment>`,
+      );
+    };
+    edgeMaterial.customProgramCacheKey = () => "schematic-scan-v1";
     const edges = new THREE.LineSegments(
-      new THREE.EdgesGeometry(mesh.geometry, isWheel ? 34 : 27),
+      new THREE.EdgesGeometry(mesh.geometry, isWheel ? 8 : 16),
       edgeMaterial,
     );
     mesh.add(edges);
@@ -766,135 +530,24 @@ async function buildFormulaScene(
       material: edgeMaterial,
       baseOpacity: edgeOpacity,
       scanOpacity: isWheel
-        ? 0.68
+        ? 0.90
         : isInterior
-          ? 0.32
+          ? 0.44
           : isGlass
-            ? 0.12
-            : 0.36,
+            ? 0.30
+            : 0.82,
     });
   });
 
   const brakeMaterials: THREE.MeshBasicMaterial[] = [];
-  const addWheelTelemetry = (wheelObject: THREE.Object3D | undefined) => {
-    if (!wheelObject) return;
-    const wheelMesh = wheelObject.children.find(
-      (child) => (child as THREE.Mesh).isMesh,
-    ) as THREE.Mesh | undefined;
-    if (!wheelMesh) return;
-    wheelMesh.geometry.computeBoundingBox();
-    if (!wheelMesh.geometry.boundingBox) return;
-    wheelMesh.updateMatrix();
-    const bounds = wheelMesh.geometry.boundingBox
-      .clone()
-      .applyMatrix4(wheelMesh.matrix);
-    const size = bounds.getSize(new THREE.Vector3());
-    const radius = Math.max(size.y, size.z) / 2;
-    const outerX = Math.max(Math.abs(bounds.min.x), Math.abs(bounds.max.x));
-
-    [-1, 1].forEach((side) => {
-      const brakeMaterial = new THREE.MeshBasicMaterial({
-        color: RED,
-        transparent: true,
-        opacity: 0.02,
-        depthWrite: false,
-      });
-      const disc = new THREE.Mesh(
-        new THREE.TorusGeometry(
-          radius * 0.5,
-          radius * 0.035,
-          7,
-          32,
-        ),
-        brakeMaterial,
-      );
-      disc.rotation.y = Math.PI / 2;
-      disc.position.x = side * outerX * 0.79;
-      wheelObject.add(disc);
-      brakeMaterials.push(brakeMaterial);
-    });
-  };
-  addWheelTelemetry(rearWheels);
-  frontSteeringRigs.forEach(({ spin }) => {
-    spin.geometry.computeBoundingBox();
-    const wheelBounds = spin.geometry.boundingBox;
-    if (!wheelBounds) return;
-    const size = wheelBounds.getSize(new THREE.Vector3());
-    const radius = Math.max(size.y, size.z) / 2;
-    const brakeMaterial = new THREE.MeshBasicMaterial({
-      color: RED,
-      transparent: true,
-      opacity: 0.02,
-      depthWrite: false,
-    });
-    const disc = new THREE.Mesh(
-      new THREE.TorusGeometry(
-        radius * 0.5,
-        radius * 0.035,
-        7,
-        32,
-      ),
-      brakeMaterial,
-    );
+  prepared.wheels.forEach(({ spin, radius }) => {
+    const material = new THREE.MeshBasicMaterial({color: RED, transparent: true, opacity: 0.02, depthWrite: false});
+    const disc = new THREE.Mesh(new THREE.TorusGeometry(radius * 0.5, radius * 0.025, 8, 48), material);
     disc.rotation.y = Math.PI / 2;
     spin.add(disc);
-    brakeMaterials.push(brakeMaterial);
+    brakeMaterials.push(material);
   });
 
-  const internals = new THREE.Group();
-  const component = (
-    size: [number, number, number],
-    position: [number, number, number],
-    color = INK,
-  ) => {
-    const object = technicalSolid(new THREE.BoxGeometry(...size), {
-      color,
-      edgeColor: color === RED ? RED : INK,
-      opacity: color === RED ? 0.08 : 0.045,
-      edgeOpacity: color === RED ? 0.62 : 0.28,
-    });
-    object.position.set(...position);
-    internals.add(object);
-    return object;
-  };
-  component([0.98, 0.58, 1.35], [0, 0.55, 1.35]);
-  component([0.74, 0.34, 1.05], [0, 0.3, 2.33], RED);
-  component([0.42, 0.25, 2.15], [-0.76, 0.29, 0.32]);
-  component([0.42, 0.25, 2.15], [0.76, 0.29, 0.32]);
-  component([0.5, 0.31, 1.25], [0, 0.28, 0.1], RED);
-  carRig.add(internals);
-
-  const energyCurve = new THREE.CatmullRomCurve3([
-    new THREE.Vector3(0, 0.18, -2.75),
-    new THREE.Vector3(0, 0.36, -0.75),
-    new THREE.Vector3(0, 0.55, 1.05),
-    new THREE.Vector3(0, 0.35, 2.5),
-  ]);
-  const energyMaterial = new THREE.MeshBasicMaterial({
-    color: RED,
-    transparent: true,
-    opacity: 0.45,
-    depthWrite: false,
-  });
-  const energyLine = new THREE.Mesh(
-    new THREE.TubeGeometry(energyCurve, 80, 0.014, 6, false),
-    energyMaterial,
-  );
-  carRig.add(energyLine);
-
-  const scanPlaneMaterial = new THREE.MeshBasicMaterial({
-    color: RED,
-    transparent: true,
-    opacity: 0,
-    side: THREE.DoubleSide,
-    depthWrite: false,
-  });
-  const scanPlane = new THREE.Mesh(
-    new THREE.PlaneGeometry(3.7, 1.8),
-    scanPlaneMaterial,
-  );
-  scanPlane.position.y = 0.85;
-  carRig.add(scanPlane);
 
   const road = buildRoadRibbon(trackLocations);
   root.add(
@@ -904,6 +557,7 @@ async function buildFormulaScene(
     road.center,
     road.minorTicks,
     road.sectorTicks,
+    road.furniture,
   );
 
   const trailSampleCount = 64;
@@ -947,36 +601,29 @@ async function buildFormulaScene(
   );
   root.add(trajectoryTrail, trajectorySamples);
 
-  const predictionSampleCount = 28;
-  const predictionGeometry = new THREE.BufferGeometry().setFromPoints(
-    Array.from(
-      { length: predictionSampleCount },
-      () => new THREE.Vector3(),
-    ),
-  );
-  const trajectoryPrediction = new THREE.Line(
-    predictionGeometry,
-    new THREE.LineDashedMaterial({
-      color: RED,
-      dashSize: 0.42,
-      gapSize: 0.34,
-      transparent: true,
-      opacity: 0.48,
-      depthWrite: false,
-    }),
-  );
-  const predictionSamples = new THREE.Points(
-    predictionGeometry,
-    new THREE.PointsMaterial({
-      color: RED,
-      size: 0.035,
-      transparent: true,
-      opacity: 0.5,
-      depthWrite: false,
-      sizeAttenuation: true,
-    }),
-  );
-  root.add(trajectoryPrediction, predictionSamples);
+  const predictionSampleCount = 384;
+  const guideStepMs = 16;
+  const predictionPoints = Array.from({ length: predictionSampleCount }, () => new THREE.Vector3());
+  const predictedBraking = new Uint8Array(predictionSampleCount);
+  const guideColor = new THREE.Color();
+  const coastingColor = new THREE.Color(SCENE_IS_DARK ? 0xc2c5bf : 0x646862);
+  const brakingColor = new THREE.Color(RED);
+  // A thin, continuous ribbon remains legible at oblique viewing angles.
+  // Its color shows modelled braking demand on the optimized curve.
+  const guideGeometry = new THREE.BufferGeometry();
+  const guidePositions = new Float32Array(predictionSampleCount * 6);
+  const guideColors = new Float32Array(predictionSampleCount * 6);
+  guideGeometry.setAttribute("position", new THREE.BufferAttribute(guidePositions, 3));
+  guideGeometry.setAttribute("color", new THREE.BufferAttribute(guideColors, 3));
+  const guideIndices: number[] = [];
+  for (let i = 0; i < predictionSampleCount - 1; i++) {
+    const k = i * 2;
+    guideIndices.push(k, k + 1, k + 2, k + 1, k + 3, k + 2);
+  }
+  guideGeometry.setIndex(guideIndices);
+  const racingGuide = new THREE.Mesh(guideGeometry, new THREE.MeshBasicMaterial({vertexColors:true,transparent:true,opacity:0.65,side:THREE.DoubleSide,depthWrite:false}));
+  racingGuide.frustumCulled = false;
+  root.add(racingGuide);
 
   const lateralGeometry = new THREE.BufferGeometry().setFromPoints([
     new THREE.Vector3(0, 0.88, 0),
@@ -1008,13 +655,13 @@ async function buildFormulaScene(
   vectorOrigin.position.set(0, 1.01, 0);
   carRig.add(vectorOrigin);
 
-  carRig.scale.setScalar(0.78);
+  carRig.scale.setScalar(1);
 
-  const firstLocation = trackLocations[0];
-  const firstDirectionTarget = trackLocations[3] ?? firstLocation;
+  const firstLocation = racingPath.atTime(0);
+  const firstDirectionTarget = racingPath.atTime(30);
   const carPosition = new THREE.Vector3(
     (firstLocation.x - road.originX) * 0.1,
-    0.03,
+    -0.035,
     (firstLocation.y - road.originY) * 0.1,
   );
   const forward = new THREE.Vector3(
@@ -1027,6 +674,11 @@ async function buildFormulaScene(
   const desiredLook = new THREE.Vector3();
   const displayCarPosition = carPosition.clone();
   let displayHeading = Math.atan2(forward.x, forward.z);
+  let cameraHeading = displayHeading;
+  const cameraForward = new THREE.Vector3();
+  const cameraRight = new THREE.Vector3();
+  let bodyRoll = 0;
+  let bodyPitch = 0;
   const cameraLook = carPosition
     .clone()
     .add(new THREE.Vector3(0, 0.62, 0));
@@ -1038,98 +690,50 @@ async function buildFormulaScene(
     .addScaledVector(right, 4.15)
     .add(new THREE.Vector3(0, 2.75, 0));
   camera.lookAt(cameraLook);
-  setHud(hudRoot, "model-state", "MODEL / READY · 125K VTX");
+  setHud(hudRoot, "model-state", "W14 INTERPRETATION / 3D");
 
   let smoothedBrakeTemperature = 320;
-  let displayedSteering = 0;
-  let wheelAngle = 0;
+  let wheelTravel = 0;
   let mapFrame = 0;
-  let vectorFrame = 0;
   let hudFrame = 0;
-  const playbackRate = 1.5;
-  const lapDuration = telemetry.source.lapDurationMs;
+  const playbackRate = 1;
   const lastCarPosition = displayCarPosition.clone();
   const carTranslation = new THREE.Vector3();
+  const ratios = [12, 9.5, 7.8, 6.6, 5.8, 5.15, 4.65, 4.25];
   return {
     root,
     update: (elapsed, delta, view) => {
       const motionTime =
         (elapsed * 1000 * playbackRate) % motionDuration;
-      const replayTime = Math.min(motionTime, lapDuration);
-      const car = sampleWindow(telemetry.car, replayTime);
-      const location = smoothLocation(
-        trackLocations,
-        motionTime,
-        motionDuration,
-      );
-      const speed = lerp(car.a.speed, car.b.speed, car.mix);
-      const rpm = lerp(car.a.rpm, car.b.rpm, car.mix);
-      const throttle = lerp(car.a.throttle, car.b.throttle, car.mix);
-      const previousLocation = smoothLocation(
-        trackLocations,
-        (motionTime - 260 + motionDuration) % motionDuration,
-        motionDuration,
-      );
-      const nextLocation = smoothLocation(
-        trackLocations,
-        (motionTime + 260) % motionDuration,
-        motionDuration,
-      );
-      const incomingLength = Math.max(
-        0.001,
-        Math.hypot(
-          location.x - previousLocation.x,
-          location.y - previousLocation.y,
-        ),
-      );
-      const outgoingLength = Math.max(
-        0.001,
-        Math.hypot(
-          nextLocation.x - location.x,
-          nextLocation.y - location.y,
-        ),
-      );
-      const incomingX = (location.x - previousLocation.x) / incomingLength;
-      const incomingY = (location.y - previousLocation.y) / incomingLength;
-      const outgoingX = (nextLocation.x - location.x) / outgoingLength;
-      const outgoingY = (nextLocation.y - location.y) / outgoingLength;
-      const signedTurn = Math.atan2(
-        incomingX * outgoingY - incomingY * outgoingX,
-        incomingX * outgoingX + incomingY * outgoingY,
-      );
-      const localArcLengthMeters = Math.max(
-        1,
-        ((incomingLength + outgoingLength) * 0.1) / 2,
-      );
-      const curvature = signedTurn / localArcLengthMeters;
+      const replayTime = motionTime;
+      const location = racingPath.atTime(motionTime);
+      const speed = location.modeledSpeed;
+      const throttle = location.modeledThrottle;
+      // Illustrative eight-speed drivetrain; explicitly marked SIM in the HUD.
+      const wheelRpm = speed / 3.6 / (2 * Math.PI * prepared.wheels[2].radius) * 60;
+      const gear = Math.min(8, Math.max(1, ratios.findIndex(ratio => wheelRpm * ratio < 11500) + 1 || 8));
+      const rpm = Math.max(4000, wheelRpm * ratios[gear - 1]);
+      const curvature = location.curvature;
       const steering = THREE.MathUtils.clamp(
-        THREE.MathUtils.radToDeg(Math.atan(3.6 * curvature)),
+        THREE.MathUtils.radToDeg(Math.atan(prepared.wheelbase * curvature)),
         -18,
         18,
       );
-      const lateralG = THREE.MathUtils.clamp(
-        (Math.pow(speed / 3.6, 2) * Math.abs(curvature)) / 9.80665,
-        0,
-        6.2,
-      );
+      const lateralG = (Math.pow(speed / 3.6, 2) * Math.abs(curvature)) / 9.80665;
 
       carPosition.set(
         (location.x - road.originX) * 0.1,
-        0.03,
+        -0.035,
         (location.y - road.originY) * 0.1,
       );
       const targetHeading = Math.atan2(
-        nextLocation.x - previousLocation.x,
-        nextLocation.y - previousLocation.y,
+        location.dx,
+        location.dy,
       );
-      const positionDamping = 1 - Math.exp(-delta * 22);
-      const headingDamping = 1 - Math.exp(-delta * 9);
-      displayCarPosition.lerp(carPosition, positionDamping);
-      const headingDelta = Math.atan2(
-        Math.sin(targetHeading - displayHeading),
-        Math.cos(targetHeading - displayHeading),
-      );
-      displayHeading += headingDelta * headingDamping;
+      // The spline is already continuous. Filter the camera, not the physical
+      // pose: independently lagging position and heading creates sideways slip.
+      displayCarPosition.copy(carPosition);
+      displayHeading = targetHeading;
       forward.set(Math.sin(displayHeading), 0, Math.cos(displayHeading));
       right.set(forward.z, 0, -forward.x);
       carRig.position.copy(displayCarPosition);
@@ -1138,27 +742,31 @@ async function buildFormulaScene(
       camera.position.add(carTranslation);
       cameraLook.add(carTranslation);
       lastCarPosition.copy(displayCarPosition);
-      wheelAngle -=
-        ((speed / 3.6) / 0.36) * delta * playbackRate;
-      displayedSteering +=
-        (steering - displayedSteering) * (1 - Math.exp(-delta * 10));
+      wheelTravel += carTranslation.length();
+      const displayedSteering = steering;
       if (frontSteeringRigs.length > 0) {
-        const steeringYaw = -THREE.MathUtils.degToRad(displayedSteering);
-        const insideSide = steeringYaw >= 0 ? 1 : -1;
-        frontSteeringRigs.forEach(({ side, yaw, spin }) => {
-          const ackermannFactor = side === insideSide ? 1.08 : 0.92;
-          yaw.rotation.y = steeringYaw * ackermannFactor;
-          spin.rotation.x = wheelAngle;
+        frontSteeringRigs.forEach(({ side, yaw }) => {
+          // Curvature is already continuous: no separate steering lag.
+          yaw.rotation.y = formulaWheelYaw(curvature, prepared.wheelbase, prepared.frontTrack, side);
         });
-      } else if (frontWheels) {
-        frontWheels.rotation.x = frontWheelBaseRotation + wheelAngle;
-        frontWheels.rotation.y = -THREE.MathUtils.degToRad(displayedSteering);
       }
-      if (rearWheels) {
-        rearWheels.rotation.x = rearWheelBaseRotation + wheelAngle;
+      prepared.wheels.forEach(wheel => {wheel.spin.rotation.x = wheelTravel / wheel.radius;});
+      if (cockpitWheel && cockpitWheelRest) {
+        cockpitWheel.quaternion.copy(cockpitWheelRest).multiply(
+          new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), THREE.MathUtils.degToRad(displayedSteering * 7)),
+        );
       }
-      vectorFrame += 1;
-      if (vectorFrame % 3 === 0) {
+      // Restrained suspension response, illustrative rather than a vehicle
+      // dynamics solver. Wheel contact and steering pivots stay on the road.
+      const acceleration = location.modeledAcceleration;
+      bodyRoll += (THREE.MathUtils.clamp(-Math.sign(steering) * lateralG * 0.003, -0.0085, 0.0085) - bodyRoll) * (1 - Math.exp(-delta * 7));
+      bodyPitch += (THREE.MathUtils.clamp(-acceleration * 0.001, -0.004, 0.006) - bodyPitch) * (1 - Math.exp(-delta * 7));
+      if (chassis) {
+        chassis.rotation.z = bodyRoll;
+        chassis.rotation.x = bodyPitch;
+        chassis.position.y = chassisRest - Math.abs(bodyRoll) * 0.2;
+      }
+      {
         const trailPositionAttribute = trailGeometry.getAttribute(
           "position",
         ) as THREE.BufferAttribute;
@@ -1168,11 +776,7 @@ async function buildFormulaScene(
               (trailSampleCount - 1 - index) * 52 +
               motionDuration) %
             motionDuration;
-          const sample = smoothLocation(
-            telemetry.location,
-            sampleTime,
-            motionDuration,
-          );
+          const sample = racingPath.atTime(sampleTime);
           trailPositionAttribute.setXYZ(
             index,
             (sample.x - road.originX) * 0.1,
@@ -1182,25 +786,27 @@ async function buildFormulaScene(
         }
         trailPositionAttribute.needsUpdate = true;
 
-        const predictionPoints = Array.from(
-          { length: predictionSampleCount },
-          (_, index) => {
-            const sampleTime =
-              (motionTime + index * 58) % motionDuration;
-            const sample = smoothLocation(
-              telemetry.location,
-              sampleTime,
-              motionDuration,
-            );
-            return new THREE.Vector3(
-              (sample.x - road.originX) * 0.1,
-              0.06,
-              (sample.y - road.originY) * 0.1,
-            );
-          },
-        );
-        predictionGeometry.setFromPoints(predictionPoints);
-        trajectoryPrediction.computeLineDistances();
+        // Start the visible guide beyond the nose, including during X-ray
+        // scans. Both guide geometry and braking color use this same lookahead.
+        const guideLeadMs = (prepared.bounds.max.z + 0.6) / Math.max(1, speed / 3.6) * 1000;
+        for (let index = 0; index < predictionSampleCount; index++) {
+          const sample = racingPath.atTime((motionTime + guideLeadMs + index * guideStepMs) % motionDuration);
+          predictionPoints[index].set((sample.x - road.originX) * 0.1, 0.06, (sample.y - road.originY) * 0.1);
+          predictedBraking[index] = sample.modeledBrake > 1 ? 1 : 0;
+        }
+        predictionPoints.forEach((point, i) => {
+          const before = predictionPoints[Math.max(0, i - 1)];
+          const after = predictionPoints[Math.min(predictionSampleCount - 1, i + 1)];
+          const dx = after.x - before.x, dz = after.z - before.z;
+          const length = Math.max(0.001, Math.hypot(dx, dz));
+          const halfWidth = 0.065;
+          guidePositions.set([point.x - dz / length * halfWidth, 0.012, point.z + dx / length * halfWidth, point.x + dz / length * halfWidth, 0.012, point.z - dx / length * halfWidth], i * 6);
+          guideColor.copy(predictedBraking[i] ? brakingColor : coastingColor);
+          guideColor.multiplyScalar(1 - Math.pow(i / predictionSampleCount, 2) * 0.7);
+          guideColors.set([guideColor.r,guideColor.g,guideColor.b,guideColor.r,guideColor.g,guideColor.b], i * 6);
+        });
+        guideGeometry.attributes.position.needsUpdate = true;
+        guideGeometry.attributes.color.needsUpdate = true;
       }
 
       const lateralPositions = lateralGeometry.getAttribute(
@@ -1214,14 +820,20 @@ async function buildFormulaScene(
 
       const horizontalDistance =
         view.distance * Math.cos(view.pitch);
+      // A trailing camera must not erase the car's yaw. Its bearing follows
+      // turns more slowly than its translation, revealing corner entry/exit.
+      const cameraHeadingDelta = Math.atan2(Math.sin(displayHeading - cameraHeading), Math.cos(displayHeading - cameraHeading));
+      cameraHeading += cameraHeadingDelta * (1 - Math.exp(-delta * 2.2));
+      cameraForward.set(Math.sin(cameraHeading), 0, Math.cos(cameraHeading));
+      cameraRight.set(cameraForward.z, 0, -cameraForward.x);
       desiredCamera
         .copy(displayCarPosition)
         .addScaledVector(
-          forward,
+          cameraForward,
           -Math.cos(view.yaw) * horizontalDistance,
         )
         .addScaledVector(
-          right,
+          cameraRight,
           Math.sin(view.yaw) * horizontalDistance,
         );
       desiredCamera.y += Math.sin(view.pitch) * view.distance;
@@ -1232,62 +844,45 @@ async function buildFormulaScene(
       cameraLook.lerp(desiredLook, cameraDamping);
       camera.lookAt(cameraLook);
 
-      const braking = car.a.brake > 0;
+      const braking = location.modeledBrake > 1;
       const temperatureTarget = braking ? 820 + speed * 1.4 : 310;
       smoothedBrakeTemperature +=
         (temperatureTarget - smoothedBrakeTemperature) *
         Math.min(1, delta * (braking ? 4 : 0.7));
       brakeMaterials.forEach((material) => {
         material.opacity +=
-          ((braking ? 0.82 : 0.015) - material.opacity) * 0.14;
+          ((braking ? 0.82 : 0.015) - material.opacity) * (1 - Math.exp(-delta * 9));
       });
-      energyMaterial.opacity = 0.16 + (throttle / 100) * 0.62;
-      const scanCycleDuration = 12.4;
+      const scanCycleDuration = 9;
       const replayPhase = (elapsed % scanCycleDuration) / scanCycleDuration;
-      const scanActive = replayPhase > 0.5 && replayPhase < 0.8;
+      const scanActive = replayPhase > 0.66 && replayPhase < 0.88;
       const scanProgress = THREE.MathUtils.clamp(
-        (replayPhase - 0.5) / 0.3,
+        (replayPhase - 0.66) / 0.22,
         0,
         1,
       );
-      scanPlane.position.z = -3.6 + scanProgress * 7.2;
-      scanPlaneMaterial.opacity +=
-        ((scanActive ? 0.095 : 0) - scanPlaneMaterial.opacity) * 0.12;
+      carRig.getWorldPosition(scanUniforms.uScanOrigin.value);
+      carRig.getWorldDirection(scanUniforms.uScanForward.value);
+      scanUniforms.uScanPosition.value = THREE.MathUtils.lerp(
+        prepared.bounds.min.z - 0.65, prepared.bounds.max.z + 0.65, scanProgress,
+      );
+      scanUniforms.uScanEnabled.value +=
+        ((scanActive ? 1 : 0) - scanUniforms.uScanEnabled.value) * (1 - Math.exp(-delta * 18));
       shellMaterials.forEach(
         ({ material, baseOpacity, baseDepthWrite }) => {
         const target = scanActive ? baseOpacity * 0.22 : baseOpacity;
         material.depthWrite = scanActive ? false : baseDepthWrite;
-        material.opacity += (target - material.opacity) * 0.08;
+        material.opacity += (target - material.opacity) * (1 - Math.exp(-delta * 9));
         },
       );
       edgeMaterials.forEach(({ material, baseOpacity, scanOpacity }) => {
         material.opacity +=
-          ((scanActive ? scanOpacity : baseOpacity) - material.opacity) * 0.08;
+          ((scanActive ? scanOpacity : baseOpacity) - material.opacity) * (1 - Math.exp(-delta * 5));
       });
-      internals.visible = scanActive;
-
-      const previousCar =
-        telemetry.car[Math.max(0, car.index - 2)] ?? car.a;
-      const longitudinalAcceleration =
-        ((speed - previousCar.speed) / 3.6) /
-        Math.max(0.08, (car.a.t - previousCar.t) / 1000);
-      const chassisDamping = 1 - Math.exp(-delta * 4.2);
-      carRig.rotation.z +=
-        (THREE.MathUtils.clamp(-steering * 0.00075, -0.014, 0.014) -
-          carRig.rotation.z) *
-        chassisDamping;
-      carRig.rotation.x +=
-        (THREE.MathUtils.clamp(
-          longitudinalAcceleration * -0.002,
-          -0.016,
-          0.016,
-        ) -
-          carRig.rotation.x) *
-        chassisDamping;
 
       hudFrame += 1;
       if (hudFrame % 3 === 0) {
-        setHud(hudRoot, "gear", String(car.a.gear));
+        setHud(hudRoot, "gear", String(gear));
         setHud(hudRoot, "speed", `${Math.round(speed)}`);
         setHud(hudRoot, "rpm", `${Math.round(rpm / 10) * 10}`);
         setHudWidth(hudRoot, "rpm-bar", ((rpm - 5000) / 10000) * 100);
@@ -1311,7 +906,7 @@ async function buildFormulaScene(
         setHud(
           hudRoot,
           "derived",
-          `${steering >= 0 ? "+" : ""}${steering.toFixed(1)}° STEER · ${lateralG.toFixed(1)}G LAT`,
+          `${displayedSteering >= 0 ? "+" : ""}${displayedSteering.toFixed(1)}° STEER · ${lateralG.toFixed(1)}G LAT`,
         );
         setHud(
           hudRoot,
@@ -1323,13 +918,13 @@ async function buildFormulaScene(
           "phase",
           scanActive
             ? scanProgress < 0.33
-              ? "SCAN / FRONT SUSPENSION"
+              ? "SCAN / REAR ASSEMBLY"
               : scanProgress < 0.67
-                ? "SCAN / ENERGY STORE"
-                : "SCAN / GEARBOX CASING"
+                ? "SCAN / CHASSIS GEOMETRY"
+                : "SCAN / FRONT ASSEMBLY"
             : braking
               ? "BRAKING EVENT"
-              : "REAL-LAP REPLAY",
+              : "RACING LINE / SIMULATION",
         );
       }
 
@@ -1351,11 +946,10 @@ type BackgammonPiece = {
   initialPosition: THREE.Vector3;
 };
 
-type BackgammonTurn = {
-  player: Player;
-  dice: readonly [number, number];
-  notation: string;
-  moves: Array<{ from: number; to: number; die: number }>;
+type Playback = {
+  pace: number;
+  paused: boolean;
+  restart: number;
 };
 
 function getBoardMetrics(
@@ -1368,6 +962,7 @@ function getBoardMetrics(
     .filter((piece) => piece.player === player)
     .forEach((piece) => {
       const point = currentPoints.get(piece) ?? piece.initialPoint;
+      if (point === 0 || point === 25) return;
       counts.set(point, (counts.get(point) ?? 0) + 1);
     });
   const made = [...counts.values()].filter((count) => count >= 2).length;
@@ -1402,6 +997,7 @@ function buildBackgammonScene(
   scene: THREE.Scene,
   camera: THREE.PerspectiveCamera,
   hudRoot: HTMLDivElement | null,
+  playback: RefObject<Playback>,
 ): SceneController {
   scene.add(
     new THREE.HemisphereLight(
@@ -1435,13 +1031,13 @@ function buildBackgammonScene(
   const board = technicalSolid(new THREE.BoxGeometry(8.55, 0.3, 5.4), {
     color: BOARD_BODY,
     opacity: 0.18,
-    edgeOpacity: 0.68,
+    edgeOpacity: 0.90,
   });
   root.add(board);
   const surface = technicalSolid(new THREE.BoxGeometry(8.1, 0.075, 4.95), {
     color: PAPER,
     opacity: 0.16,
-    edgeOpacity: 0.3,
+    edgeOpacity: 0.52,
   });
   surface.position.y = 0.19;
   root.add(surface);
@@ -1449,7 +1045,7 @@ function buildBackgammonScene(
   const bar = technicalSolid(new THREE.BoxGeometry(0.24, 0.16, 4.95), {
     color: BOARD_BAR,
     opacity: 0.14,
-    edgeOpacity: 0.52,
+    edgeOpacity: 0.76,
   });
   bar.position.y = 0.28;
   root.add(bar);
@@ -1491,14 +1087,14 @@ function buildBackgammonScene(
         new THREE.Vector3(x, 0.83, z),
       ],
       INK,
-      0.26,
+      0.48,
     );
     const node = new THREE.Mesh(
       new THREE.SphereGeometry(0.045, 9, 7),
       new THREE.MeshBasicMaterial({
         color: INK,
         transparent: true,
-        opacity: 0.46,
+        opacity: 0.75,
         depthWrite: false,
       }),
     );
@@ -1545,7 +1141,7 @@ function buildBackgammonScene(
         {
           color: index % 2 === 0 ? BOARD_POINT_A : BOARD_POINT_B,
           opacity: index % 2 === 0 ? 0.14 : 0.07,
-          edgeOpacity: index % 2 === 0 ? 0.54 : 0.28,
+          edgeOpacity: index % 2 === 0 ? 0.78 : 0.48,
           threshold: 1,
         },
       );
@@ -1554,7 +1150,7 @@ function buildBackgammonScene(
         {
           color: index % 2 === 0 ? BOARD_POINT_B : BOARD_POINT_A,
           opacity: index % 2 === 0 ? 0.07 : 0.14,
-          edgeOpacity: index % 2 === 0 ? 0.28 : 0.54,
+          edgeOpacity: index % 2 === 0 ? 0.48 : 0.78,
           threshold: 1,
         },
       );
@@ -1562,14 +1158,20 @@ function buildBackgammonScene(
     }
   }
 
-  const pointPosition = (point: number, stackIndex: number) => {
+  const pointPosition = (point: number, stackIndex: number, player: Player = "WHITE") => {
+    if (point === offPoint(player)) {
+      return new THREE.Vector3(4.48, 0.35 + Math.floor(stackIndex / 5) * 0.145, (player === "WHITE" ? -2.1 : 2.1) + (player === "WHITE" ? 1 : -1) * (stackIndex % 5) * 0.43);
+    }
+    if (point === barPoint(player)) {
+      return new THREE.Vector3(0, 0.46 + Math.floor(stackIndex / 3) * 0.145, (player === "WHITE" ? -1 : 1) * (0.45 + (stackIndex % 3) * 0.44));
+    }
     const top = point >= 13;
     const edgeZ = top ? 2.1 : -2.1;
     const direction = top ? -1 : 1;
     return new THREE.Vector3(
       pointCenterX(point),
-      0.35 + stackIndex * 0.008,
-      edgeZ + direction * stackIndex * 0.43,
+      0.35 + Math.floor(stackIndex / 5) * 0.145,
+      edgeZ + direction * (stackIndex % 5) * 0.43,
     );
   };
 
@@ -1619,17 +1221,19 @@ function buildBackgammonScene(
           new THREE.LineBasicMaterial({
             color: player === "BLACK" ? CHECKER_DARK_EDGE : INK,
             transparent: true,
-            opacity: player === "BLACK" ? 0.68 : 0.58,
+            opacity: player === "BLACK" ? 0.90 : 0.78,
+            toneMapped: false,
           }),
         ),
       );
       const registerRing = new THREE.Mesh(
         new THREE.TorusGeometry(0.135, 0.008, 5, 28),
         new THREE.MeshBasicMaterial({
-          color: player === "BLACK" ? RED : INK,
+          color: player === "BLACK" ? RED : CHECKER_DARK,
           transparent: true,
-          opacity: player === "BLACK" ? 0.24 : 0.18,
+          opacity: player === "BLACK" ? 0.62 : 0.56,
           depthWrite: false,
+          toneMapped: false,
         }),
       );
       registerRing.rotation.x = Math.PI / 2;
@@ -1638,7 +1242,7 @@ function buildBackgammonScene(
       const stackIndex = allPoints
         .slice(0, pieceIndex)
         .filter((value) => value === point).length;
-      checker.position.copy(pointPosition(point, stackIndex));
+      checker.position.copy(pointPosition(point, stackIndex, player));
       root.add(checker);
       pieces.push({
         object: checker,
@@ -1650,55 +1254,9 @@ function buildBackgammonScene(
     });
   });
 
-  const turnSequence: BackgammonTurn[] = [
-    {
-      player: "WHITE",
-      dice: [6, 1],
-      notation: "13/7 · 8/7",
-      moves: [
-        { from: 13, to: 7, die: 6 },
-        { from: 8, to: 7, die: 1 },
-      ],
-    },
-    {
-      player: "BLACK",
-      dice: [5, 3],
-      notation: "12/17 · 1/4",
-      moves: [
-        { from: 12, to: 17, die: 5 },
-        { from: 1, to: 4, die: 3 },
-      ],
-    },
-    {
-      player: "WHITE",
-      dice: [4, 4],
-      notation: "24/20(2) · 13/9(2)",
-      moves: [
-        { from: 24, to: 20, die: 4 },
-        { from: 24, to: 20, die: 4 },
-        { from: 13, to: 9, die: 4 },
-        { from: 13, to: 9, die: 4 },
-      ],
-    },
-    {
-      player: "BLACK",
-      dice: [6, 4],
-      notation: "12/18 · 17/21",
-      moves: [
-        { from: 12, to: 18, die: 6 },
-        { from: 17, to: 21, die: 4 },
-      ],
-    },
-    {
-      player: "WHITE",
-      dice: [5, 3],
-      notation: "8/3 · 6/3",
-      moves: [
-        { from: 8, to: 3, die: 5 },
-        { from: 6, to: 3, die: 3 },
-      ],
-    },
-  ];
+  const game = generateGame(5);
+  validateGame(game);
+  const turnSequence = game.turns;
 
   const stackKey = (player: Player, point: number) => `${player}:${point}`;
   const simulatedStacks = new Map<string, BackgammonPiece[]>();
@@ -1708,8 +1266,10 @@ function buildBackgammonScene(
     stack.push(piece);
     simulatedStacks.set(key, stack);
   });
-  const turnDuration = 5;
-  const cycleDuration = turnDuration * turnSequence.length;
+  // 12 seconds per turn is an illustrative human-paced replay, not recorded timing.
+  const turnDuration = 12;
+  const gameDuration = turnDuration * turnSequence.length;
+  const cycleDuration = gameDuration + 12;
   const timeline: Array<{
     turn: number;
     piece: BackgammonPiece;
@@ -1720,6 +1280,8 @@ function buildBackgammonScene(
     curve: THREE.QuadraticBezierCurve3;
     startsAt: number;
     endsAt: number;
+    die: number;
+    hit?: boolean;
   }> = [];
   turnSequence.forEach((turn, turnIndex) => {
     turn.moves.forEach((move, moveIndex) => {
@@ -1733,14 +1295,29 @@ function buildBackgammonScene(
           `Invalid backgammon move ${move.from}/${move.to}: empty source`,
         );
       }
-      const start = pointPosition(move.from, sourceStack.length - 1);
-      const end = pointPosition(move.to, targetStack.length);
+      const stepDuration = 8.5 / Math.max(1, turn.moves.length);
+      const startsAt = turnIndex * turnDuration + 2.4 + moveIndex * stepDuration;
+      const other = opponent(turn.player);
+      const opposingStack = simulatedStacks.get(stackKey(other, move.to)) ?? [];
+      const hit = move.to > 0 && move.to < 25 && opposingStack.length === 1;
+      if (hit) {
+        const captured = opposingStack.pop()!;
+        const barKey = stackKey(other, barPoint(other));
+        const barStack = simulatedStacks.get(barKey) ?? [];
+        const start = pointPosition(move.to, 0, other);
+        const end = pointPosition(barPoint(other), barStack.length, other);
+        const midpoint = start.clone().lerp(end, 0.5);
+        midpoint.y = 1.65;
+        timeline.push({ turn: turnIndex, piece: captured, from: move.to, to: barPoint(other), start, end,
+          curve: new THREE.QuadraticBezierCurve3(start, midpoint, end),
+          startsAt, endsAt: startsAt + stepDuration * 0.3, die: move.die, hit: true });
+        barStack.push(captured);
+        simulatedStacks.set(barKey, barStack);
+      }
+      const start = pointPosition(move.from, sourceStack.length - 1, turn.player);
+      const end = pointPosition(move.to, targetStack.length, turn.player);
       const midpoint = start.clone().lerp(end, 0.5);
       midpoint.y = 1.25 + Math.min(0.68, start.distanceTo(end) * 0.075);
-      const startsAt =
-        turnIndex * turnDuration +
-        0.62 +
-        moveIndex * (turn.moves.length === 4 ? 0.96 : 1.32);
       timeline.push({
         turn: turnIndex,
         piece,
@@ -1749,8 +1326,9 @@ function buildBackgammonScene(
         start,
         end,
         curve: new THREE.QuadraticBezierCurve3(start, midpoint, end),
-        startsAt,
-        endsAt: startsAt + (turn.moves.length === 4 ? 0.78 : 1.02),
+        startsAt: startsAt + (hit ? stepDuration * 0.3 : 0),
+        endsAt: startsAt + stepDuration * 0.88,
+        die: move.die,
       });
       sourceStack.pop();
       targetStack.push(piece);
@@ -1822,6 +1400,13 @@ function buildBackgammonScene(
   let lastMoveIndex = -1;
   let targetMarkerCount = 0;
   const currentPoints = new Map<BackgammonPiece, number>();
+  const diceElements = Array.from(hudRoot?.querySelectorAll<HTMLElement>("[data-die-index]") ?? []);
+  const cubeElements = diceElements.map(die => die.querySelector<HTMLElement>(".die-cube"));
+  const faceAngles: Record<number, [number, number]> = {1:[0,0],2:[0,-90],3:[-90,0],4:[90,0],5:[0,90],6:[0,180]};
+  let playhead = 0;
+  let restart = playback.current.restart;
+  let rollingTurn = -1;
+  let rollRevolutions = 1;
 
   return {
     root,
@@ -1837,15 +1422,48 @@ function buildBackgammonScene(
       camera.position.lerp(desiredBoardCamera, orbitDamping);
       camera.lookAt(boardTarget);
 
-      const cycleTime = elapsed % cycleDuration;
+      if (restart !== playback.current.restart) {
+        playhead = 0;
+        restart = playback.current.restart;
+        lastTurnIndex = -1;
+        rollingTurn = -1;
+      }
+      const rate = Math.pow(cycleDuration / 30, playback.current.pace / 100);
+      if (!playback.current.paused && !document.hidden) playhead += delta * rate;
+      const cycleTime = playhead % cycleDuration;
+      const finished = cycleTime >= gameDuration;
       const turnIndex = Math.min(
         turnSequence.length - 1,
         Math.floor(cycleTime / turnDuration),
       );
       const turn = turnSequence[turnIndex];
       const turnTime = cycleTime - turnIndex * turnDuration;
+      const seconds = cycleDuration / rate;
+      setHud(hudRoot, "game-duration", seconds < 60 ? `${seconds.toFixed(0)} SEC / GAME` : `${Math.floor(seconds / 60)}:${Math.round(seconds % 60).toString().padStart(2, "0")} / GAME`);
+      const rollProgress = THREE.MathUtils.clamp(turnTime / 2.2, 0, 1);
+      const rollEase = THREE.MathUtils.smootherstep(rollProgress, 0, 1);
+      if (rollingTurn !== turnIndex) {
+        rollingTurn = turnIndex;
+        // At 30-second/game pace the roll lasts only ~80ms. Extra revolutions
+        // would alias into a strobe; retain the shortest visible tumble instead.
+        rollRevolutions = rate > 14 ? 0 : rate > 5 ? 1 : 2;
+      }
+      diceElements.forEach((die, index) => {
+        const previous = turnSequence[(turnIndex - 1 + turnSequence.length) % turnSequence.length].dice[index];
+        const [fromX, fromY] = faceAngles[previous];
+        const [toX, toY] = faceAngles[turn.dice[index]];
+        const shortest = (from: number, to: number) => ((to - from + 540) % 360) - 180;
+        const x = fromX + (shortest(fromX, toX) + 360 * rollRevolutions) * rollEase;
+        const y = fromY + (shortest(fromY, toY) + 360 * rollRevolutions) * rollEase;
+        const lift = Math.sin(Math.PI * rollProgress) * 13;
+        const drift = Math.sin(Math.PI * rollProgress * 2) * 6 * (index ? -1 : 1);
+        die.style.transform = `translate3d(${drift}px, ${-lift}px, 0) rotateZ(${Math.sin(Math.PI * rollProgress) * (index ? -10 : 10)}deg)`;
+        const cube = cubeElements[index];
+        if (cube) cube.style.transform = `rotateX(${x}deg) rotateY(${y}deg)`;
+      });
+      scanLine.visible = !finished;
       scanLine.position.z =
-        -2.35 + (turnTime / turnDuration) * 4.7;
+        -2.35 + Math.min(1, turnTime / turnDuration) * 4.7;
 
       pieces.forEach((piece) => {
         piece.object.position.copy(piece.initialPosition);
@@ -1864,12 +1482,8 @@ function buildBackgammonScene(
       const activeMoveIndex = timeline.findIndex(
         (move) => cycleTime >= move.startsAt && cycleTime < move.endsAt,
       );
-      let activeMoveWithinTurn = -1;
       if (activeMoveIndex >= 0) {
         const move = timeline[activeMoveIndex];
-        activeMoveWithinTurn = timeline
-          .filter((candidate) => candidate.turn === turnIndex)
-          .findIndex((candidate) => candidate === move);
         const progress = THREE.MathUtils.smootherstep(
           (cycleTime - move.startsAt) / (move.endsAt - move.startsAt),
           0,
@@ -1895,12 +1509,14 @@ function buildBackgammonScene(
       }
       targetMarkers.forEach((marker, index) => {
         marker.visible =
-          activeMoveIndex < 0 && index < targetMarkerCount;
+          !finished && activeMoveIndex < 0 && index < targetMarkerCount;
       });
 
       if (lastTurnIndex !== turnIndex) {
         const orderedWays = turn.dice[0] === turn.dice[1] ? 1 : 2;
-        const probability = ((orderedWays / 36) * 100).toFixed(2);
+        const outcomes = turn.opening ? 30 : 36;
+        const probability = ((orderedWays / outcomes) * 100).toFixed(2);
+        setHud(hudRoot, "dice-space", turn.opening ? "OPENING / 30 UNEQUAL OUTCOMES" : "DICE SPACE / 36 ORDERED OUTCOMES");
         setHud(
           hudRoot,
           "dice-caption",
@@ -1910,14 +1526,11 @@ function buildBackgammonScene(
           ?.querySelectorAll<HTMLElement>("[data-die-index]")
           .forEach((die, index) => {
             die.dataset.value = String(turn.dice[index] ?? 1);
-            die.classList.remove("is-rolling");
-            void die.offsetWidth;
-            die.classList.add("is-rolling");
           });
         setHud(
           hudRoot,
           "probability",
-          `P({${turn.dice[0]},${turn.dice[1]}}) = ${orderedWays} / 36 = ${probability}%`,
+          `P({${turn.dice[0]},${turn.dice[1]}}) = ${orderedWays} / ${outcomes} = ${probability}%`,
         );
         setHud(
           hudRoot,
@@ -1928,7 +1541,12 @@ function buildBackgammonScene(
         );
         hudRoot
           ?.querySelectorAll<HTMLElement>("[data-roll]")
-          .forEach((node) => node.classList.remove("is-active"));
+          .forEach((node) => {
+            node.classList.remove("is-active");
+            const [first, second] = (node.dataset.roll ?? "").split("-");
+            node.style.opacity = turn.opening && first === second ? "0.12" : "";
+          });
+        hudRoot?.querySelector(".dice-lattice")?.setAttribute("aria-label", turn.opening ? "Thirty unequal opening dice outcomes; doubles excluded" : "Thirty-six dice outcomes");
         [
           `${turn.dice[0]}-${turn.dice[1]}`,
           `${turn.dice[1]}-${turn.dice[0]}`,
@@ -1942,7 +1560,7 @@ function buildBackgammonScene(
           marker.visible = false;
         });
         const uniqueTargets = timeline
-          .filter((move) => move.turn === turnIndex)
+          .filter((move) => move.turn === turnIndex && !move.hit)
           .filter(
             (move, index, moves) =>
               moves.findIndex((candidate) => candidate.to === move.to) ===
@@ -1977,14 +1595,18 @@ function buildBackgammonScene(
         currentPoints,
       );
 
-      setHud(hudRoot, "turn", `${turnIndex + 1} / 5`);
+      setHud(hudRoot, "turn", `${turnIndex + 1} / ${turnSequence.length}`);
+      const barCount = pieces.filter(p => currentPoints.get(p) === barPoint(p.player)).length;
+      const offCount = pieces.filter(p => currentPoints.get(p) === offPoint(p.player)).length;
+      const hits = timeline.filter(m => m.hit && m.endsAt <= cycleTime).length;
+      setHud(hudRoot, "board-counts", `30 CHECKERS · ${barCount} BAR · ${offCount} OFF · ${hits} HITS`);
       setHud(hudRoot, "player", turn.player);
       setHud(hudRoot, "roll", `${turn.dice[0]}–${turn.dice[1]}`);
       setHud(
         hudRoot,
         "move",
         activeMoveIndex >= 0
-          ? `MOVE ${activeMoveWithinTurn + 1}/${turn.moves.length} · ${timeline[activeMoveIndex].from}/${timeline[activeMoveIndex].to}`
+          ? timeline[activeMoveIndex].hit ? "HIT / RETURN TO BAR" : `PLAY · ${turn.notation}`
           : `PLAY · ${turn.notation}`,
       );
       setHud(hudRoot, "pip-white", String(whitePips));
@@ -2008,545 +1630,23 @@ function buildBackgammonScene(
         hudRoot,
         "move-state",
         activeMoveIndex >= 0
-          ? `EXECUTING / DIE ${turn.moves[activeMoveWithinTurn].die}`
-          : turnTime < 0.72
-            ? "ROLL RESOLVED"
-            : "POSITION VERIFIED",
+          ? `${timeline[activeMoveIndex].hit ? "HIT → BAR" : "EXECUTING"} / DIE ${timeline[activeMoveIndex].die}`
+          : finished ? `${game.winner} WINS / ${game.result}`
+          : turnTime < 2.2
+            ? "ROLLING"
+            : "LEGAL POSITION / SIM",
       );
     },
   };
 }
 
-const SYMBOL_GRID_SIZE = 40;
-const SYMBOL_GRID_STEP = 0.21;
-const SYMBOL_GRID_HALF =
-  ((SYMBOL_GRID_SIZE - 1) * SYMBOL_GRID_STEP) / 2;
-const SYMBOL_PATH_COUNT = 16;
-const SYMBOL_VERTICES_PER_PATH = 128;
-const SYMBOL_VERTEX_COUNT =
-  SYMBOL_PATH_COUNT * SYMBOL_VERTICES_PER_PATH;
-const SYMBOL_EDGE_COUNT =
-  SYMBOL_PATH_COUNT * (SYMBOL_VERTICES_PER_PATH - 1);
-
-type SymbolName = "PHOENIX" | "OUROBOROS" | "GANDIVA";
-
-type SymbolShape = {
-  name: SymbolName;
-  paths: THREE.Vector3[][];
-  positions: Float32Array;
-};
-
-function samplePolyline(
-  controlPoints: THREE.Vector3[],
-  count = SYMBOL_VERTICES_PER_PATH,
-  closed = false,
-) {
-  const points = closed
-    ? [...controlPoints, controlPoints[0]]
-    : controlPoints;
-  const cumulative = [0];
-  for (let index = 1; index < points.length; index += 1) {
-    cumulative.push(
-      cumulative[index - 1] +
-        points[index - 1].distanceTo(points[index]),
-    );
-  }
-  const totalLength = cumulative[cumulative.length - 1];
-
-  return Array.from({ length: count }, (_, index) => {
-    const distance = (index / (count - 1)) * totalLength;
-    let segment = 0;
-    while (
-      segment < cumulative.length - 2 &&
-      cumulative[segment + 1] < distance
-    ) {
-      segment += 1;
-    }
-    const start = cumulative[segment];
-    const end = cumulative[segment + 1];
-    return points[segment]
-      .clone()
-      .lerp(
-        points[segment + 1],
-        (distance - start) / Math.max(0.0001, end - start),
-      );
-  });
-}
-
-function sampleCurve(
-  curve: (amount: number) => THREE.Vector3,
-  count = SYMBOL_VERTICES_PER_PATH,
-) {
-  return Array.from({ length: count }, (_, index) =>
-    curve(index / (count - 1)),
-  );
-}
-
-function sampleCatmull(
-  controlPoints: THREE.Vector3[],
-  closed = false,
-  count = SYMBOL_VERTICES_PER_PATH,
-) {
-  const curve = new THREE.CatmullRomCurve3(
-    controlPoints,
-    closed,
-    "centripetal",
-    0.45,
-  );
-  return Array.from({ length: count }, (_, index) =>
-    curve.getPoint(index / (count - 1)),
-  );
-}
-
-function mirrorSymbolPath(path: THREE.Vector3[]) {
-  return path.map(
-    (point) => new THREE.Vector3(-point.x, point.y, point.z),
-  );
-}
-
-function snapSymbolPoint(point: THREE.Vector3) {
-  const snap = (value: number) =>
-    THREE.MathUtils.clamp(
-      Math.round(
-        (value + SYMBOL_GRID_HALF) / SYMBOL_GRID_STEP,
-      ) *
-        SYMBOL_GRID_STEP -
-        SYMBOL_GRID_HALF,
-      -SYMBOL_GRID_HALF,
-      SYMBOL_GRID_HALF,
-    );
-  return new THREE.Vector3(
-    snap(point.x),
-    snap(point.y),
-    snap(point.z),
-  );
-}
-
-function buildSymbolShape(
-  name: SymbolName,
-  sourcePaths: THREE.Vector3[][],
-): SymbolShape {
-  const paths = sourcePaths.map((path) =>
-    path.map((point) =>
-      snapSymbolPoint(
-        new THREE.Vector3(point.x, point.y, point.z * 1.45),
-      ),
-    ),
-  );
-  const positions = new Float32Array(SYMBOL_VERTEX_COUNT * 3);
-  paths.forEach((path, pathIndex) => {
-    path.forEach((point, vertexIndex) => {
-      const offset =
-        (pathIndex * SYMBOL_VERTICES_PER_PATH + vertexIndex) * 3;
-      positions[offset] = point.x;
-      positions[offset + 1] = point.y;
-      positions[offset + 2] = point.z;
-    });
-  });
-  return { name, paths, positions };
-}
-
-function buildPhoenixShape() {
-  const outer = samplePolyline(
-    [
-      new THREE.Vector3(-0.15, -3.75, 0),
-      new THREE.Vector3(-0.85, -2.55, 0.35),
-      new THREE.Vector3(-2.05, -3.35, -0.5),
-      new THREE.Vector3(-1.5, -2.0, 0.5),
-      new THREE.Vector3(-3.15, -2.35, -0.55),
-      new THREE.Vector3(-2.3, -1.25, 0.5),
-      new THREE.Vector3(-3.75, -1.05, -0.72),
-      new THREE.Vector3(-2.62, -0.25, 0.52),
-      new THREE.Vector3(-4.05, 0.3, -0.78),
-      new THREE.Vector3(-2.78, 0.65, 0.48),
-      new THREE.Vector3(-3.82, 1.45, -0.62),
-      new THREE.Vector3(-2.48, 1.35, 0.45),
-      new THREE.Vector3(-3.08, 2.38, -0.42),
-      new THREE.Vector3(-1.8, 1.95, 0.58),
-      new THREE.Vector3(-1.5, 2.78, 0.18),
-      new THREE.Vector3(-0.72, 2.25, 0.76),
-      new THREE.Vector3(-0.5, 3.0, 0.5),
-      new THREE.Vector3(-0.1, 3.62, 0.42),
-      new THREE.Vector3(0.46, 3.35, 0.68),
-      new THREE.Vector3(1.08, 3.02, 0.14),
-      new THREE.Vector3(0.48, 2.82, 0.72),
-      new THREE.Vector3(0.72, 2.25, 0.76),
-      new THREE.Vector3(1.5, 2.78, 0.18),
-      new THREE.Vector3(1.8, 1.95, 0.58),
-      new THREE.Vector3(3.08, 2.38, -0.42),
-      new THREE.Vector3(2.48, 1.35, 0.45),
-      new THREE.Vector3(3.82, 1.45, -0.62),
-      new THREE.Vector3(2.78, 0.65, 0.48),
-      new THREE.Vector3(4.05, 0.3, -0.78),
-      new THREE.Vector3(2.62, -0.25, 0.52),
-      new THREE.Vector3(3.75, -1.05, -0.72),
-      new THREE.Vector3(2.3, -1.25, 0.5),
-      new THREE.Vector3(3.15, -2.35, -0.55),
-      new THREE.Vector3(1.5, -2.0, 0.5),
-      new THREE.Vector3(2.05, -3.35, -0.5),
-      new THREE.Vector3(0.85, -2.55, 0.35),
-      new THREE.Vector3(0.15, -3.75, 0),
-    ],
-    SYMBOL_VERTICES_PER_PATH,
-    true,
-  );
-  const body = sampleCatmull(
-    [
-      new THREE.Vector3(-0.18, -2.55, 0.82),
-      new THREE.Vector3(-0.72, -1.45, 0.92),
-      new THREE.Vector3(-0.58, -0.1, 1.08),
-      new THREE.Vector3(-0.72, 1.15, 0.9),
-      new THREE.Vector3(-0.35, 2.3, 0.78),
-      new THREE.Vector3(0.28, 2.65, 0.68),
-      new THREE.Vector3(0.55, 1.35, 0.92),
-      new THREE.Vector3(0.52, -0.15, 1.08),
-      new THREE.Vector3(0.7, -1.42, 0.92),
-      new THREE.Vector3(0.18, -2.55, 0.82),
-    ],
-    true,
-  );
-  const head = samplePolyline(
-    [
-      new THREE.Vector3(-0.38, 2.3, 0.95),
-      new THREE.Vector3(-0.5, 3.05, 0.88),
-      new THREE.Vector3(-0.08, 3.55, 0.72),
-      new THREE.Vector3(0.42, 3.28, 0.92),
-      new THREE.Vector3(1.05, 3.02, 0.35),
-      new THREE.Vector3(0.46, 2.84, 0.98),
-      new THREE.Vector3(0.38, 2.32, 1.04),
-    ],
-    SYMBOL_VERTICES_PER_PATH,
-    true,
-  );
-  const spine = sampleCatmull([
-    new THREE.Vector3(0.02, 3.3, 1.1),
-    new THREE.Vector3(-0.08, 2.2, 1.3),
-    new THREE.Vector3(0.1, 0.9, 1.42),
-    new THREE.Vector3(-0.08, -0.45, 1.4),
-    new THREE.Vector3(0.05, -1.75, 1.18),
-    new THREE.Vector3(0, -3.6, 0.38),
-  ]);
-  const leftWing = sampleCatmull([
-    new THREE.Vector3(-0.35, 1.55, 1.05),
-    new THREE.Vector3(-1.35, 2.15, 0.95),
-    new THREE.Vector3(-2.65, 2.3, 0.35),
-    new THREE.Vector3(-3.78, 1.45, -0.38),
-    new THREE.Vector3(-3.85, 0.28, -0.55),
-    new THREE.Vector3(-2.8, -0.35, 0.25),
-    new THREE.Vector3(-1.35, 0.05, 0.92),
-    new THREE.Vector3(-0.42, 0.72, 1.1),
-  ]);
-  const rightWing = mirrorSymbolPath(leftWing);
-  const leftPrimary = samplePolyline([
-    new THREE.Vector3(-0.48, 1.42, 1.2),
-    new THREE.Vector3(-1.45, 2.56, 0.72),
-    new THREE.Vector3(-1.18, 1.45, 0.98),
-    new THREE.Vector3(-2.45, 2.62, 0.28),
-    new THREE.Vector3(-1.7, 1.22, 0.9),
-    new THREE.Vector3(-3.35, 2.05, -0.22),
-    new THREE.Vector3(-2.15, 0.85, 0.72),
-    new THREE.Vector3(-3.88, 1.18, -0.5),
-    new THREE.Vector3(-2.38, 0.42, 0.66),
-    new THREE.Vector3(-3.82, 0.1, -0.48),
-    new THREE.Vector3(-1.9, 0.08, 0.82),
-    new THREE.Vector3(-0.48, 0.68, 1.18),
-  ]);
-  const rightPrimary = mirrorSymbolPath(leftPrimary);
-  const leftSecondary = samplePolyline([
-    new THREE.Vector3(-0.55, 1.28, 0.72),
-    new THREE.Vector3(-1.28, 2.05, 0.32),
-    new THREE.Vector3(-1.1, 1.18, 0.62),
-    new THREE.Vector3(-2.12, 2.05, -0.05),
-    new THREE.Vector3(-1.55, 0.9, 0.58),
-    new THREE.Vector3(-2.92, 1.58, -0.3),
-    new THREE.Vector3(-1.86, 0.55, 0.55),
-    new THREE.Vector3(-3.15, 0.78, -0.38),
-    new THREE.Vector3(-1.72, 0.25, 0.62),
-    new THREE.Vector3(-0.55, 0.72, 0.8),
-  ]);
-  const rightSecondary = mirrorSymbolPath(leftSecondary);
-  const leftTertiary = samplePolyline([
-    new THREE.Vector3(-0.48, 1.05, 1.45),
-    new THREE.Vector3(-1.08, 1.72, 1.26),
-    new THREE.Vector3(-0.92, 0.95, 1.38),
-    new THREE.Vector3(-1.72, 1.55, 1.05),
-    new THREE.Vector3(-1.32, 0.72, 1.28),
-    new THREE.Vector3(-2.18, 1.05, 0.86),
-    new THREE.Vector3(-1.45, 0.42, 1.2),
-    new THREE.Vector3(-2.18, 0.25, 0.78),
-    new THREE.Vector3(-1.12, 0.18, 1.28),
-    new THREE.Vector3(-0.42, 0.58, 1.45),
-  ]);
-  const rightTertiary = mirrorSymbolPath(leftTertiary);
-  const leftTail = sampleCatmull([
-    new THREE.Vector3(-0.18, -1.35, 1.02),
-    new THREE.Vector3(-0.72, -1.92, 0.75),
-    new THREE.Vector3(-1.55, -2.55, 0.15),
-    new THREE.Vector3(-1.9, -3.58, -0.42),
-    new THREE.Vector3(-0.78, -2.78, 0.48),
-    new THREE.Vector3(-0.2, -2.25, 0.82),
-  ]);
-  const rightTail = mirrorSymbolPath(leftTail);
-  const centerTail = sampleCatmull([
-    new THREE.Vector3(0, -1.3, 1.22),
-    new THREE.Vector3(-0.25, -2.05, 0.9),
-    new THREE.Vector3(0.12, -2.72, 0.45),
-    new THREE.Vector3(0, -4.0, -0.12),
-    new THREE.Vector3(0.42, -2.85, 0.5),
-    new THREE.Vector3(0.18, -1.82, 0.96),
-  ]);
-  const crest = samplePolyline([
-    new THREE.Vector3(-0.42, 3.02, 0.82),
-    new THREE.Vector3(-0.72, 3.55, 0.25),
-    new THREE.Vector3(-0.15, 3.28, 1.05),
-    new THREE.Vector3(0.02, 3.92, 0.3),
-    new THREE.Vector3(0.25, 3.3, 1.08),
-    new THREE.Vector3(0.72, 3.58, 0.28),
-    new THREE.Vector3(0.45, 3.02, 0.88),
-  ]);
-
-  return buildSymbolShape("PHOENIX", [
-    outer,
-    body,
-    head,
-    spine,
-    leftWing,
-    rightWing,
-    leftPrimary,
-    rightPrimary,
-    leftSecondary,
-    rightSecondary,
-    leftTertiary,
-    rightTertiary,
-    leftTail,
-    rightTail,
-    centerTail,
-    crest,
-  ]);
-}
-
-function buildOuroborosShape() {
-  const ring = (
-    radius: number,
-    zOffset: number,
-    depth: number,
-    phase = 0,
-    radialWave = 0,
-    waveFrequency = 1,
-  ) =>
-    sampleCurve((amount) => {
-      const angle = amount * Math.PI * 2 + phase;
-      const liveRadius =
-        radius + Math.sin(angle * waveFrequency) * radialWave;
-      return new THREE.Vector3(
-        Math.cos(angle) * liveRadius,
-        Math.sin(angle) * liveRadius,
-        zOffset + Math.sin(angle * 2) * depth,
-      );
-    });
-  const headOuter = sampleCatmull(
-    [
-      new THREE.Vector3(2.58, 0.05, 0.24),
-      new THREE.Vector3(2.78, 0.92, 0.46),
-      new THREE.Vector3(3.48, 1.2, 0.72),
-      new THREE.Vector3(4.02, 0.58, 0.78),
-      new THREE.Vector3(3.83, -0.18, 0.46),
-      new THREE.Vector3(3.18, -0.48, 0.28),
-    ],
-    true,
-  );
-  const headInner = sampleCatmull(
-    [
-      new THREE.Vector3(2.82, 0.18, -0.28),
-      new THREE.Vector3(2.98, 0.78, -0.1),
-      new THREE.Vector3(3.46, 0.98, 0.05),
-      new THREE.Vector3(3.8, 0.52, 0.12),
-      new THREE.Vector3(3.62, 0.02, -0.08),
-      new THREE.Vector3(3.16, -0.18, -0.24),
-    ],
-    true,
-  );
-  const jaw = samplePolyline([
-    new THREE.Vector3(2.72, 0.36, 0.68),
-    new THREE.Vector3(3.18, 0.12, 0.92),
-    new THREE.Vector3(3.78, 0.0, 0.72),
-    new THREE.Vector3(3.4, -0.23, 0.52),
-    new THREE.Vector3(2.85, -0.04, 0.38),
-  ]);
-  const bite = samplePolyline([
-    new THREE.Vector3(3.92, 0.52, 0.7),
-    new THREE.Vector3(3.52, 0.3, 0.48),
-    new THREE.Vector3(3.02, 0.12, 0.18),
-    new THREE.Vector3(2.64, -0.05, -0.12),
-    new THREE.Vector3(3.08, -0.28, 0.04),
-    new THREE.Vector3(3.64, -0.08, 0.34),
-  ]);
-  const eye = sampleCurve((amount) => {
-    const angle = amount * Math.PI * 2;
-    return new THREE.Vector3(
-      3.48 + Math.cos(angle) * 0.22,
-      0.67 + Math.sin(angle) * 0.17,
-      1.02,
-    );
-  });
-  const pupil = sampleCurve((amount) => {
-    const angle = amount * Math.PI * 2;
-    return new THREE.Vector3(
-      3.48 + Math.cos(angle) * 0.07,
-      0.67 + Math.sin(angle) * 0.13,
-      1.18,
-    );
-  });
-
-  return buildSymbolShape("OUROBOROS", [
-    ring(3.28, 0.58, 0.18),
-    ring(3.28, -0.58, 0.18),
-    ring(2.55, 0.5, 0.15),
-    ring(2.55, -0.5, 0.15),
-    ring(2.94, 0.9, 0.12, 0.04, 0.05, 12),
-    ring(2.94, -0.9, 0.12, -0.04, 0.05, 12),
-    ring(2.73, 0.2, 0.32, 0.1, 0.13, 18),
-    ring(3.08, 0.14, 0.3, 0.36, 0.11, 18),
-    ring(2.72, -0.2, 0.32, 0.62, 0.13, 18),
-    ring(3.08, -0.14, 0.3, 0.88, 0.11, 18),
-    headOuter,
-    headInner,
-    jaw,
-    bite,
-    eye,
-    pupil,
-  ]);
-}
-
-function buildGandivaShape() {
-  const limb = (depth: number, inset: number) =>
-    sampleCurve((amount) => {
-      const y = 3.42 - amount * 6.84;
-      const normalizedY = y / 3.42;
-      const centerBow =
-        1.72 -
-        3.52 * Math.pow(1 - Math.abs(normalizedY), 0.7) +
-        Math.sign(normalizedY || 1) *
-          Math.sin(Math.abs(normalizedY) * Math.PI) *
-          0.2;
-      return new THREE.Vector3(
-        centerBow + Math.sin(amount * Math.PI) * inset,
-        y,
-        depth + Math.sin(amount * Math.PI) * 0.18,
-      );
-    });
-  const frontOuter = limb(0.62, 0);
-  const frontInner = limb(0.98, 0.32);
-  const backOuter = limb(-0.72, 0);
-  const backInner = limb(-0.34, 0.32);
-  const stringFront = samplePolyline([
-    new THREE.Vector3(1.72, 3.42, 0.72),
-    new THREE.Vector3(1.05, 2.05, 0.72),
-    new THREE.Vector3(-1.72, 0, 0.72),
-    new THREE.Vector3(1.05, -2.05, 0.72),
-    new THREE.Vector3(1.72, -3.42, 0.72),
-  ]);
-  const stringBack = samplePolyline([
-    new THREE.Vector3(1.72, 3.42, -0.55),
-    new THREE.Vector3(1.05, 2.05, -0.55),
-    new THREE.Vector3(-1.72, 0, -0.55),
-    new THREE.Vector3(1.05, -2.05, -0.55),
-    new THREE.Vector3(1.72, -3.42, -0.55),
-  ]);
-  const arrowFront = samplePolyline([
-    new THREE.Vector3(-3.72, 0.08, 1.02),
-    new THREE.Vector3(3.18, 0.08, 1.02),
-  ]);
-  const arrowBack = samplePolyline([
-    new THREE.Vector3(-3.72, -0.08, 0.42),
-    new THREE.Vector3(3.18, -0.08, 0.42),
-  ]);
-  const arrowheadOuter = samplePolyline(
-    [
-      new THREE.Vector3(4.02, 0.08, 0.75),
-      new THREE.Vector3(3.08, 0.62, 0.92),
-      new THREE.Vector3(3.28, 0.08, 0.98),
-      new THREE.Vector3(3.08, -0.48, 0.92),
-    ],
-    SYMBOL_VERTICES_PER_PATH,
-    true,
-  );
-  const arrowheadInner = samplePolyline(
-    [
-      new THREE.Vector3(3.82, 0.08, 0.34),
-      new THREE.Vector3(3.18, 0.42, 0.42),
-      new THREE.Vector3(3.34, 0.08, 0.48),
-      new THREE.Vector3(3.18, -0.28, 0.42),
-    ],
-    SYMBOL_VERTICES_PER_PATH,
-    true,
-  );
-  const gripOuter = sampleCatmull(
-    [
-      new THREE.Vector3(-1.92, 0.68, 0.72),
-      new THREE.Vector3(-1.32, 0.42, 1.08),
-      new THREE.Vector3(-1.24, -0.42, 1.08),
-      new THREE.Vector3(-1.92, -0.68, 0.72),
-      new THREE.Vector3(-2.24, -0.3, 0.18),
-      new THREE.Vector3(-2.24, 0.3, 0.18),
-    ],
-    true,
-  );
-  const gripInner = sampleCatmull(
-    [
-      new THREE.Vector3(-1.82, 0.48, -0.36),
-      new THREE.Vector3(-1.45, 0.3, 0),
-      new THREE.Vector3(-1.4, -0.3, 0),
-      new THREE.Vector3(-1.82, -0.48, -0.36),
-      new THREE.Vector3(-2.05, -0.22, -0.62),
-      new THREE.Vector3(-2.05, 0.22, -0.62),
-    ],
-    true,
-  );
-  const topScrollFront = sampleCatmull([
-    new THREE.Vector3(1.72, 3.42, 0.62),
-    new THREE.Vector3(2.18, 3.78, 0.72),
-    new THREE.Vector3(2.75, 3.55, 0.84),
-    new THREE.Vector3(2.82, 3.05, 0.9),
-    new THREE.Vector3(2.38, 2.8, 0.92),
-    new THREE.Vector3(1.88, 3.0, 0.82),
-    new THREE.Vector3(1.45, 3.18, 0.72),
-  ]);
-  const topScrollBack = sampleCatmull([
-    new THREE.Vector3(1.72, 3.42, -0.72),
-    new THREE.Vector3(2.18, 3.78, -0.62),
-    new THREE.Vector3(2.75, 3.55, -0.5),
-    new THREE.Vector3(2.82, 3.05, -0.44),
-    new THREE.Vector3(2.38, 2.8, -0.42),
-    new THREE.Vector3(1.88, 3.0, -0.52),
-    new THREE.Vector3(1.45, 3.18, -0.62),
-  ]);
-  const bottomScrollFront = topScrollFront.map(
-    (point) => new THREE.Vector3(point.x, -point.y, point.z),
-  );
-  const bottomScrollBack = topScrollBack.map(
-    (point) => new THREE.Vector3(point.x, -point.y, point.z),
-  );
-
-  return buildSymbolShape("GANDIVA", [
-    frontOuter,
-    frontInner,
-    backOuter,
-    backInner,
-    stringFront,
-    stringBack,
-    arrowFront,
-    arrowBack,
-    arrowheadOuter,
-    arrowheadInner,
-    gripOuter,
-    gripInner,
-    topScrollFront,
-    topScrollBack,
-    bottomScrollFront,
-    bottomScrollBack,
-  ]);
-}
+const SYMBOL_GRID_SIZE = 26;
+const SYMBOL_GRID_STEP = 8.19 / 25;
+const SYMBOL_GRID_HALF = ((SYMBOL_GRID_SIZE - 1) * SYMBOL_GRID_STEP) / 2;
+const SYMBOL_PATH_COUNT = SYMBOL_FEATURE_PATH_COUNT;
+const SYMBOL_VERTICES_PER_PATH = SYMBOL_FEATURE_SAMPLES;
+const SYMBOL_VERTEX_COUNT = SYMBOL_PATH_COUNT * SYMBOL_VERTICES_PER_PATH;
+const SYMBOL_EDGE_COUNT = SYMBOL_PATH_COUNT * (SYMBOL_VERTICES_PER_PATH - 1);
 
 function roundPointMaterial(
   color: number,
@@ -2557,7 +1657,7 @@ function roundPointMaterial(
     uniforms: {
       uColor: { value: new THREE.Color(color) },
       uOpacity: { value: opacity },
-      uPointSize: { value: pointSize },
+      uPointSize: { value: pointSize * Math.min(window.devicePixelRatio || 1, 1.5) },
     },
     vertexShader: `
       uniform float uPointSize;
@@ -2578,10 +1678,12 @@ function roundPointMaterial(
         float radius = length(gl_PointCoord - vec2(0.5));
         float edge = 1.0 - smoothstep(0.32, 0.5, radius);
         gl_FragColor = vec4(uColor, edge * uOpacity * mix(0.68, 1.0, vDepth));
+        #include <colorspace_fragment>
       }
     `,
     transparent: true,
     depthWrite: false,
+    toneMapped: false,
   });
 }
 
@@ -2620,39 +1722,18 @@ function buildSymbolScene(
     "position",
     new THREE.BufferAttribute(latticePositions, 3),
   );
-  const latticeMaterial = roundPointMaterial(INK, 0.095, 1.38);
+  const latticeMaterial = roundPointMaterial(INK, SCENE_IS_DARK ? 0.08 : 0.065, 1.2);
   const lattice = new THREE.Points(latticeGeometry, latticeMaterial);
   lattice.frustumCulled = false;
   root.add(lattice);
 
-  const boundary = new THREE.LineSegments(
-    new THREE.EdgesGeometry(
-      new THREE.BoxGeometry(
-        SYMBOL_GRID_HALF * 2 + SYMBOL_GRID_STEP,
-        SYMBOL_GRID_HALF * 2 + SYMBOL_GRID_STEP,
-        SYMBOL_GRID_HALF * 2 + SYMBOL_GRID_STEP,
-      ),
-    ),
-    new THREE.LineBasicMaterial({
-      color: INK,
-      transparent: true,
-      opacity: 0.12,
-      depthWrite: false,
-    }),
-  );
-  root.add(boundary);
-
-  const shapes = [
-    buildPhoenixShape(),
-    buildOuroborosShape(),
-    buildGandivaShape(),
-  ];
+  const shapes = buildSymbolForms();
   const activePositions = new Float32Array(shapes[0].positions);
   const pointGeometry = new THREE.BufferGeometry();
   const pointAttribute = new THREE.BufferAttribute(activePositions, 3);
   pointAttribute.setUsage(THREE.DynamicDrawUsage);
   pointGeometry.setAttribute("position", pointAttribute);
-  const activePointMaterial = roundPointMaterial(RED, 0.94, 3.15);
+  const activePointMaterial = roundPointMaterial(RED, 0.72, 1.6);
   const activePoints = new THREE.Points(
     pointGeometry,
     activePointMaterial,
@@ -2670,8 +1751,9 @@ function buildSymbolScene(
   const lineMaterial = new THREE.LineBasicMaterial({
     color: RED,
     transparent: true,
-    opacity: 0.88,
+    opacity: 1,
     depthWrite: false,
+    toneMapped: false,
   });
   const activeLines = new THREE.LineSegments(
     lineGeometry,
@@ -2728,8 +1810,8 @@ function buildSymbolScene(
   const next = new THREE.Vector3();
   const segmentA = new THREE.Vector3();
   const segmentB = new THREE.Vector3();
-  const morphDuration = 3.15;
-  const holdDuration = 2.35;
+  const morphDuration = 2.6;
+  const holdDuration = 5;
   const cycleDuration = morphDuration + holdDuration;
   let hudFrame = 0;
   camera.position.set(6.1, 3.45, 13.45);
@@ -2784,7 +1866,7 @@ function buildSymbolScene(
           ((index % SYMBOL_VERTICES_PER_PATH) /
             (SYMBOL_VERTICES_PER_PATH - 1)) *
             0.16 +
-          Math.floor(index / SYMBOL_VERTICES_PER_PATH) * 0.006;
+          (Math.floor(index / SYMBOL_VERTICES_PER_PATH) / (SYMBOL_PATH_COUNT - 1)) * 0.08;
         const progress = isMorphing
           ? THREE.MathUtils.smootherstep(
               (rawMorph - stagger) / Math.max(0.001, 1 - stagger),
@@ -2836,12 +1918,12 @@ function buildSymbolScene(
         : 1;
       workingColor.lerpColors(startColor, resolvedColor, redResolve);
       lineMaterial.color.copy(workingColor);
-      lineMaterial.opacity = 0.46 + redResolve * 0.42;
+      lineMaterial.opacity = 0.70 + redResolve * 0.30;
       (
         activePointMaterial.uniforms.uColor.value as THREE.Color
       ).copy(workingColor);
       activePointMaterial.uniforms.uOpacity.value =
-        0.72 + redResolve * 0.24;
+        0.52 + redResolve * 0.20;
 
       const horizontalDistance =
         view.distance * Math.cos(view.pitch);
@@ -2893,7 +1975,7 @@ function buildSymbolScene(
           activePositions[lastOffset + 1],
           activePositions[lastOffset + 2],
         );
-        if (previous.distanceTo(next) < SYMBOL_GRID_STEP * 0.8) {
+        if (previous.distanceTo(next) < 0.001) {
           closedPaths += 1;
         }
         for (
@@ -3019,26 +2101,26 @@ function FormulaRail({
       <>
         <section className="formula-source">
           <strong>SILVERSTONE</strong>
-          <span>SESSION 11322 · LAP 18 · 04 JUL 2026</span>
+          <span>RECONSTRUCTED CIRCUIT · MODELLED LAP</span>
           <span>
             LAP TIME <b data-hud="lap-time">00:00.000</b>
           </span>
           <span>
-            PROGRESS <b data-hud="lap-progress">0.0%</b> · REPLAY 1.5×
+            PROGRESS <b data-hud="lap-progress">0.0%</b> · SIMULATION 1×
           </span>
           <span className="signal-copy" data-hud="phase">
-            REAL-LAP REPLAY
+            RACING LINE / SIMULATION
           </span>
         </section>
 
-        <section className="formula-primary" aria-label="Recorded telemetry">
+        <section className="formula-primary" aria-label="Simulated telemetry">
           <div className="gear-stack">
             <strong data-hud="gear">–</strong>
-            <span>GEAR</span>
+            <span>GEAR / SIM</span>
           </div>
           <div className="speed-stack">
             <strong data-hud="speed">–––</strong>
-            <span>KM/H · RECORDED</span>
+            <span>KM/H · SIMULATED</span>
           </div>
           <div className="channel-stack">
             <span>
@@ -3066,7 +2148,7 @@ function FormulaRail({
     <>
       <section className="track-inset" aria-label="Recorded lap position">
         <canvas ref={trackCanvasRef} />
-        <span>SILVERSTONE / RECORDED XY</span>
+        <span title="Road reconstructed from recorded XY samples; kerbs and verges are illustrative, not surveyed.">SILVERSTONE / XY RECONSTRUCTION</span>
       </section>
 
       <section className="formula-derived">
@@ -3074,6 +2156,8 @@ function FormulaRail({
         <span data-hud="derived">+0.0° STEER · 0.0G LAT</span>
         <span data-hud="temperature">320°C / SIM</span>
         <span data-hud="model-state">LOADING / GEOMETRY + LAP</span>
+        <span>RACING LINE / MIN-CURVATURE ESTIMATE</span>
+        <span>RED = BRAKING · GRIP/POWER MODELLED</span>
       </section>
 
       <div className="scene-credits">
@@ -3081,25 +2165,25 @@ function FormulaRail({
           DATA / OPENF1
         </a>
         <a
-          href="https://www.get3dmodels.com/vehicles/formula-1-car/"
+          href="https://sketchfab.com/3d-models/mercedes-f1-w14-free-26fda66f3e8a48d5a636056f8a64e299"
           target="_blank"
           rel="noreferrer"
         >
-          MODEL / DARK_IGOREK · CC BY
+          MODEL / 3DBLENDER_1 · CC BY
         </a>
       </div>
     </>
   );
 }
 
-function BackgammonRail({ side }: { side: "left" | "right" }) {
+function BackgammonRail({ side, controls }: { side: "left" | "right"; controls?: ReactNode }) {
   if (side === "left") {
     return (
       <>
         <section className="board-primary">
           <div>
             <span>TURN</span>
-            <strong data-hud="turn">1 / 5</strong>
+            <strong data-hud="turn">1 / 65</strong>
           </div>
           <div>
             <span>ON ROLL</span>
@@ -3115,6 +2199,7 @@ function BackgammonRail({ side }: { side: "left" | "right" }) {
           <small data-hud="move-state">ROLL RESOLVED</small>
         </section>
 
+        {controls}
         <DiceVignette />
       </>
     );
@@ -3133,7 +2218,7 @@ function BackgammonRail({ side }: { side: "left" | "right" }) {
         <span>
           Δ <b data-hud="pip-diff">+0</b>
         </span>
-        <small>30 CHECKERS · 0 BAR · 0 HIT</small>
+        <small data-hud="board-counts">30 CHECKERS · 0 BAR · 0 OFF</small>
       </section>
 
       <section className="board-topology">
@@ -3181,7 +2266,7 @@ function BackgammonRail({ side }: { side: "left" | "right" }) {
 
       <section className="dice-analysis">
         <div className="dice-analysis-copy">
-          <strong>DICE SPACE / 36 ORDERED OUTCOMES</strong>
+          <strong data-hud="dice-space">DICE SPACE / 36 ORDERED OUTCOMES</strong>
           <span data-hud="roll-ways">2 ORDERED WAYS · ASYMMETRIC</span>
           <span className="signal-copy" data-hud="probability">
             P({"{"}6,1{"}"}) = 2 / 36 = 5.56%
@@ -3247,8 +2332,7 @@ function SymbolRail({ side }: { side: "left" | "right" }) {
         </section>
 
         <p className="symbol-proof">
-          ONE VERTEX SET · THREE TARGET GEOMETRIES · CONTINUOUS
-          CORRESPONDENCE
+          ORIGINAL SYMBOLIC FORMS · CONTINUOUS CORRESPONDENCE
         </p>
       </>
     );
@@ -3319,6 +2403,31 @@ function DieFace({ value }: { value: number }) {
   );
 }
 
+function PlaybackControls({ onChange }: { onChange: (update: Partial<Playback>) => void }) {
+  const [pace, setPace] = useState(65);
+  const [paused, setPaused] = useState(false);
+  useEffect(() => {
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    onChange({ paused: reduced });
+    const frame = requestAnimationFrame(() => setPaused(reduced));
+    return () => cancelAnimationFrame(frame);
+  }, [onChange]);
+  return (
+    <section className="playback-controls" aria-label="Backgammon playback">
+      <div><label htmlFor="game-pace">GAME PACE</label><span data-hud="game-duration">FULL GAME</span></div>
+      <input id="game-pace" type="range" min="0" max="100" step="1" value={pace}
+        aria-label="Backgammon playback speed"
+        aria-valuetext={pace === 0 ? "Real time: 12 seconds per turn" : pace === 100 ? "Full game in 30 seconds" : `Playback speed ${pace} percent`}
+        onChange={event => { const value = Number(event.target.value); onChange({ pace: value }); setPace(value); }} />
+      <div className="playback-scale"><span>REAL TIME</span><span>30 SEC</span></div>
+      <div className="playback-actions">
+        <button type="button" onClick={() => { onChange({ paused: !paused }); setPaused(!paused); }}>{paused ? "PLAY" : "PAUSE"}</button>
+        <button type="button" onClick={() => onChange({ restart: Date.now() })}>RESTART</button>
+      </div>
+    </section>
+  );
+}
+
 function DiceVignette() {
   return (
     <section className="dice-roll-vignette" aria-label="Live dice roll">
@@ -3329,7 +2438,7 @@ function DiceVignette() {
       <div className="dice-vignette-stage">
         {[6, 1].map((initialValue, dieIndex) => (
           <div
-            className="die-flight is-rolling"
+            className="die-flight"
             data-die-index={dieIndex}
             data-value={initialValue}
             key={dieIndex}
@@ -3401,6 +2510,10 @@ export function SystemCanvas({ mode }: { mode: VisualMode }) {
   const trackCanvasRef = useRef<HTMLCanvasElement>(null);
   const [sceneTheme, setSceneTheme] = useState<SceneTheme | null>(null);
   const viewRef = useRef<SceneView>(defaultView(mode));
+  const playbackRef = useRef<Playback>({ pace: 65, paused: false, restart: 0 });
+  const updatePlayback = useCallback((update: Partial<Playback>) => {
+    Object.assign(playbackRef.current, update);
+  }, []);
   const dragRef = useRef({
     active: false,
     pointerId: -1,
@@ -3435,6 +2548,8 @@ export function SystemCanvas({ mode }: { mode: VisualMode }) {
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = sceneTheme === "dark" ? 1 : 1.15;
+    renderer.shadowMap.enabled = false;
+    renderer.shadowMap.type = THREE.PCFShadowMap;
     renderer.domElement.className = "scene-webgl";
     mount.prepend(renderer.domElement);
 
@@ -3458,6 +2573,7 @@ export function SystemCanvas({ mode }: { mode: VisualMode }) {
             scene,
             camera,
             hudRootRef.current,
+            playbackRef,
           );
         } else {
           controller = buildSymbolScene(
@@ -3503,10 +2619,14 @@ export function SystemCanvas({ mode }: { mode: VisualMode }) {
     const animate = (frameTime: number) => {
       const delta = Math.min(
         Math.max(0, (frameTime - lastFrameTime) / 1000),
-        0.033,
+        0.1,
       );
       lastFrameTime = frameTime;
-      elapsed += delta;
+      if (document.hidden) {
+        frame = window.requestAnimationFrame(animate);
+        return;
+      }
+      if (!document.hidden && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) elapsed += delta;
       if (controller) {
         controller.update(elapsed, delta, viewRef.current);
       }
@@ -3519,17 +2639,28 @@ export function SystemCanvas({ mode }: { mode: VisualMode }) {
       disposed = true;
       observer.disconnect();
       window.cancelAnimationFrame(frame);
+      const textures = new Set<THREE.Texture>();
+      const disposeMaterial = (material: THREE.Material) => {
+        for (const value of Object.values(material)) {
+          if (value instanceof THREE.Texture) textures.add(value);
+        }
+        material.dispose();
+      };
       scene.traverse((object) => {
         const geometry = (object as THREE.Mesh).geometry;
         if (geometry) geometry.dispose();
         const material = (object as THREE.Mesh).material;
         if (Array.isArray(material)) {
-          material.forEach((item) => item.dispose());
+          material.forEach(disposeMaterial);
         } else if (material) {
-          material.dispose();
+          disposeMaterial(material);
         }
       });
+      textures.forEach(texture => texture.dispose());
       renderer.dispose();
+      // Disposing Three.js resources alone does not release the browser's
+      // context slot. Theme/scene switches otherwise accumulate live contexts.
+      renderer.forceContextLoss();
       renderer.domElement.remove();
     };
   }, [mode, sceneTheme]);
@@ -3540,7 +2671,7 @@ export function SystemCanvas({ mode }: { mode: VisualMode }) {
         {mode === 1 ? (
           <FormulaRail side="left" trackCanvasRef={trackCanvasRef} />
         ) : mode === 2 ? (
-          <BackgammonRail side="left" />
+          <BackgammonRail side="left" controls={<PlaybackControls onChange={updatePlayback} />} />
         ) : (
           <SymbolRail side="left" />
         )}
@@ -3651,9 +2782,9 @@ export function SystemCanvas({ mode }: { mode: VisualMode }) {
         }}
         aria-label={
           mode === 1
-            ? "Interactive Formula car replaying recorded Silverstone telemetry. Drag to orbit and scroll to zoom."
+            ? "Interactive Formula simulation on a reconstructed Silverstone circuit. Drag to orbit and scroll to zoom."
             : mode === 2
-              ? "Interactive five-turn backgammon simulation with exact state analysis. Drag to orbit and scroll to zoom."
+              ? "Interactive full-game backgammon simulation with exact state analysis. Drag to orbit and scroll to zoom."
               : "Interactive high-resolution lattice reconfiguring between a phoenix, ouroboros, and Gandiva bow. Drag to orbit and scroll to zoom."
         }
         role="application"
