@@ -17,7 +17,7 @@ for (const [asset, path] of [
 ]) {
   for (const size of [640, 1280]) await sharp(path).resize({width:size,withoutEnlargement:true}).webp({quality:82}).toFile(`public/truth/${asset}-${size}.webp`);
 }
-for (const [asset, id] of [['good-life','0CWVgu2Odjg'],['unravel','sEQf5lcnj_o']]) {
+for (const [asset, id] of [['good-life','0CWVgu2Odjg'],['unravel','sEQf5lcnj_o'],['momentum','6pmdglykhjE']]) {
   const response = await fetch(`https://i.ytimg.com/vi/${id}/maxresdefault.jpg`);
   if (!response.ok) throw new Error(`Thumbnail ${id}: ${response.status}`);
   const image = Buffer.from(await response.arrayBuffer());

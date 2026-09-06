@@ -49,6 +49,17 @@ Verified with YouTube oEmbed. Local WebP posters derive from each video's
 official maxresdefault thumbnail. Audio/video remain on YouTube and only load
 after the viewer presses Play. Retrieved 6 September 2026.
 
+## Momentum
+
+Av King Hamilton — Momentum, official artist/Topic recording:
+https://www.youtube.com/watch?v=6pmdglykhjE
+
+Title and artist verified with YouTube oEmbed; YouTube reports embedding allowed.
+Local WebP posters derive from the official video thumbnail:
+https://i.ytimg.com/vi/6pmdglykhjE/maxresdefault.jpg
+Audio/video remain on YouTube and only load after the viewer presses Play.
+Inserted immediately before Nolan / Time. Retrieved 6 September 2026.
+
 ## If—
 
 Rudyard Kipling, Rewards and Fairies (1910). Public domain.

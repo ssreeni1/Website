@@ -28,12 +28,18 @@ test("Truth opens on the poem with only Back, Left and Right navigation", async 
   assert.equal(response.status, 200);
   const html = await response.text();
   assert.match(html, /src="\/truth\/poem-1280.webp"/);
-  assert.equal((html.match(/aria-roledescription="slide"/g) ?? []).length, 27);
+  assert.equal((html.match(/aria-roledescription="slide"/g) ?? []).length, 30);
+  const slideNames = [...html.matchAll(/aria-roledescription="slide" aria-label="([^"]+)"/g)].map(match => match[1]);
+  assert.equal(slideNames.length, 30);
+  for (let copy = 0; copy < 3; copy += 1) {
+    assert.deepEqual(slideNames.slice(copy * 10 + 7, copy * 10 + 10), ["Unravel", "Momentum", "Nolan / Time"]);
+  }
   assert.match(html, /aria-label="Nolan \/ Time"/);
   assert.match(html, /src="\/truth\/nolan-time-dark.svg"/);
   assert.match(html, /src="\/truth\/nolan-time-light.svg"/);
   assert.match(html, /aria-label="Play Good Life — ZHU"/);
   assert.match(html, /aria-label="Play Unravel — Animenz Piano Sheets"/);
+  assert.match(html, /aria-label="Play Momentum — Av King Hamilton"/);
   assert.match(html, /aria-label="If—"/);
   assert.match(html, /aria-label="Play Hunting Nirvana/);
   assert.match(html, /Back\s*<span>\[B\]<\/span>/);
@@ -51,7 +57,7 @@ test("Truth display images stay within the cold-load budget", async () => {
     ));
     assert.ok(sizes.reduce((sum, size) => sum + size, 0) < budget);
   }
-  const added = ["good-life", "if", "judo", "figure-sun", "unravel"];
+  const added = ["good-life", "if", "judo", "figure-sun", "unravel", "momentum"];
   for (const [size, budget] of [[640, 450000], [1280, 1100000]]) {
     const sizes = await Promise.all([...assets, ...added].map(async (asset) =>
       (await stat(new URL(`../public/truth/${asset}-${size}.webp`, import.meta.url))).size,
