@@ -1,5 +1,14 @@
 # Truth carousel assets
 
+## Nolan / Time
+
+Original, user-approved minimal diagram atlas of thirteen Nolan feature films.
+Each film retains only its diagram, name and temporal motif. Geometry is
+interpretive, not a measured or scene-by-scene chronology. The SVGs are retained
+at full resolution and selected with the site's light/dark theme. No film stills
+or third-party artwork are reproduced. Research and scope notes are retained in
+docs/NOLAN_TIME_SOURCES.md. Integrated 6 September 2026.
+
 ## Krishna and Arjuna
 
 Krishna teaching Arjuna in their chariot. Unknown artist, circa 1830,

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProp
 import { TruthBack } from "./TruthBack";
 import { ifPoem } from "./if-poem";
 
-type Slide = { name: string; asset: string; alt: string; width: number; height: number; youtubeId?: string };
+type Slide = { name: string; asset: string; alt: string; width: number; height: number; youtubeId?: string; themedSvg?: boolean };
 const slides: Slide[] = [
   { name: "Poem", asset: "poem", alt: "The poem, photographed from the page", width: 736, height: 736 },
   { name: "Hunting Nirvana", asset: "hunting-nirvana", alt: "Hunting Nirvana — SAINt JHN", width: 480, height: 360, youtubeId: "dhCo5U1oByc" },
@@ -14,6 +14,7 @@ const slides: Slide[] = [
   { name: "Judo", asset: "judo", alt: "Two judo athletes in white gis mid-throw on a red and gold mat", width: 627, height: 640 },
   { name: "Figure and sun", asset: "figure-sun", alt: "A textured painting of a green figure raising a dark orb against a golden halo", width: 1200, height: 800 },
   { name: "Unravel", asset: "unravel", alt: "Unravel — Animenz Piano Sheets", width: 1280, height: 720, youtubeId: "sEQf5lcnj_o" },
+  { name: "Nolan / Time", asset: "nolan-time", alt: "Nolan / Time: thirteen wireframe diagrams pairing Christopher Nolan's films with their temporal motifs", width: 1800, height: 1840, themedSvg: true },
 ];
 const count = slides.length;
 // Three copies keep both neighbours mounted, including across the loop seam.
@@ -126,7 +127,17 @@ export function TruthCarousel() {
             {slots.map((slot) => {
               const slide = slides[slot % slides.length];
               const selected = slot === active;
-              const poster = (
+              const poster = slide.themedSvg ? (
+                <>
+                  {(["dark", "light"] as const).map((theme) => (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img key={theme} className={`truth-art-${theme}`}
+                      src={`/truth/${slide.asset}-${theme}.svg`}
+                      width={slide.width} height={slide.height} alt={slide.alt}
+                      decoding="async" draggable={false} />
+                  ))}
+                </>
+              ) : (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={`/truth/${slide.asset}-1280.webp`}

@@ -28,7 +28,10 @@ test("Truth opens on the poem with only Back, Left and Right navigation", async 
   assert.equal(response.status, 200);
   const html = await response.text();
   assert.match(html, /src="\/truth\/poem-1280.webp"/);
-  assert.equal((html.match(/aria-roledescription="slide"/g) ?? []).length, 24);
+  assert.equal((html.match(/aria-roledescription="slide"/g) ?? []).length, 27);
+  assert.match(html, /aria-label="Nolan \/ Time"/);
+  assert.match(html, /src="\/truth\/nolan-time-dark.svg"/);
+  assert.match(html, /src="\/truth\/nolan-time-light.svg"/);
   assert.match(html, /aria-label="Play Good Life — ZHU"/);
   assert.match(html, /aria-label="Play Unravel — Animenz Piano Sheets"/);
   assert.match(html, /aria-label="If—"/);
@@ -54,6 +57,16 @@ test("Truth display images stay within the cold-load budget", async () => {
       (await stat(new URL(`../public/truth/${asset}-${size}.webp`, import.meta.url))).size,
     ));
     assert.ok(sizes.reduce((sum, bytes) => sum + bytes, 0) < budget);
+  }
+});
+
+test("Nolan artwork stays minimal, scalable and within its asset budget", async () => {
+  for (const theme of ["dark", "light"]) {
+    const svg = await readFile(new URL(`../public/truth/nolan-time-${theme}.svg`, import.meta.url), "utf8");
+    assert.equal((svg.match(/<text /g) ?? []).length, 27);
+    assert.match(svg, /viewBox="0 0 1800 1840"/);
+    assert.match(svg, />Nolan \/ Time<\/text>/);
+    assert.ok(Buffer.byteLength(svg) < 250000);
   }
 });
 
