@@ -28,7 +28,10 @@ test("Truth opens on the poem with only Back, Left and Right navigation", async 
   assert.equal(response.status, 200);
   const html = await response.text();
   assert.match(html, /src="\/truth\/poem-1280.webp"/);
-  assert.equal((html.match(/aria-roledescription="slide"/g) ?? []).length, 9);
+  assert.equal((html.match(/aria-roledescription="slide"/g) ?? []).length, 24);
+  assert.match(html, /aria-label="Play Good Life — ZHU"/);
+  assert.match(html, /aria-label="Play Unravel — Animenz Piano Sheets"/);
+  assert.match(html, /aria-label="If—"/);
   assert.match(html, /aria-label="Play Hunting Nirvana/);
   assert.match(html, /Back\s*<span>\[B\]<\/span>/);
   assert.match(html, /aria-keyshortcuts="ArrowLeft"/);
@@ -44,6 +47,13 @@ test("Truth display images stay within the cold-load budget", async () => {
       (await stat(new URL(`../public/truth/${asset}-${size}.webp`, import.meta.url))).size,
     ));
     assert.ok(sizes.reduce((sum, size) => sum + size, 0) < budget);
+  }
+  const added = ["good-life", "if", "judo", "figure-sun", "unravel"];
+  for (const [size, budget] of [[640, 450000], [1280, 1100000]]) {
+    const sizes = await Promise.all([...assets, ...added].map(async (asset) =>
+      (await stat(new URL(`../public/truth/${asset}-${size}.webp`, import.meta.url))).size,
+    ));
+    assert.ok(sizes.reduce((sum, bytes) => sum + bytes, 0) < budget);
   }
 });
 
@@ -80,6 +90,7 @@ test("server-renders the personal site shell", async () => {
   assert.match(html, /Vibe\s*<span>\[V\]<\/span>/);
   assert.match(html, />Home<\/span>\s*<i>\/<\/i>/);
   assert.match(html, />About<\/span>\s*<i>\/about<\/i>/);
+  assert.match(html, />Truth<\/span>\s*<i>\/truth<\/i>/);
   assert.match(html, />Collection<\/span>\s*<i>\/collection<\/i>/);
   for (const slug of [
     "five-lines",
@@ -142,7 +153,7 @@ test("serves the linked Collection archive without descriptions", async () => {
   assert.equal(response.status, 200);
   const html = await response.text();
   assert.match(html, /<title>Collection — Saneel Sreeni<\/title>/i);
-  assert.match(html, /14(?:<!-- -->)? ENTRIES/);
+  assert.doesNotMatch(html, /\d+(?:<!-- -->)?\s+(?:<!-- -->)?\s*ENTRIES/);
   assert.match(html, /Five Lines to Infinity/);
   assert.match(html, /2026\.07\.30/);
   assert.match(html, /href="\/collections\/five-lines"/);

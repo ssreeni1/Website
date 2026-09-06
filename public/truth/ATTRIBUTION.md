@@ -27,3 +27,30 @@ https://i.ytimg.com/vi/dhCo5U1oByc/hqdefault.jpg
 ## Poem
 
 Existing user-supplied poem.jpg preserved unchanged.
+
+## Good Life / Unravel
+
+ZHU — Good Life (Audio), official artist upload:
+https://www.youtube.com/watch?v=0CWVgu2Odjg
+
+Animenz Piano Sheets — Unravel - Tokyo Ghoul OP [Piano]:
+https://www.youtube.com/watch?v=sEQf5lcnj_o
+
+Verified with YouTube oEmbed. Local WebP posters derive from each video's
+official maxresdefault thumbnail. Audio/video remain on YouTube and only load
+after the viewer presses Play. Retrieved 6 September 2026.
+
+## If—
+
+Rudyard Kipling, Rewards and Fairies (1910). Public domain.
+Text follows Project Gutenberg #556:
+https://www.gutenberg.org/files/556/556-h/556-h.htm
+New cream-paper typesetting, not a photograph of a historic edition.
+Accessible full text accompanies the image in the carousel.
+
+## User-supplied images
+
+judo: the supplied photograph of a judo throw.
+figure-sun: the supplied textured painting of a figure holding an orb.
+No artist/title attribution has been inferred. Display derivatives preserve
+the complete composition without cropping or recoloring.

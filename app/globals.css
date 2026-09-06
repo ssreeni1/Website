@@ -282,7 +282,7 @@ main {
 
 /* Match the hydrated starting position before JavaScript is available. */
 .truth-window:not([data-ready]) .truth-strip {
-  transform: translateX(calc(-3 * (var(--truth-width) + var(--truth-gap))));
+  transform: translateX(calc(-1 * var(--truth-copy-count, 3) * (var(--truth-width) + var(--truth-gap))));
 }
 
 .truth-card {

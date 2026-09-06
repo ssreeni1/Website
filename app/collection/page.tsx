@@ -64,7 +64,6 @@ export default function CollectionPage() {
               [↓] [↑]
             </span>
           </div>
-          <span>{String(entries.length).padStart(2, "0")} ENTRIES</span>
         </header>
 
         <CollectionList entries={entries} />

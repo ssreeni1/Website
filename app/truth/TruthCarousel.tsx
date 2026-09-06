@@ -1,21 +1,29 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { TruthBack } from "./TruthBack";
+import { ifPoem } from "./if-poem";
 
-const slides = [
+type Slide = { name: string; asset: string; alt: string; width: number; height: number; youtubeId?: string };
+const slides: Slide[] = [
   { name: "Poem", asset: "poem", alt: "The poem, photographed from the page", width: 736, height: 736 },
-  { name: "Hunting Nirvana", asset: "hunting-nirvana", alt: "Hunting Nirvana — SAINt JHN", width: 480, height: 360 },
+  { name: "Hunting Nirvana", asset: "hunting-nirvana", alt: "Hunting Nirvana — SAINt JHN", width: 480, height: 360, youtubeId: "dhCo5U1oByc" },
   { name: "Mahabharata", asset: "krishna-arjuna", alt: "Krishna teaching Arjuna in their canopied chariot, drawn by four white horses", width: 1280, height: 1600 },
-] as const;
+  { name: "Good Life", asset: "good-life", alt: "Good Life — ZHU", width: 1280, height: 720, youtubeId: "0CWVgu2Odjg" },
+  { name: "If—", asset: "if", alt: "If—, a poem by Rudyard Kipling", width: 1280, height: 1600 },
+  { name: "Judo", asset: "judo", alt: "Two judo athletes in white gis mid-throw on a red and gold mat", width: 627, height: 640 },
+  { name: "Figure and sun", asset: "figure-sun", alt: "A textured painting of a green figure raising a dark orb against a golden halo", width: 1200, height: 800 },
+  { name: "Unravel", asset: "unravel", alt: "Unravel — Animenz Piano Sheets", width: 1280, height: 720, youtubeId: "sEQf5lcnj_o" },
+];
+const count = slides.length;
 // Three copies keep both neighbours mounted, including across the loop seam.
-const slots = Array.from({ length: 9 }, (_, index) => index);
+const slots = Array.from({ length: count * 3 }, (_, index) => index);
 
 export function TruthCarousel() {
-  const [active, setActive] = useState(3);
+  const [active, setActive] = useState(count);
   const [player, setPlayer] = useState<number | null>(null);
   const viewport = useRef<HTMLDivElement>(null);
-  const target = useRef(3);
+  const target = useRef(count);
   const touching = useRef(false);
   const settleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const stride = useRef(1);
@@ -27,15 +35,15 @@ export function TruthCarousel() {
     node.querySelectorAll<HTMLElement>(".truth-card").forEach((card, index) => {
       card.style.opacity = String(1 - Math.min(1, Math.abs(index - position)) * 0.78);
     });
-    setActive(Math.max(0, Math.min(8, Math.round(position))));
+    setActive(Math.max(0, Math.min(slots.length - 1, Math.round(position))));
   }, []);
 
   const settle = useCallback(() => {
     const node = viewport.current;
     if (!node || touching.current) return;
     let index = Math.round(node.scrollLeft / stride.current);
-    if (index < 3) index += 3;
-    else if (index > 5) index -= 3;
+    if (index < count) index += count;
+    else if (index >= count * 2) index -= count;
     target.current = index;
     // Rebase only after motion has stopped; identical copies make this invisible.
     if (Math.abs(node.scrollLeft - index * stride.current) > 1) {
@@ -69,7 +77,7 @@ export function TruthCarousel() {
     const node = viewport.current;
     if (!node) return;
     setPlayer(null);
-    target.current = Math.max(0, Math.min(8, target.current + direction));
+    target.current = Math.max(0, Math.min(slots.length - 1, target.current + direction));
     node.scrollTo({
       left: target.current * stride.current,
       behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth",
@@ -96,7 +104,7 @@ export function TruthCarousel() {
   return (
     <>
       <TruthBack />
-      <section className="truth-carousel" aria-label="Thoughts" aria-roledescription="carousel">
+      <section className="truth-carousel" style={{ "--truth-copy-count": count } as CSSProperties} aria-label="Thoughts" aria-roledescription="carousel">
         <div
           className="truth-window"
           id="truth-slide"
@@ -122,14 +130,14 @@ export function TruthCarousel() {
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={`/truth/${slide.asset}-1280.webp`}
-                  srcSet={slide.asset === "hunting-nirvana" ? undefined : `/truth/${slide.asset}-640.webp 640w, /truth/${slide.asset}-1280.webp ${slide.width}w`}
+                  srcSet={slide.width <= 640 ? undefined : `/truth/${slide.asset}-640.webp 640w, /truth/${slide.asset}-1280.webp ${slide.width}w`}
                   sizes="(max-width: 700px) 64vw, 560px"
                   width={slide.width}
                   height={slide.height}
                   alt={slide.alt}
                   decoding="async"
                   draggable={false}
-                  fetchPriority={slot === 3 ? "high" : "auto"}
+                  fetchPriority={slot === count ? "high" : "auto"}
                 />
               );
               return (
@@ -142,24 +150,25 @@ export function TruthCarousel() {
                   aria-hidden={!selected}
                   inert={!selected}
                 >
-                  {slot % slides.length === 1 ? (
+                  {slide.youtubeId ? (
                     <div className="truth-song">
                       {player === slot && selected ? (
                         <iframe
-                          src="https://www.youtube-nocookie.com/embed/dhCo5U1oByc?playsinline=1&rel=0&autoplay=1"
-                          title="Hunting Nirvana — SAINt JHN"
+                          src={`https://www.youtube-nocookie.com/embed/${slide.youtubeId}?playsinline=1&rel=0&autoplay=1`}
+                          title={slide.alt}
                           allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
                           referrerPolicy="strict-origin-when-cross-origin"
                           allowFullScreen
                         />
                       ) : (
-                        <button className="truth-play" type="button" aria-label="Play Hunting Nirvana — SAINt JHN" onClick={() => setPlayer(slot)}>
+                        <button className="truth-play" type="button" aria-label={`Play ${slide.alt}`} onClick={() => setPlayer(slot)}>
                           {poster}
                           <span aria-hidden="true">▶</span>
                         </button>
                       )}
                     </div>
                   ) : poster}
+                  {slide.asset === "if" && <figcaption className="sr-only">{ifPoem.map((stanza, index) => <p key={index}>{stanza.join("\n")}</p>)}</figcaption>}
                 </figure>
               );
             })}

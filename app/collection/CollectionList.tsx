@@ -172,10 +172,6 @@ export function CollectionList({ entries }: CollectionListProps) {
             );
           })}
         </div>
-        <span>
-          {String(activeEntries.length).padStart(2, "0")} {" "}
-          {activeEntries.length === 1 ? "ENTRY" : "ENTRIES"}
-        </span>
       </header>
 
       {periods.map((period) => {

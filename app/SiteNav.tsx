@@ -8,6 +8,7 @@ import { writingRoutes } from "../content/posts/writing-routes";
 const routes = [
   { name: "Home", path: "/", href: "/", depth: 0 },
   { name: "About", path: "/about", href: "/about", depth: 0 },
+  { name: "Truth", path: "/truth", href: "/truth", depth: 0 },
   {
     name: "Collection",
     path: "/collection",
