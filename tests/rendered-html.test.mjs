@@ -23,6 +23,30 @@ async function render(path = "/") {
   );
 }
 
+test("Truth opens on the poem with only Back, Left and Right navigation", async () => {
+  const response = await render("/truth/");
+  assert.equal(response.status, 200);
+  const html = await response.text();
+  assert.match(html, /src="\/truth\/poem-1280.webp"/);
+  assert.equal((html.match(/aria-roledescription="slide"/g) ?? []).length, 9);
+  assert.match(html, /aria-label="Play Hunting Nirvana/);
+  assert.match(html, /Back\s*<span>\[B\]<\/span>/);
+  assert.match(html, /aria-keyshortcuts="ArrowLeft"/);
+  assert.match(html, /aria-keyshortcuts="ArrowRight"/);
+  assert.doesNotMatch(html, /class="truth-(?:dot|pagination|current|controls)"/);
+  assert.doesNotMatch(html, /<iframe/);
+});
+
+test("Truth display images stay within the cold-load budget", async () => {
+  const assets = ["poem", "hunting-nirvana", "krishna-arjuna"];
+  for (const [size, budget] of [[640, 140000], [1280, 350000]]) {
+    const sizes = await Promise.all(assets.map(async (asset) =>
+      (await stat(new URL(`../public/truth/${asset}-${size}.webp`, import.meta.url))).size,
+    ));
+    assert.ok(sizes.reduce((sum, size) => sum + size, 0) < budget);
+  }
+});
+
 test("server-renders the personal site shell", async () => {
   const response = await render();
   assert.equal(response.status, 200);

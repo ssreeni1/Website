@@ -7,7 +7,7 @@ import { MeshoptDecoder } from "three/examples/jsm/libs/meshopt_decoder.module.j
 import { generateGame, barPoint, offPoint, opponent, validateGame } from "./backgammon-engine";
 import { buildSymbolForms, SYMBOL_FEATURE_PATH_COUNT, SYMBOL_FEATURE_SAMPLES } from "./symbol-geometry";
 import { buildRacingPath } from "./racing-path";
-import { buildModernFormulaModel, formulaWheelYaw } from "./formula-model";
+import { buildModernFormulaModel, formulaWheelYaw, formulaTireContours, wheelDetailVisibility } from "./formula-model";
 
 type VisualMode = 1 | 2 | 3;
 type SceneTheme = "light" | "dark";
@@ -78,7 +78,7 @@ function applySceneTheme(theme: SceneTheme) {
   PAPER = SCENE_IS_DARK ? 0x0d0f10 : 0xf6f6f3;
   // Fine strokes need a deeper red on paper than large CSS labels do.
   RED = SCENE_IS_DARK ? 0xff4938 : 0xc92b20;
-  MUTED = SCENE_IS_DARK ? 0x8a8d88 : 0xa6a69f;
+  MUTED = SCENE_IS_DARK ? 0x8a8d88 : 0x686b65;
   BOARD_BODY = SCENE_IS_DARK ? 0x26292b : 0xededE8;
   BOARD_BAR = SCENE_IS_DARK ? 0x313436 : 0xe6e6e0;
   BOARD_POINT_A = SCENE_IS_DARK ? 0x3a3d40 : 0xd8d8d1;
@@ -246,9 +246,10 @@ function buildRoadRibbon(locations: LocationSample[]) {
     new THREE.MeshBasicMaterial({
       color: INK,
       transparent: true,
-      opacity: SCENE_IS_DARK ? 0.025 : 0.035,
+      opacity: SCENE_IS_DARK ? 0.035 : 0.065,
       side: THREE.DoubleSide,
       depthWrite: false,
+      toneMapped: false,
     }),
   );
   const furniture = new THREE.Group();
@@ -256,7 +257,7 @@ function buildRoadRibbon(locations: LocationSample[]) {
     const contour = leftPoints.map((point, i) =>
       point.clone().lerp(rightPoints[i], fraction).setY(-0.03),
     );
-    furniture.add(lineFromPoints([...contour, contour[0]], INK, SCENE_IS_DARK ? 0.18 : 0.14));
+    furniture.add(lineFromPoints([...contour, contour[0]], INK, SCENE_IS_DARK ? 0.24 : 0.28));
   }
   // Outlined kerb rails, not filled paint or verge panels. Their width is
   // illustrative; the reconstructed road and simulated racing line are unchanged.
@@ -264,9 +265,9 @@ function buildRoadRibbon(locations: LocationSample[]) {
     const outer = edge.map((point, i) => point.clone().addScaledVector(
       point.clone().sub(centerPoints[i]).setY(0).normalize(), 0.72,
     ));
-    furniture.add(lineFromPoints([...outer, outer[0]], INK, 0.26));
+    furniture.add(lineFromPoints([...outer, outer[0]], INK, SCENE_IS_DARK ? 0.30 : 0.38));
   }
-  const roadEdgeOpacity = SCENE_IS_DARK ? 0.60 : 0.52;
+  const roadEdgeOpacity = SCENE_IS_DARK ? 0.70 : 0.82;
   const left = lineFromPoints([...leftPoints, leftPoints[0]], INK, roadEdgeOpacity);
   const right = lineFromPoints([...rightPoints, rightPoints[0]], INK, roadEdgeOpacity);
   const minorTickPoints: THREE.Vector3[] = [];
@@ -288,8 +289,9 @@ function buildRoadRibbon(locations: LocationSample[]) {
     new THREE.LineBasicMaterial({
       color: INK,
       transparent: true,
-      opacity: 0.12,
+      opacity: SCENE_IS_DARK ? 0.20 : 0.30,
       depthWrite: false,
+      toneMapped: false,
     }),
   );
   const sectorTicks = new THREE.LineSegments(
@@ -297,8 +299,9 @@ function buildRoadRibbon(locations: LocationSample[]) {
     new THREE.LineBasicMaterial({
       color: RED,
       transparent: true,
-      opacity: 0.44,
+      opacity: SCENE_IS_DARK ? 0.56 : 0.68,
       depthWrite: false,
+      toneMapped: false,
     }),
   );
   const center = new THREE.Line(
@@ -311,8 +314,9 @@ function buildRoadRibbon(locations: LocationSample[]) {
       dashSize: 3.2,
       gapSize: 5.2,
       transparent: true,
-      opacity: 0.10,
+      opacity: SCENE_IS_DARK ? 0.16 : 0.22,
       depthWrite: false,
+      toneMapped: false,
     }),
   );
   center.computeLineDistances();
@@ -413,6 +417,13 @@ async function buildFormulaScene(
   root.add(carRig);
   scene.add(root);
 
+  // Broad, quiet lighting gives the opaque rubber a readable rounded volume.
+  root.add(new THREE.HemisphereLight(0xffffff, 0x687079, 2.0));
+  const wheelKey = new THREE.DirectionalLight(0xffffff, 2.4);
+  wheelKey.position.set(-3, 6, -2);
+  carRig.add(wheelKey);
+  carRig.add(wheelKey.target);
+
   const prepared = buildModernFormulaModel(gltf.scene);
   const model = prepared.root;
   carRig.add(model);
@@ -432,6 +443,7 @@ async function buildFormulaScene(
     material: THREE.LineBasicMaterial;
     baseOpacity: number;
     scanOpacity: number;
+    rotatingDetail: boolean;
   }> = [];
   const scanUniforms = {
     uScanOrigin: { value: new THREE.Vector3() },
@@ -451,6 +463,8 @@ async function buildFormulaScene(
       : mesh.material;
     const role = existing?.name ?? "body";
     const isWheel = mesh.userData.formulaRole === "wheel";
+    const isTire = isWheel && mesh.userData.sourceMaterial === "Material.001";
+    const isRim = mesh.userData.formulaPart === "rim";
     const isGlass = role.includes("glass");
     const isInterior = role.includes("interior") || role.includes("bottom");
     const baseOpacity = isWheel
@@ -464,11 +478,9 @@ async function buildFormulaScene(
     const material = new THREE.MeshBasicMaterial({
       // Explicit theme tones: the chassis must remain readable at the default
       // zoom without relying on specular lighting or hairline edges alone.
-      color: isWheel
-        ? (SCENE_IS_DARK ? 0x202527 : 0xe0e2dd)
-        : isInterior
-          ? (SCENE_IS_DARK ? 0x292e30 : 0xd0d3cd)
-          : (SCENE_IS_DARK ? 0x41494c : 0xdaddd6),
+      color: isInterior
+          ? (SCENE_IS_DARK ? 0x343e42 : 0x929b9b)
+          : (SCENE_IS_DARK ? 0x515e63 : 0xb6bfbd),
       transparent: true,
       opacity: baseOpacity,
       side: THREE.DoubleSide,
@@ -476,14 +488,31 @@ async function buildFormulaScene(
       polygonOffset: true,
       polygonOffsetFactor: 1,
       polygonOffsetUnits: 1,
+      toneMapped: false,
     });
-    mesh.material = material;
+    if (isWheel) {
+      mesh.material = new THREE.MeshStandardMaterial({
+        color: isRim ? (SCENE_IS_DARK ? 0x788589 : 0x626e73) : (SCENE_IS_DARK ? 0x465157 : 0x3f494d),
+        roughness: isRim ? 0.68 : 0.95,
+        metalness: 0,
+        transparent: false,
+        depthWrite: true,
+        side: THREE.FrontSide,
+        polygonOffset: true,
+        polygonOffsetFactor: 1,
+        polygonOffsetUnits: 1,
+      });
+      material.dispose();
+    } else {
+      mesh.material = material;
+      shellMaterials.push({ material, baseOpacity, baseDepthWrite });
+    }
+    existing.dispose();
     mesh.castShadow = false;
     mesh.receiveShadow = false;
-    shellMaterials.push({ material, baseOpacity, baseDepthWrite });
 
     const edgeOpacity = isWheel
-      ? 0.85
+      ? (isTire ? (SCENE_IS_DARK ? 0.48 : 0.58) : 0.28)
       : isInterior
         ? 0.38
         : isGlass
@@ -522,15 +551,20 @@ async function buildFormulaScene(
     };
     edgeMaterial.customProgramCacheKey = () => "schematic-scan-v1";
     const edges = new THREE.LineSegments(
-      new THREE.EdgesGeometry(mesh.geometry, isWheel ? 8 : 16),
+      isTire ? formulaTireContours(mesh.geometry) : new THREE.EdgesGeometry(mesh.geometry, isWheel ? 35 : 16),
       edgeMaterial,
     );
-    mesh.add(edges);
+    if (isTire) {
+      // Geometry is already hub-local. Follow steering without rotating the
+      // sampled circular silhouette through subpixels on each frame.
+      mesh.parent!.parent!.add(edges);
+    } else mesh.add(edges);
     edgeMaterials.push({
       material: edgeMaterial,
       baseOpacity: edgeOpacity,
+      rotatingDetail: isWheel && !isTire,
       scanOpacity: isWheel
-        ? 0.90
+        ? edgeOpacity
         : isInterior
           ? 0.44
           : isGlass
@@ -693,7 +727,6 @@ async function buildFormulaScene(
   setHud(hudRoot, "model-state", "W14 INTERPRETATION / 3D");
 
   let smoothedBrakeTemperature = 320;
-  let wheelTravel = 0;
   let mapFrame = 0;
   let hudFrame = 0;
   const playbackRate = 1;
@@ -742,7 +775,10 @@ async function buildFormulaScene(
       camera.position.add(carTranslation);
       cameraLook.add(carTranslation);
       lastCarPosition.copy(displayCarPosition);
-      wheelTravel += carTranslation.length();
+      // Exact arc length from the same lap clock; no frame-dependent chord
+      // approximation or angular reset at the lap seam.
+      const wheelTravel = Math.floor(elapsed * 1000 * playbackRate / motionDuration) * racingPath.length
+        + racingPath.distanceAt(motionTime);
       const displayedSteering = steering;
       if (frontSteeringRigs.length > 0) {
         frontSteeringRigs.forEach(({ side, yaw }) => {
@@ -875,9 +911,10 @@ async function buildFormulaScene(
         material.opacity += (target - material.opacity) * (1 - Math.exp(-delta * 9));
         },
       );
-      edgeMaterials.forEach(({ material, baseOpacity, scanOpacity }) => {
+      edgeMaterials.forEach(({ material, baseOpacity, scanOpacity, rotatingDetail }) => {
+        const detail = rotatingDetail ? wheelDetailVisibility(speed) : 1;
         material.opacity +=
-          ((scanActive ? scanOpacity : baseOpacity) - material.opacity) * (1 - Math.exp(-delta * 5));
+          (((scanActive ? scanOpacity : baseOpacity) * detail) - material.opacity) * (1 - Math.exp(-delta * 5));
       });
 
       hudFrame += 1;

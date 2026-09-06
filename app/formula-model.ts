@@ -21,6 +21,40 @@ export function formulaWheelYaw(curvature: number, wheelbase: number, track: num
   return yawSign * Math.atan(wheelbase / wheelRadius);
 }
 
+/** Suppress unresolved rotating line detail, not the physical angular speed. */
+export function wheelDetailVisibility(speedKmh: number) {
+  return 1 - THREE.MathUtils.smoothstep(Math.abs(speedKmh), 8, 45);
+}
+
+/** Two continuous shoulder contours sampled from the actual tire profile.
+ * Attach to the steering hub (not spin): a circular contour is rotationally
+ * invariant. This avoids tessellation edges strobing as the tire rotates.
+ */
+export function formulaTireContours(geometry: THREE.BufferGeometry) {
+  geometry.computeBoundingBox();
+  const box = geometry.boundingBox!;
+  const centerX = (box.min.x + box.max.x) / 2;
+  const halfWidth = (box.max.x - box.min.x) / 2;
+  const attribute = geometry.getAttribute("position");
+  const points: THREE.Vector3[] = [];
+  for (const side of [-1, 1]) {
+    const x = centerX + side * halfWidth * 0.70;
+    let radius = 0;
+    for (let i = 0; i < attribute.count; i++) {
+      if (Math.abs(attribute.getX(i) - x) < halfWidth * 0.12) {
+        radius = Math.max(radius, Math.hypot(attribute.getY(i), attribute.getZ(i)));
+      }
+    }
+    for (let i = 0; i < 128; i++) {
+      for (const j of [i, i + 1]) {
+        const a = j / 128 * Math.PI * 2;
+        points.push(new THREE.Vector3(x, Math.cos(a) * (radius + 0.001), Math.sin(a) * (radius + 0.001)));
+      }
+    }
+  }
+  return new THREE.BufferGeometry().setFromPoints(points);
+}
+
 const WHEEL_SOURCES = [
   { source: "FL_6", name: "front-left", front: true, side: 1 },
   { source: "FR_74", name: "front-right", front: true, side: -1 },

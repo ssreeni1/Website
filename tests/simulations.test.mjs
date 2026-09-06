@@ -4,11 +4,24 @@ import {readFileSync} from 'node:fs';
 import {buildRacingPath} from '../app/racing-path.ts';
 import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
-import {buildModernFormulaModel, formulaWheelYaw} from '../app/formula-model.ts';
+import {buildModernFormulaModel, formulaWheelYaw, formulaTireContours, wheelDetailVisibility} from '../app/formula-model.ts';
 import { initialState, pipCount, legalMoves, legalPlays, applyMove, generateGame, validateGame, offPoint } from '../app/backgammon-engine.ts';
 import { buildSymbolForms, SYMBOL_FEATURE_PATH_COUNT, SYMBOL_FEATURE_SAMPLES } from '../app/symbol-geometry.ts';
 
 const empty = () => ({ WHITE: Array(26).fill(0), BLACK: Array(26).fill(0) });
+
+test('wheel detail fades continuously without changing spin speed', () => {
+  assert.equal(wheelDetailVisibility(0),1);
+  assert.equal(wheelDetailVisibility(320),0);
+  let previous=1;
+  for(let speed=0;speed<=320;speed+=0.25){
+    const detail=wheelDetailVisibility(speed);
+    assert.ok(detail<=previous && detail>=0);
+    assert.ok(previous-detail<0.011);
+    assert.equal(detail,wheelDetailVisibility(-speed));
+    previous=detail;
+  }
+});
 
 test('road-wheel yaw follows curvature with correct direction and inner-wheel angle', () => {
   for (const curvature of [-0.03, -0.01, 0.01, 0.03]) {
@@ -122,6 +135,16 @@ test('actual GLTF loader preserves four hub-centered steering and spin rigs', as
     assert.equal(wheel.spin.children.length,5);
     if(wheel.front) assert.equal(wheel.yaw.children.filter(node=>node.name.includes('upright-deflector')).length,2);
     assert.ok(wheel.radius>.34 && wheel.radius<.37);
+    const tire=wheel.spin.children.find(mesh=>mesh.userData.sourceMaterial==='Material.001');
+    const contours=formulaTireContours(tire.geometry);
+    const points=contours.getAttribute('position');
+    assert.equal(points.count,512);
+    for(let i=0;i<points.count;i++){
+      const r=Math.hypot(points.getY(i),points.getZ(i));
+      assert.ok(r>wheel.radius*.85 && r<wheel.radius*1.01,'contours follow the actual tire shoulder');
+      assert.ok(Math.abs(points.getX(i))<.23,'contours remain on the wheel');
+    }
+    contours.dispose();
     const center=wheel.spin.getWorldPosition(new THREE.Vector3());
     wheel.yaw.rotation.y=wheel.front?0.2:0;
     wheel.spin.rotation.x=2.7;

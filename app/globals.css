@@ -3,7 +3,7 @@
 :root {
   --paper: #f6f6f3;
   --ink: #161616;
-  --muted: #a4a49e;
+  --muted: #686b65;
   --red: #f02b1d;
   --paper-rgb: 246 246 243;
   --ink-rgb: 22 22 22;
@@ -244,21 +244,126 @@ main {
   overflow: auto;
 }
 
-.truth-figure {
+.truth-carousel {
+  --truth-width: min(64vw, 58svh, 560px);
+  --truth-height: min(80vw, 58svh, 560px);
+  --truth-gap: clamp(16px, 3vw, 36px);
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: clamp(72px, 12svh, 132px);
+  min-width: 0;
+  padding: 32px 0 40px;
+}
+
+.truth-window {
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  touch-action: pan-x pan-y pinch-zoom;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  scroll-padding-inline: calc((100% - var(--truth-width)) / 2);
+  mask-image: linear-gradient(to right, transparent, #000 14%, #000 86%, transparent);
+}
+
+.truth-window::-webkit-scrollbar { display: none; }
+
+.truth-strip {
+  position: relative;
+  display: flex;
+  gap: var(--truth-gap);
+  width: max-content;
+  padding-inline: calc((100vw - var(--truth-width)) / 2);
+}
+
+/* Match the hydrated starting position before JavaScript is available. */
+.truth-window:not([data-ready]) .truth-strip {
+  transform: translateX(calc(-3 * (var(--truth-width) + var(--truth-gap))));
+}
+
+.truth-card {
+  flex: 0 0 var(--truth-width);
+  width: var(--truth-width);
+  height: var(--truth-height);
+  scroll-snap-align: center;
+  scroll-snap-stop: always;
+  opacity: 0.22;
+}
+
+.truth-card.is-active { opacity: 1; }
+
+.truth-nav {
+  justify-content: center;
+  flex-wrap: nowrap;
+  gap: 20px;
+}
+
+.truth-nav button {
+  min-width: 84px;
+  min-height: 44px;
+  font-size: 11px;
+}
+
+.truth-figure {
   margin: 0;
-  padding: clamp(8px, 2vh, 24px) max(12px, 2vw) clamp(32px, 6vh, 64px);
   display: grid;
   place-items: center;
 }
 
 .truth-figure img {
-  max-width: min(92vw, 620px);
-  max-height: 76svh;
-  width: auto;
-  height: auto;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
   object-fit: contain;
+  user-select: none;
 }
+
+.truth-song {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #111;
+}
+
+.truth-song iframe {
+  width: 100%;
+  height: 100%;
+  display: block;
+  border: 0;
+}
+
+.truth-play {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: #111;
+  cursor: pointer;
+}
+
+.truth-play img { position: absolute; inset: 0; object-fit: cover; }
+
+.truth-play span {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 44px;
+  color: #fff;
+  background: var(--red);
+  border-radius: 3px;
+  font-size: 20px;
+}
+
+.truth-play:focus-visible { outline: 2px solid var(--red); outline-offset: 4px; }
 
 .collection-page {
   min-height: 100svh;
@@ -489,7 +594,7 @@ main {
 }
 
 .system-frame {
-  --muted: color-mix(in srgb, var(--ink) 65%, var(--paper));
+  --muted: color-mix(in srgb, var(--ink) 74%, var(--paper));
   width: 100%;
   height: 100%;
   display: grid;
