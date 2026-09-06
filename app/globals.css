@@ -629,12 +629,6 @@ main {
   outline: 0;
 }
 
-.system-scene:focus-visible {
-  box-shadow:
-    inset 1px 0 0 rgb(var(--red-rgb) / 0.38),
-    inset -1px 0 0 rgb(var(--red-rgb) / 0.38);
-}
-
 .system-scene > .scene-webgl {
   position: absolute;
   inset: 0;
