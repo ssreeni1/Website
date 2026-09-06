@@ -109,63 +109,61 @@ function phoenix(): Path[] {
 
 function ouroboros(): Path[] {
   const paths: Path[] = [];
-  // One tapered tube. Its tail travels into the open jaw at the top-right.
+  // The tail curls into a side-facing mouth, rather than meeting a capped tube.
+  const neckAngle = 0.38;
+  const tailStart = 0.85;
+  const tailAngle = neckAngle + tailStart * (TAU - 0.18);
+  const tailRoot = v(2.72 * Math.cos(tailAngle), 2.72 * Math.sin(tailAngle));
+  const tangent = v(-Math.sin(tailAngle), Math.cos(tailAngle));
+  const tail = new THREE.CurvePath<V>();
+  const bend = v(2.46, -0.30), lowerControl = v(2.82, -0.75);
+  const lip = v(1.38, 0.47), lipControl = v(1.20, -0.05);
+  tail.add(new THREE.CubicBezierCurve3(tailRoot, tailRoot.clone().addScaledVector(tangent, 0.6), lowerControl, bend));
+  tail.add(new THREE.CubicBezierCurve3(bend, bend.clone().addScaledVector(bend.clone().sub(lowerControl), 0.75), lipControl, lip));
+  tail.add(new THREE.CubicBezierCurve3(lip, lip.clone().addScaledVector(lip.clone().sub(lipControl), 0.3), v(1.67, 0.59), v(1.90, 0.59)));
   const body = (t: number, phase: number) => {
-    const a = 0.32 + t * (TAU - 0.18);
-    const radius = 0.43 * (1 - 0.92 * Math.pow(t, 5));
-    return v((2.72 + Math.cos(phase) * radius) * Math.cos(a),
-      (2.72 + Math.cos(phase) * radius) * Math.sin(a),
-      Math.sin(phase) * radius + 0.09 * Math.sin(a * 2));
+    const a = neckAngle + t * (TAU - 0.18);
+    const u = THREE.MathUtils.clamp((t - tailStart) / (1 - tailStart), 0, 1);
+    const center = t <= tailStart ? v(2.72 * Math.cos(a), 2.72 * Math.sin(a)) : tail.getPointAt(u);
+    const direction = t <= tailStart ? v(-Math.sin(a), Math.cos(a)) : tail.getTangentAt(u);
+    const normal = v(direction.y, -direction.x).normalize();
+    const radius = 0.43 * (1 - 0.92 * Math.pow(t, 5)) * (0.42 + 0.58 * THREE.MathUtils.smoothstep(t, 0, 0.08));
+    return center.addScaledVector(normal, Math.cos(phase) * radius)
+      .add(v(0, 0, Math.sin(phase) * radius + 0.04));
   };
-  for (let i = 0; i < 12; i += 1) paths.push(curve((t) => body(t, i * TAU / 12)));
+  // Resolve the tight tail bend before the shared morph topology is resampled.
+  for (let i = 0; i < 12; i += 1) paths.push(curve((t) => body(t, i * TAU / 12), 256));
   for (let i = 0; i < 44; i += 1) paths.push(curve((u) => body(i / 44, TAU * u)));
   // Short diamond scales run along the outside, rather than concentric rings.
-  for (let i = 0; i < 32; i += 1) {
-    const t = 0.03 + i * 0.9 / 32;
+  for (let i = 0; i < 28; i += 1) {
+    const t = 0.03 + i * 0.9 / 28;
     for (const phase of [0.62, Math.PI - 0.62]) {
       paths.push(smooth([body(t, phase), body(t + 0.011, phase + 0.37), body(t + 0.022, phase), body(t + 0.011, phase - 0.37)], true));
     }
   }
-  // A short, faceted serpent skull, continuous with the neck's radial frame.
-  // Flatten and taper towards a blunt snout instead of capping an oval head
-  // with rounded jaw loops. The returning tail ends inside the mouth volume.
-  const neckAngle = 0.32;
-  const origin = v(2.72 * Math.cos(neckAngle), 2.72 * Math.sin(neckAngle), 0.09 * Math.sin(neckAngle * 2));
-  const outward = v(Math.cos(neckAngle), Math.sin(neckAngle));
-  const forward = v(Math.sin(neckAngle), -Math.cos(neckAngle));
-  const sections = [
-    { s: 0, width: 0.43, depth: 0.43 },
-    { s: 0.17, width: 0.49, depth: 0.32 },
-    { s: 0.4, width: 0.35, depth: 0.22 },
-    { s: 0.67, width: 0.21, depth: 0.12 },
-    { s: 0.71, width: 0.2, depth: 0.1 },
-  ];
-  const headPoint = (s: number, phase: number) => {
-    let i = 0;
-    while (i < sections.length - 2 && sections[i + 1].s < s) i += 1;
-    const a = sections[i], b = sections[i + 1];
-    const t = THREE.MathUtils.clamp((s - a.s) / (b.s - a.s), 0, 1);
-    const width = THREE.MathUtils.lerp(a.width, b.width, t);
-    const depth = THREE.MathUtils.lerp(a.depth, b.depth, t);
-    const sector = phase / (TAU / 8), corner = Math.floor(sector);
-    const angleA = corner * TAU / 8, angleB = (corner + 1) * TAU / 8;
-    return origin.clone().addScaledVector(forward, s)
-      .addScaledVector(outward, width * THREE.MathUtils.lerp(Math.cos(angleA), Math.cos(angleB), sector - corner))
-      .add(v(0, 0, depth * THREE.MathUtils.lerp(Math.sin(angleA), Math.sin(angleB), sector - corner)));
-  };
-  for (let i = 0; i < 8; i += 1) paths.push(sections.map(({ s }) => headPoint(s, i * TAU / 8)));
-  for (const { s } of sections) paths.push(Array.from({ length: 9 }, (_, i) => headPoint(s, i * TAU / 8)));
-  for (const side of [1, -1]) {
-    const phase = (angle: number) => side === 1 ? angle : Math.PI - angle;
-    // Almond eyes, narrow pupils and brows lie on the same faceted surface.
-    paths.push(curve((t) => headPoint(0.23 + 0.08 * Math.cos(TAU * t), phase(0.86 + 0.2 * Math.sin(TAU * t)))));
-    paths.push(curve((t) => headPoint(0.185 + t * 0.09, phase(0.86))));
-    paths.push(curve((t) => headPoint(0.12 + t * 0.19, phase(1.13 - 0.08 * t))));
-    // Recessed-looking lip seams replace the oversized, protruding jaw loops.
-    paths.push(curve((t) => headPoint(0.22 + t * 0.49, phase(0.18))));
+  // Side-profile skull and a separate open mandible: the mouth's negative
+  // space, brow and eye must read at thumbnail scale, without a bulb or collar.
+  const skull = [[2.94, 0.86], [2.55, 1.19], [2.20, 1.12], [1.62, 0.93], [1.48, 0.75], [1.58, 0.64], [2.52, 0.57], [2.85, 0.38]];
+  const jaw = [[2.52, 0.57], [1.66, 0.38], [1.50, 0.39], [1.66, 0.21], [2.51, 0.30], [2.85, 0.38]];
+  const face = (x: number, y: number, side: number) => v(x, y,
+    0.04 + side * (0.12 + 0.16 * THREE.MathUtils.smoothstep(x, 1.48, 2.68)));
+  for (const profile of [skull, jaw]) {
+    for (const side of [-1, 1]) paths.push([...profile, profile[0]].map(([x, y]) => face(x, y, side)));
+    for (const [x, y] of profile) paths.push(straight(face(x, y, -1), face(x, y, 1)));
   }
-  paths.push(straight(headPoint(0.71, 0.18), headPoint(0.71, Math.PI - 0.18)));
-  paths.push(straight(headPoint(0.71, Math.PI / 2), headPoint(0.71, -Math.PI / 2)));
+  // Sparse transverse sections show volume without filling the mouth opening.
+  for (const [x, top, bottom] of [[1.72, 0.963, 0.63], [2.03, 1.064, 0.606], [2.36, 1.152, 0.582], [2.70, 1.063, 0.466]]) {
+    paths.push([face(x, top, -1), face(x, top, 1), face(x, bottom, 1), face(x, bottom, -1), face(x, top, -1)]);
+  }
+  for (const side of [1, -1]) {
+    paths.push(curve(t => face(2.23 + 0.12 * Math.cos(TAU * t), 0.90 + 0.075 * Math.sin(TAU * t), side)));
+    paths.push(curve(t => face(2.23, 0.85 + t * 0.10, side)));
+    paths.push([[2.07, 1.01], [2.21, 1.04], [2.43, 0.99]].map(([x, y]) => face(x, y, side)));
+    paths.push(curve(t => face(1.71 + 0.045 * Math.cos(TAU * t), 0.79 + 0.025 * Math.sin(TAU * t), side)));
+    // A small upper fang straddles the returning tail; no projecting tongue.
+    paths.push([[1.87, 0.618], [1.91, 0.48], [1.97, 0.611], [1.87, 0.618]].map(([x, y]) => face(x, y, side)));
+    paths.push([[2.54, 0.90], [2.66, 0.69], [2.52, 0.57]].map(([x, y]) => face(x, y, side)));
+  }
   return paths;
 }
 
