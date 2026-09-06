@@ -6,7 +6,7 @@ import { loadFormulaAsset, instantiateFormulaAsset } from "./formula-assets";
 import { generateGame, barPoint, offPoint, opponent, validateGame } from "./backgammon-engine";
 import { buildSymbolForms, SYMBOL_FEATURE_PATH_COUNT, SYMBOL_FEATURE_SAMPLES } from "./symbol-geometry";
 import { buildRacingPath } from "./racing-path";
-import { formulaWheelYaw, wheelDetailVisibility } from "./formula-model";
+import { applyFormulaSteering, wheelDetailVisibility } from "./formula-model";
 
 type VisualMode = 1 | 2 | 3;
 type SceneTheme = "light" | "dark";
@@ -477,6 +477,7 @@ function buildFormulaScene(
     const role = existing?.name ?? "body";
     const isWheel = mesh.userData.formulaRole === "wheel";
     const isTire = isWheel && mesh.userData.sourceMaterial === "Material.001";
+    const isFrontTire = isTire && frontSteeringRigs.some(wheel => wheel.spin === mesh.parent);
     const isRim = mesh.userData.formulaPart === "rim";
     const isGlass = role.includes("glass");
     const isInterior = role.includes("interior") || role.includes("bottom");
@@ -532,9 +533,11 @@ function buildFormulaScene(
           ? 0.30
           : (SCENE_IS_DARK ? 0.90 : 0.82);
     const edgeMaterial = new THREE.LineBasicMaterial({
-      color: INK,
+      // Both shoulder contours are part of the actual tire silhouette. Keep
+      // front steering legible at the default distance, not just during scans.
+      color: isFrontTire ? RED : INK,
       transparent: true,
-      opacity: edgeOpacity,
+      opacity: isFrontTire ? 0.92 : edgeOpacity,
       depthWrite: false,
       toneMapped: false,
     });
@@ -574,7 +577,7 @@ function buildFormulaScene(
     } else mesh.add(edges);
     edgeMaterials.push({
       material: edgeMaterial,
-      baseOpacity: edgeOpacity,
+      baseOpacity: isFrontTire ? 0.92 : edgeOpacity,
       rotatingDetail: isWheel && !isTire,
       scanOpacity: isWheel
         ? edgeOpacity
@@ -716,6 +719,10 @@ function buildFormulaScene(
     0,
     firstDirectionTarget.y - firstLocation.y,
   ).normalize();
+  // The path is the rear-axle reference of the Ackermann model. Previously the
+  // body centre followed it, making the unsteered rear wheels slide sideways.
+  const rearAxleZ = (prepared.wheels[2].hub.z + prepared.wheels[3].hub.z) / 2;
+  carPosition.addScaledVector(forward, -rearAxleZ);
   const right = new THREE.Vector3(forward.z, 0, -forward.x);
   const desiredCamera = new THREE.Vector3();
   const desiredLook = new THREE.Vector3();
@@ -760,11 +767,7 @@ function buildFormulaScene(
       const gear = Math.min(8, Math.max(1, ratios.findIndex(ratio => wheelRpm * ratio < 11500) + 1 || 8));
       const rpm = Math.max(4000, wheelRpm * ratios[gear - 1]);
       const curvature = location.curvature;
-      const steering = THREE.MathUtils.clamp(
-        THREE.MathUtils.radToDeg(Math.atan(prepared.wheelbase * curvature)),
-        -18,
-        18,
-      );
+      const steering = THREE.MathUtils.radToDeg(applyFormulaSteering(prepared.wheels, curvature, prepared.wheelbase, prepared.frontTrack));
       const lateralG = (Math.pow(speed / 3.6, 2) * Math.abs(curvature)) / 9.80665;
 
       carPosition.set(
@@ -778,9 +781,10 @@ function buildFormulaScene(
       );
       // The spline is already continuous. Filter the camera, not the physical
       // pose: independently lagging position and heading creates sideways slip.
-      displayCarPosition.copy(carPosition);
       displayHeading = targetHeading;
       forward.set(Math.sin(displayHeading), 0, Math.cos(displayHeading));
+      carPosition.addScaledVector(forward, -rearAxleZ);
+      displayCarPosition.copy(carPosition);
       right.set(forward.z, 0, -forward.x);
       carRig.position.copy(displayCarPosition);
       carRig.rotation.y = displayHeading;
@@ -793,12 +797,6 @@ function buildFormulaScene(
       const wheelTravel = Math.floor(elapsed * 1000 * playbackRate / motionDuration) * racingPath.length
         + racingPath.distanceAt(motionTime);
       const displayedSteering = steering;
-      if (frontSteeringRigs.length > 0) {
-        frontSteeringRigs.forEach(({ side, yaw }) => {
-          // Curvature is already continuous: no separate steering lag.
-          yaw.rotation.y = formulaWheelYaw(curvature, prepared.wheelbase, prepared.frontTrack, side);
-        });
-      }
       prepared.wheels.forEach(wheel => {wheel.spin.rotation.x = wheelTravel / wheel.radius;});
       if (cockpitWheel && cockpitWheelRest) {
         cockpitWheel.quaternion.copy(cockpitWheelRest).multiply(
@@ -808,7 +806,7 @@ function buildFormulaScene(
       // Restrained suspension response, illustrative rather than a vehicle
       // dynamics solver. Wheel contact and steering pivots stay on the road.
       const acceleration = location.modeledAcceleration;
-      bodyRoll += (THREE.MathUtils.clamp(-Math.sign(steering) * lateralG * 0.003, -0.0085, 0.0085) - bodyRoll) * (1 - Math.exp(-delta * 7));
+      bodyRoll += (THREE.MathUtils.clamp(Math.sign(steering) * lateralG * 0.003, -0.0085, 0.0085) - bodyRoll) * (1 - Math.exp(-delta * 7));
       bodyPitch += (THREE.MathUtils.clamp(-acceleration * 0.001, -0.004, 0.006) - bodyPitch) * (1 - Math.exp(-delta * 7));
       if (chassis) {
         chassis.rotation.z = bodyRoll;
@@ -2509,7 +2507,10 @@ function SceneOverlay() {
   return (
     <div className="scene-overlay">
       <p className="view-hint">
+        <span className="desktop-view-hint">
         DRAG / ORBIT · SCROLL / ZOOM · DOUBLE-CLICK / RESET
+        </span>
+        <span className="touch-view-hint">SWIPE / SWITCH · TWO FINGERS / ORBIT + ZOOM</span>
       </p>
     </div>
   );
@@ -2554,7 +2555,7 @@ function defaultView(mode: VisualMode): SceneView {
   };
 }
 
-export function SystemCanvas({ mode }: { mode: VisualMode }) {
+export function SystemCanvas({ mode, onSwipe }: { mode: VisualMode; onSwipe?: (direction: -1 | 1) => void }) {
   const retiredSceneRef = useRef<(() => void) | null>(null);
   const previousModeRef = useRef(mode);
   const mountRef = useRef<HTMLDivElement>(null);
@@ -2571,7 +2572,11 @@ export function SystemCanvas({ mode }: { mode: VisualMode }) {
     pointerId: -1,
     x: 0,
     y: 0,
+    startX: 0,
+    startY: 0,
+    gesture: "pending" as "pending" | "swipe" | "orbit",
   });
+  const touchesRef = useRef(new Map<number, { x: number; y: number }>());
   const resetView = () => {
     viewRef.current = defaultView(mode);
   };
@@ -2775,19 +2780,53 @@ export function SystemCanvas({ mode }: { mode: VisualMode }) {
         ref={mountRef}
         tabIndex={0}
         onPointerDown={(event) => {
-          if ((event.target as HTMLElement).closest("a, button")) return;
+          if ((event.target as HTMLElement).closest("a, button, input, select")) return;
+          if (event.pointerType === "touch") {
+            touchesRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+            if (touchesRef.current.size > 1) {
+              dragRef.current.gesture = "orbit";
+              event.currentTarget.setPointerCapture(event.pointerId);
+              return;
+            }
+          }
           dragRef.current = {
             active: true,
             pointerId: event.pointerId,
             x: event.clientX,
             y: event.clientY,
+            startX: event.clientX,
+            startY: event.clientY,
+            gesture: event.pointerType === "touch" && onSwipe ? "pending" : "orbit",
           };
           event.currentTarget.setPointerCapture(event.pointerId);
           event.currentTarget.style.cursor = "grabbing";
         }}
         onPointerMove={(event) => {
           const drag = dragRef.current;
+          const touches = touchesRef.current;
+          if (event.pointerType === "touch" && touches.has(event.pointerId)) {
+            const before = [...touches.values()];
+            touches.set(event.pointerId, { x: event.clientX, y: event.clientY });
+            if (touches.size > 1) {
+              const after = [...touches.values()];
+              const dx = after.reduce((s, p) => s + p.x, 0) - before.reduce((s, p) => s + p.x, 0);
+              const dy = after.reduce((s, p) => s + p.y, 0) - before.reduce((s, p) => s + p.y, 0);
+              viewRef.current.yaw -= dx / touches.size * 0.0065;
+              viewRef.current.pitch = THREE.MathUtils.clamp(viewRef.current.pitch - dy / touches.size * 0.0055, VIEW_CONFIG[mode].minimumPitch, 1.3);
+              const gap = (points: { x: number; y: number }[]) => Math.hypot(points[0].x - points[1].x, points[0].y - points[1].y);
+              if (gap(before) > 8 && gap(after) > 8) viewRef.current.distance = THREE.MathUtils.clamp(viewRef.current.distance * gap(before) / gap(after), VIEW_CONFIG[mode].minimumDistance, VIEW_CONFIG[mode].maximumDistance);
+              drag.x = touches.get(drag.pointerId)?.x ?? event.clientX;
+              drag.y = touches.get(drag.pointerId)?.y ?? event.clientY;
+              return;
+            }
+          }
           if (!drag.active || drag.pointerId !== event.pointerId) return;
+          if (drag.gesture === "pending") {
+            const dx = Math.abs(event.clientX - drag.startX), dy = Math.abs(event.clientY - drag.startY);
+            if (Math.max(dx, dy) < 12) return;
+            drag.gesture = dx > dy * 1.25 ? "swipe" : "orbit";
+          }
+          if (drag.gesture === "swipe") return;
           const deltaX = event.clientX - drag.x;
           const deltaY = event.clientY - drag.y;
           viewRef.current.yaw -= deltaX * 0.0065;
@@ -2800,7 +2839,11 @@ export function SystemCanvas({ mode }: { mode: VisualMode }) {
           drag.y = event.clientY;
         }}
         onPointerUp={(event) => {
+          touchesRef.current.delete(event.pointerId);
           if (dragRef.current.pointerId !== event.pointerId) return;
+          const drag = dragRef.current;
+          const dx = event.clientX - drag.startX, dy = event.clientY - drag.startY;
+          if (drag.gesture === "swipe" && Math.abs(dx) >= 48 && Math.abs(dx) > Math.abs(dy) * 1.25) onSwipe?.(dx < 0 ? 1 : -1);
           dragRef.current.active = false;
           dragRef.current.pointerId = -1;
           if (event.currentTarget.hasPointerCapture(event.pointerId)) {
@@ -2809,6 +2852,7 @@ export function SystemCanvas({ mode }: { mode: VisualMode }) {
           event.currentTarget.style.cursor = "grab";
         }}
         onPointerCancel={(event) => {
+          touchesRef.current.delete(event.pointerId);
           dragRef.current.active = false;
           dragRef.current.pointerId = -1;
           event.currentTarget.style.cursor = "grab";

@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
-import Script from "next/script";
+import { PostNavigation } from "../PostNavigation";
 import { notFound } from "next/navigation";
 import { getPost, posts } from "../../../content/posts";
-import { SiteNav } from "../../SiteNav";
 
 type PostPageProps = {
   params: Promise<{ slug: string }>;
@@ -54,21 +53,11 @@ export default async function PostPage({ params }: PostPageProps) {
 
   return (
     <div className="post-page">
-      <SiteNav backHref="/collection" />
       <style
         data-post-styles={post.slug}
         dangerouslySetInnerHTML={{ __html: post.styles }}
       />
-      <div
-        className="post-document"
-        data-post={post.slug}
-        dangerouslySetInnerHTML={{ __html: post.document }}
-      />
-      {post.runtime ? (
-        <Script id={`post-runtime-${post.slug}`} strategy="afterInteractive">
-          {post.runtime}
-        </Script>
-      ) : null}
+      <PostNavigation key={post.slug} slug={post.slug} html={post.document} />
     </div>
   );
 }

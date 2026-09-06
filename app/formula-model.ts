@@ -21,6 +21,15 @@ export function formulaWheelYaw(curvature: number, wheelbase: number, track: num
   return yawSign * Math.atan(wheelbase / wheelRadius);
 }
 
+/** One steering state for tire meshes, attached contours and the cockpit/HUD.
+ * Input is curvature at the rear axle, in inverse metres. */
+export function applyFormulaSteering(wheels: readonly ModernFormulaWheel[], curvature: number, wheelbase: number, frontTrack: number) {
+  for (const wheel of wheels) {
+    wheel.yaw.rotation.y = wheel.front ? formulaWheelYaw(curvature, wheelbase, frontTrack, wheel.side) : 0;
+  }
+  return -Math.atan(wheelbase * curvature);
+}
+
 /** Suppress unresolved rotating line detail, not the physical angular speed. */
 export function wheelDetailVisibility(speedKmh: number) {
   return 1 - THREE.MathUtils.smoothstep(Math.abs(speedKmh), 8, 45);

@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { SiteNav } from "./SiteNav";
 import { SystemCanvas } from "./SystemCanvas";
 
 type VisualNumber = 1 | 2 | 3;
@@ -86,7 +85,6 @@ export default function Home() {
     <main className="home-page">
       {/* Fetch alongside the page, not after the visitor clicks the car. */}
       <link rel="preload" as="fetch" href="/models/formula-runtime-v1.bin.gz" crossOrigin="anonymous" fetchPriority="low" />
-      <SiteNav />
 
       <section className="system" id="about" aria-labelledby="system-title">
         <h1 id="system-title">Saneel</h1>
@@ -97,7 +95,7 @@ export default function Home() {
           onWheelCapture={() => setAutoCycle(false)}
           onKeyDownCapture={() => setAutoCycle(false)}
         >
-          <SystemCanvas mode={activeVisual} />
+          <SystemCanvas mode={activeVisual} onSwipe={shiftVisual} />
 
           <div className="topbar-nav visual-shift-group">
             <button

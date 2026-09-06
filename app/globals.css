@@ -1,6 +1,7 @@
 @import "tailwindcss";
 
 :root {
+  --header-height: 60px;
   --paper: #f6f6f3;
   --ink: #161616;
   --muted: #686b65;
@@ -77,16 +78,16 @@ button {
 }
 
 main {
-  min-height: 100svh;
+  min-height: calc(100svh - var(--header-height));
   position: relative;
   overflow: hidden;
   background: var(--paper);
 }
 
 .home-page {
-  height: 100svh;
+  height: calc(100svh - var(--header-height));
   display: grid;
-  grid-template-rows: 60px minmax(0, 1fr) 47px;
+  grid-template-rows: minmax(0, 1fr) 47px;
 }
 
 .topbar {
@@ -98,6 +99,12 @@ main {
   display: flex;
   align-items: center;
   gap: 26px;
+}
+
+.touch-view-hint { display: none; }
+@media (pointer: coarse) {
+  .desktop-view-hint { display: none; }
+  .touch-view-hint { display: inline; }
 }
 
 .mark {
@@ -159,7 +166,7 @@ main {
 }
 
 .post-page {
-  min-height: 100svh;
+  min-height: calc(100svh - var(--header-height));
   overflow: visible;
   background: var(--paper);
 }
@@ -178,7 +185,7 @@ main {
 }
 
 .about-page {
-  min-height: 100svh;
+  min-height: calc(100svh - var(--header-height));
   overflow: auto;
 }
 
@@ -238,7 +245,7 @@ main {
 }
 
 .truth-page {
-  min-height: 100svh;
+  min-height: calc(100svh - var(--header-height));
   display: flex;
   flex-direction: column;
   overflow: auto;
@@ -366,7 +373,7 @@ main {
 .truth-play:focus-visible { outline: 2px solid var(--red); outline-offset: 4px; }
 
 .collection-page {
-  min-height: 100svh;
+  min-height: calc(100svh - var(--header-height));
   overflow: auto;
 }
 
@@ -1534,6 +1541,7 @@ main {
 }
 
 @media (max-width: 720px) {
+  :root { --header-height: 86px; }
   .home-page {
     height: auto;
     display: block;
@@ -1636,8 +1644,8 @@ main {
 
   .home-page {
     height: auto;
-    min-height: 100svh;
-    grid-template-rows: 86px auto 47px;
+    min-height: calc(100svh - var(--header-height));
+    grid-template-rows: auto 47px;
   }
 
   .canvas-shell {

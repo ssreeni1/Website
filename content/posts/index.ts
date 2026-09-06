@@ -42,7 +42,12 @@ export const posts: readonly Post[] = [
     description: "A brief history of the systems that turned model calls into agents. Model providers will absorb generic harness logic through co-training, but the last mile remains irreducible: the tools, state, permissions, verification, and recovery specific to an enterprise, domain, workflow, or person.",
     publishedAt: "2026-07-30",
     document: extractBody(fiveLinesDocument),
-    styles: fiveLinesStyles,
+    // The standalone essay stylesheet must not restyle the persistent header
+    // or leak its body/theme rules into other routes during client navigation.
+    styles: `@scope (.post-document[data-post="five-lines"]) {\n${fiveLinesStyles
+      .replaceAll(':root[data-theme="light"]', ':scope:where([data-theme="light"] *)')
+      .replaceAll(":root", ":scope")
+      .replace(/\b(?:html|body)(?=\s*\{)/g, ":scope")}\n}`,
     runtime: fiveLinesRuntime,
   },
   {

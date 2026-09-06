@@ -6,7 +6,7 @@ import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {gunzipSync} from 'node:zlib';
 import {decodeFormulaAsset, instantiateFormulaAsset} from '../app/formula-assets.ts';
-import {buildModernFormulaModel, formulaWheelYaw, formulaTireContours, wheelDetailVisibility} from '../app/formula-model.ts';
+import {buildModernFormulaModel, applyFormulaSteering, formulaWheelYaw, formulaTireContours, wheelDetailVisibility} from '../app/formula-model.ts';
 import { initialState, pipCount, legalMoves, legalPlays, applyMove, generateGame, validateGame, offPoint } from '../app/backgammon-engine.ts';
 import { buildSymbolForms, SYMBOL_FEATURE_PATH_COUNT, SYMBOL_FEATURE_SAMPLES } from '../app/symbol-geometry.ts';
 
@@ -36,6 +36,34 @@ test('road-wheel yaw follows curvature with correct direction and inner-wheel an
   }
   assert.equal(formulaWheelYaw(0, 3.42, 1.583, 1), 0);
   assert.equal(formulaWheelYaw(0, 3.42, 1.583, -1), 0);
+});
+
+test('shipped tire geometry steers along its contact velocity through a full lap', async () => {
+  const binary = gunzipSync(readFileSync(new URL('../public/models/formula-runtime-v1.bin.gz', import.meta.url)));
+  const template = await decodeFormulaAsset(binary.buffer.slice(binary.byteOffset, binary.byteOffset + binary.byteLength));
+  const { prepared } = instantiateFormulaAsset(template);
+  const data = JSON.parse(readFileSync(new URL('../public/data/silverstone-antonelli-l18.json', import.meta.url)));
+  const path = buildRacingPath(data.location, data.car, data.source.lapDurationMs, template.metadata.racingOffsets);
+  let min = Infinity, max = -Infinity;
+  const rearZ = (prepared.wheels[2].hub.z + prepared.wheels[3].hub.z) / 2;
+  for (let time = 0; time < path.duration; time += 50) {
+    const k = path.atTime(time).curvature;
+    const steer = applyFormulaSteering(prepared.wheels, k, prepared.wheelbase, prepared.frontTrack);
+    min = Math.min(min, steer); max = Math.max(max, steer);
+    for (const wheel of prepared.wheels) wheel.spin.rotation.x = time / 37;
+    prepared.root.updateMatrixWorld(true);
+    for (const wheel of prepared.wheels) {
+      const tire = wheel.spin.children.find(mesh => mesh.userData.sourceMaterial === 'Material.001');
+      const axle = new THREE.Vector3(1, 0, 0).transformDirection(tire.matrixWorld);
+      const tireForward = axle.cross(new THREE.Vector3(0, 1, 0)).normalize();
+      // Rigid-body velocity at each contact, with the rear axle on the path.
+      const contactVelocity = new THREE.Vector3(-k * (wheel.hub.z - rearZ), 0, 1 + k * wheel.hub.x).normalize();
+      assert.ok(tireForward.angleTo(contactVelocity) < 0.0002, `${wheel.name} must roll in its direction of travel`);
+      assert.ok(wheel.spin.getWorldPosition(new THREE.Vector3()).distanceTo(wheel.hub) < 1e-10, 'steering must not displace a hub');
+      assert.equal(Math.sign(wheel.yaw.rotation.y), wheel.front ? Math.sign(steer) : 0);
+    }
+  }
+  assert.ok(min < -0.10 && max > 0.08, 'both actual front tires steer through left and right corners');
 });
 
 test('standard opening has 167 pips per player', () => {

@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { SiteNav } from "../SiteNav";
 
 export const metadata: Metadata = {
   title: "About — Saneel Sreeni",
@@ -19,7 +18,6 @@ const externalLinkProps = {
 export default function AboutPage() {
   return (
     <main className="about-page">
-      <SiteNav />
 
       <article className="about-copy" aria-labelledby="about-title">
         <h1 id="about-title">About Saneel Sreeni</h1>
@@ -69,7 +67,6 @@ export default function AboutPage() {
           , and philosophy/theology generally.
         </p>
 
-        <p>And backgammon (if you couldn&apos;t tell).</p>
 
         <nav className="about-socials" aria-label="Social profiles">
           <a href="https://x.com/sanlsrni" {...externalLinkProps}>

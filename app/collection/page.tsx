@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { postSummaries } from "../../content/posts";
-import { SiteNav } from "../SiteNav";
 import { CollectionList } from "./CollectionList";
 
 export const metadata: Metadata = {
@@ -51,7 +50,6 @@ const entries = [
 export default function CollectionPage() {
   return (
     <main className="collection-page">
-      <SiteNav />
 
       <section className="collection-shell" aria-labelledby="collection-title">
         <header className="collection-heading">

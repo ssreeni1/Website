@@ -96,6 +96,8 @@ test("server-renders the personal site shell", async () => {
   assert.doesNotMatch(html, />SILVERSTONE<\/strong>/);
   assert.doesNotMatch(html, /ANTONELLI #12/);
   assert.match(html, /Saneel Sreeni/);
+  assert.equal((html.match(/<header class="topbar"/g) ?? []).length, 1);
+  assert.ok(html.indexOf('<header class="topbar"') < html.indexOf('<main class="home-page"'));
   assert.match(html, /Home\s*<span>\[H\]<\/span>/);
   assert.match(html, /About\s*<span>\[A\]<\/span>/);
   assert.match(html, /Collection\s*<span>\[C\]<\/span>/);
@@ -143,6 +145,7 @@ test("serves the linked About page", async () => {
     assert.match(html, /frontier agentic systems/);
     assert.match(html, /My work spans both legacy/);
     assert.doesNotMatch(html, /My work there spans/);
+    assert.doesNotMatch(html, /And backgammon/);
     assert.match(html, /an assortment of investing\/data science/);
     assert.match(html, /https:\/\/ritual\.net/);
     assert.match(html, /https:\/\/accomplice\.co/);
@@ -233,7 +236,7 @@ test("serves registered posts as Collection subpages", async () => {
   assert.match(html, /href="\/collection"/);
   assert.match(html, /Two settings changed the apparent frontier/);
   assert.match(html, /The Session You Cannot Take With You/);
-  assert.match(html, /post-runtime-five-lines/);
+  assert.match(html, /@scope \(\.post-document\[data-post=/);
   assert.doesNotMatch(html, /<footer/i);
 });
 

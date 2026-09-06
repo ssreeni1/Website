@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 
 type CollectionEntry = {
   title: string;
@@ -90,7 +91,8 @@ export function CollectionList({ entries }: CollectionListProps) {
         target.tagName === "TEXTAREA" ||
         target.isContentEditable;
 
-      if (isTyping || event.metaKey || event.ctrlKey || event.altKey) return;
+      if (event.defaultPrevented || isTyping || event.metaKey || event.ctrlKey || event.altKey) return;
+      if (event.key === "Enter" && target.closest("a, button")) return;
 
       if (event.key === "ArrowDown") {
         event.preventDefault();
@@ -192,7 +194,7 @@ export function CollectionList({ entries }: CollectionListProps) {
                 key={entry.url}
                 onPointerEnter={() => setSelectedIndex(index)}
               >
-                <a
+                <Link
                   className={index === selectedIndex ? "is-selected" : ""}
                   href={entry.url}
                   target={entry.url.startsWith("http") ? "_blank" : undefined}
@@ -203,7 +205,7 @@ export function CollectionList({ entries }: CollectionListProps) {
                   onFocus={() => setSelectedIndex(index)}
                 >
                   {entry.title}
-                </a>
+                </Link>
                 <time dateTime={entry.date}>{formatDate(entry.date)}</time>
               </li>
             ))}

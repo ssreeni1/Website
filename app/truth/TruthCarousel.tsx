@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
-import { TruthBack } from "./TruthBack";
 import { ifPoem } from "./if-poem";
 
 type Slide = { name: string; asset: string; alt: string; width: number; height: number; youtubeId?: string; themedSvg?: boolean };
@@ -104,7 +103,6 @@ export function TruthCarousel() {
 
   return (
     <>
-      <TruthBack />
       <section className="truth-carousel" style={{ "--truth-copy-count": count } as CSSProperties} aria-label="Thoughts" aria-roledescription="carousel">
         <div
           className="truth-window"

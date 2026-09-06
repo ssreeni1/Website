@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { writingRoutes } from "../content/posts/writing-routes";
 
 const routes = [
@@ -35,12 +35,11 @@ function applySiteTheme(theme: SiteTheme) {
   );
 }
 
-type SiteNavProps = {
-  backHref?: string;
-};
-
-export function SiteNav({ backHref }: SiteNavProps = {}) {
+export function SiteNav() {
   const router = useRouter();
+  const pathname = usePathname();
+  const isTruth = /^\/truth\/?$/.test(pathname);
+  const backHref = isTruth ? "/about" : pathname.startsWith("/collections/") ? "/collection" : undefined;
   const [finderOpen, setFinderOpen] = useState(false);
   const [finderQuery, setFinderQuery] = useState("");
   const [finderIndex, setFinderIndex] = useState(0);
@@ -63,6 +62,24 @@ export function SiteNav({ backHref }: SiteNavProps = {}) {
   }, []);
 
   useEffect(() => {
+    // Imported essays contain real HTML anchors. Keep those internal links on
+    // the same client router too, without hijacking downloads or external URLs.
+    const onClick = (event: MouseEvent) => {
+      if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      const link = (event.target as Element | null)?.closest<HTMLAnchorElement>("a[href]");
+      if (!link || link.hasAttribute("download") || (link.target && link.target !== "_self")) return;
+      const url = new URL(link.href, location.href);
+      const path = url.pathname.replace(/\/$/, "") || "/";
+      if (url.origin !== location.origin || !routes.some(route => route.href === path)) return;
+      if (url.pathname === location.pathname && url.search === location.search && url.hash) return;
+      event.preventDefault();
+      router.push(url.pathname + url.search + url.hash);
+    };
+    document.addEventListener("click", onClick);
+    return () => document.removeEventListener("click", onClick);
+  }, [router]);
+
+  useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement;
       const isTyping =
@@ -70,7 +87,7 @@ export function SiteNav({ backHref }: SiteNavProps = {}) {
         target.tagName === "TEXTAREA" ||
         target.isContentEditable;
 
-      if (isTyping || event.metaKey || event.ctrlKey || event.altKey) return;
+      if (event.defaultPrevented || isTyping || event.metaKey || event.ctrlKey || event.altKey) return;
 
       const key = event.key.toLowerCase();
 
@@ -137,6 +154,11 @@ export function SiteNav({ backHref }: SiteNavProps = {}) {
   return (
     <>
       <header className="topbar">
+        {isTruth ? (
+          <nav className="topbar-nav" aria-label="Back navigation">
+            <Link href="/about">Back <span>[B]</span></Link>
+          </nav>
+        ) : <>
         <Link className="mark" href="/" aria-label="Saneel Sreeni, home">
           Saneel Sreeni
         </Link>
@@ -180,6 +202,7 @@ export function SiteNav({ backHref }: SiteNavProps = {}) {
             Back <span>[B]</span>
           </Link>
         ) : null}
+        </>}
       </header>
 
       <div
