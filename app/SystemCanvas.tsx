@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import * as THREE from "three";
 import { loadFormulaAsset, instantiateFormulaAsset } from "./formula-assets";
 import { generateGame, barPoint, offPoint, opponent, validateGame } from "./backgammon-engine";
@@ -2555,6 +2555,8 @@ function defaultView(mode: VisualMode): SceneView {
 }
 
 export function SystemCanvas({ mode }: { mode: VisualMode }) {
+  const retiredSceneRef = useRef<(() => void) | null>(null);
+  const previousModeRef = useRef(mode);
   const mountRef = useRef<HTMLDivElement>(null);
   const hudRootRef = useRef<HTMLDivElement>(null);
   const trackCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -2588,9 +2590,19 @@ export function SystemCanvas({ mode }: { mode: VisualMode }) {
     return () => window.clearTimeout(timer);
   }, []);
 
-  useEffect(() => {
+  useEffect(() => () => {
+    retiredSceneRef.current?.();
+    retiredSceneRef.current = null;
+  }, []);
+
+  useLayoutEffect(() => {
     const mount = mountRef.current;
     if (!mount || !sceneTheme) return;
+    if (previousModeRef.current !== mode) {
+      viewRef.current = defaultView(mode);
+      playbackRef.current = { pace: 65, paused: false, restart: 0 };
+      previousModeRef.current = mode;
+    }
 
     applySceneTheme(sceneTheme);
 
@@ -2608,13 +2620,16 @@ export function SystemCanvas({ mode }: { mode: VisualMode }) {
     renderer.shadowMap.enabled = false;
     renderer.shadowMap.type = THREE.PCFShadowMap;
     renderer.domElement.className = "scene-webgl";
-    mount.prepend(renderer.domElement);
+    renderer.domElement.dataset.mode = String(mode);
+    renderer.domElement.style.visibility = "hidden";
+    mount.append(renderer.domElement);
 
     let disposed = false;
     let frame = 0;
     let controller: SceneController | null = null;
     let lastFrameTime = performance.now();
     let elapsed = 0;
+    let presented = false;
 
     const setup = async () => {
       try {
@@ -2688,19 +2703,26 @@ export function SystemCanvas({ mode }: { mode: VisualMode }) {
         frame = window.requestAnimationFrame(animate);
         return;
       }
-      if (!document.hidden && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) elapsed += delta;
+      if (controller && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) elapsed += delta;
       if (controller) {
         controller.update(elapsed, delta, viewRef.current);
       }
-      renderer.render(scene, camera);
+      if (controller) {
+        renderer.render(scene, camera);
+        if (!presented) {
+          // Swap only after an actual frame exists, never through empty paper.
+          renderer.domElement.style.visibility = "visible";
+          renderer.domElement.dataset.ready = "true";
+          presented = true;
+          retiredSceneRef.current?.();
+          retiredSceneRef.current = null;
+        }
+      }
       frame = window.requestAnimationFrame(animate);
     };
     frame = window.requestAnimationFrame(animate);
 
-    return () => {
-      disposed = true;
-      observer.disconnect();
-      window.cancelAnimationFrame(frame);
+    const release = () => {
       const textures = new Set<THREE.Texture>();
       const disposeMaterial = (material: THREE.Material) => {
         for (const value of Object.values(material)) {
@@ -2724,6 +2746,15 @@ export function SystemCanvas({ mode }: { mode: VisualMode }) {
       // context slot. Theme/scene switches otherwise accumulate live contexts.
       renderer.forceContextLoss();
       renderer.domElement.remove();
+    };
+    return () => {
+      disposed = true;
+      observer.disconnect();
+      window.cancelAnimationFrame(frame);
+      if (presented) {
+        retiredSceneRef.current?.();
+        retiredSceneRef.current = release;
+      } else release();
     };
   }, [mode, sceneTheme]);
 

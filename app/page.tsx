@@ -93,21 +93,20 @@ export default function Home() {
 
         <div
           className="canvas-shell"
-          key={activeVisual}
           onPointerDownCapture={() => setAutoCycle(false)}
           onWheelCapture={() => setAutoCycle(false)}
           onKeyDownCapture={() => setAutoCycle(false)}
         >
           <SystemCanvas mode={activeVisual} />
 
-          <div className="visual-shift-group">
+          <div className="topbar-nav visual-shift-group">
             <button
               className="visual-shift"
               type="button"
               aria-label={`Show previous visual: ${visualNames[previousVisual]}`}
               onClick={() => shiftVisual(-1)}
             >
-              <span aria-hidden="true">←</span>
+              Left <span aria-hidden="true">[←]</span>
             </button>
 
             <button
@@ -116,7 +115,7 @@ export default function Home() {
               aria-label={`Show next visual: ${visualNames[nextVisual]}`}
               onClick={() => shiftVisual(1)}
             >
-              <span aria-hidden="true">→</span>
+              Right <span aria-hidden="true">[→]</span>
             </button>
           </div>
         </div>

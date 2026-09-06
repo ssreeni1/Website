@@ -559,38 +559,23 @@ main {
   height: min(82vh, 960px);
   margin-top: 0;
   position: relative;
-  animation: canvas-enter 520ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .visual-shift-group {
   position: absolute;
   z-index: 4;
-  top: -14px;
+  top: -22px;
   left: 50%;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 20px;
   transform: translateX(-50%);
 }
 
-.visual-shift {
-  width: 36px;
-  height: 28px;
-  display: grid;
-  place-items: center;
-  border-radius: 999px;
-  color: rgb(var(--ink-rgb) / 0.66);
-  font: 500 17px/1 Arial, Helvetica, sans-serif;
-  transition:
-    color 160ms ease,
-    background-color 160ms ease;
-}
-
-.visual-shift:hover,
-.visual-shift:focus-visible {
-  background: rgb(var(--ink-rgb) / 0.055);
-  color: var(--red);
-  outline: 0;
+.visual-shift-group .visual-shift {
+  min-width: 84px;
+  min-height: 44px;
+  font-size: 11px;
 }
 
 .system-frame {
@@ -634,7 +619,7 @@ main {
 }
 
 /* Fade only the rendered scene, never the controls or the telemetry. */
-.mode-1 .system-scene > .scene-webgl {
+.system-scene > .scene-webgl[data-mode="1"] {
   -webkit-mask-image: linear-gradient(to right, transparent, #000 10%, #000 90%, transparent), linear-gradient(to bottom, transparent, #000 12%, #000 86%, transparent);
   mask-image: linear-gradient(to right, transparent, #000 10%, #000 90%, transparent), linear-gradient(to bottom, transparent, #000 12%, #000 86%, transparent);
   -webkit-mask-composite: source-in;
