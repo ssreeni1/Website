@@ -47,6 +47,10 @@ test("Truth opens on the poem with only Back, Left and Right navigation", async 
   assert.match(html, /aria-keyshortcuts="ArrowRight"/);
   assert.doesNotMatch(html, /class="truth-(?:dot|pagination|current|controls)"/);
   assert.doesNotMatch(html, /<iframe/);
+  assert.equal((html.match(/class="truth-song-heading"/g) ?? []).length, 12);
+  assert.match(html, /<h2>Hunting Nirvana<\/h2><p>SAINt JHN<\/p>/);
+  assert.match(html, /href="https:\/\/www.youtube.com\/watch\?v=6pmdglykhjE"/);
+  assert.doesNotMatch(html, /src="\/truth\/(?:hunting-nirvana|good-life|momentum|unravel)-/);
 });
 
 test("Truth display images stay within the cold-load budget", async () => {

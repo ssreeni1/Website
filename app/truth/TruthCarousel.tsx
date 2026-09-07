@@ -3,17 +3,17 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { ifPoem } from "./if-poem";
 
-type Slide = { name: string; asset: string; alt: string; width: number; height: number; youtubeId?: string; themedSvg?: boolean };
+type Slide = { name: string; asset: string; alt: string; width: number; height: number; youtubeId?: string; artist?: string; themedSvg?: boolean };
 const slides: Slide[] = [
   { name: "Poem", asset: "poem", alt: "The poem, photographed from the page", width: 736, height: 736 },
-  { name: "Hunting Nirvana", asset: "hunting-nirvana", alt: "Hunting Nirvana — SAINt JHN", width: 480, height: 360, youtubeId: "dhCo5U1oByc" },
+  { name: "Hunting Nirvana", asset: "hunting-nirvana", alt: "Hunting Nirvana — SAINt JHN", artist: "SAINt JHN", width: 480, height: 360, youtubeId: "dhCo5U1oByc" },
   { name: "Mahabharata", asset: "krishna-arjuna", alt: "Krishna teaching Arjuna in their canopied chariot, drawn by four white horses", width: 1280, height: 1600 },
-  { name: "Good Life", asset: "good-life", alt: "Good Life — ZHU", width: 1280, height: 720, youtubeId: "0CWVgu2Odjg" },
+  { name: "Good Life", asset: "good-life", alt: "Good Life — ZHU", artist: "ZHU", width: 1280, height: 720, youtubeId: "0CWVgu2Odjg" },
   { name: "If—", asset: "if", alt: "If—, a poem by Rudyard Kipling", width: 1280, height: 1600 },
   { name: "Judo", asset: "judo", alt: "Two judo athletes in white gis mid-throw on a red and gold mat", width: 627, height: 640 },
-  { name: "Momentum", asset: "momentum", alt: "Momentum — Av King Hamilton", width: 1280, height: 720, youtubeId: "6pmdglykhjE" },
+  { name: "Momentum", asset: "momentum", alt: "Momentum — Av King Hamilton", artist: "Av King Hamilton", width: 1280, height: 720, youtubeId: "6pmdglykhjE" },
   { name: "Figure and sun", asset: "figure-sun", alt: "A textured painting of a green figure raising a dark orb against a golden halo", width: 1200, height: 800 },
-  { name: "Unravel", asset: "unravel", alt: "Unravel — Animenz Piano Sheets", width: 1280, height: 720, youtubeId: "sEQf5lcnj_o" },
+  { name: "Unravel", asset: "unravel", alt: "Unravel — Animenz Piano Sheets", artist: "Animenz Piano Sheets", width: 1280, height: 720, youtubeId: "sEQf5lcnj_o" },
   { name: "Nolan / Time", asset: "nolan-time", alt: "Nolan / Time: thirteen wireframe diagrams pairing Christopher Nolan's films with their temporal motifs", width: 1800, height: 1840, themedSvg: true },
 ];
 const count = slides.length;
@@ -162,6 +162,11 @@ export function TruthCarousel() {
                 >
                   {slide.youtubeId ? (
                     <div className="truth-song">
+                      <div className="truth-song-heading">
+                        <h2>{slide.name}</h2>
+                        <p>{slide.artist}</p>
+                      </div>
+                      <div className="truth-song-player">
                       {player === slot && selected ? (
                         <iframe
                           src={`https://www.youtube-nocookie.com/embed/${slide.youtubeId}?playsinline=1&rel=0&autoplay=1`}
@@ -172,10 +177,14 @@ export function TruthCarousel() {
                         />
                       ) : (
                         <button className="truth-play" type="button" aria-label={`Play ${slide.alt}`} onClick={() => setPlayer(slot)}>
-                          {poster}
-                          <span aria-hidden="true">▶</span>
+                          <span className="truth-play-mark" aria-hidden="true">▷</span>
+                          <span>Play <span className="truth-play-bracket" aria-hidden="true">[↗]</span></span>
                         </button>
                       )}
+                      </div>
+                      <a className="truth-song-source" href={`https://www.youtube.com/watch?v=${slide.youtubeId}`} target="_blank" rel="noopener noreferrer">
+                        YouTube <span aria-hidden="true">↗</span>
+                      </a>
                     </div>
                   ) : poster}
                   {slide.asset === "if" && <figcaption className="sr-only">{ifPoem.map((stanza, index) => <p key={index}>{stanza.join("\n")}</p>)}</figcaption>}

@@ -263,8 +263,8 @@ main {
 }
 
 .truth-carousel {
-  --truth-width: min(64vw, 58svh, 560px);
-  --truth-height: min(80vw, 58svh, 560px);
+  --truth-width: max(224px, min(64vw, 58svh, 560px));
+  --truth-height: max(360px, min(80vw, 58svh, 560px));
   --truth-gap: clamp(16px, 3vw, 36px);
   flex: 1;
   display: flex;
@@ -341,9 +341,37 @@ main {
 }
 
 .truth-song {
+  width: min(100%, 356px);
+  color: var(--ink);
+  font-family: var(--font-geist-mono), monospace;
+}
+
+.truth-song-heading {
+  border-top: 1px solid var(--red);
+  padding-top: 18px;
+  margin-bottom: 24px;
+}
+
+.truth-song-heading h2 {
+  margin: 0 0 10px;
+  font-size: clamp(22px, 3vw, 32px);
+  font-weight: 400;
+  letter-spacing: -0.055em;
+  line-height: 1.2;
+}
+
+.truth-song-heading p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* Keep the actual, unobscured YouTube viewport at least 200 × 200. */
+.truth-song-player {
   width: 100%;
-  aspect-ratio: 16 / 9;
-  background: #111;
+  min-width: 200px;
+  height: 200px;
 }
 
 .truth-song iframe {
@@ -354,34 +382,47 @@ main {
 }
 
 .truth-play {
-  position: relative;
-  display: block;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
   width: 100%;
   height: 100%;
   padding: 0;
-  border: 0;
-  background: #111;
+  border: 1px solid color-mix(in srgb, var(--ink) 20%, transparent);
+  color: var(--ink);
+  background: color-mix(in srgb, var(--ink) 3%, var(--paper));
+  font: inherit;
+  font-size: 13px;
   cursor: pointer;
 }
 
-.truth-play img { position: absolute; inset: 0; object-fit: cover; }
-
-.truth-play span {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  display: grid;
-  place-items: center;
-  width: 52px;
-  height: 44px;
-  color: #fff;
-  background: var(--red);
-  border-radius: 3px;
-  font-size: 20px;
+.truth-play-mark {
+  color: var(--red);
+  font-size: 38px;
+  line-height: 1;
 }
 
+.truth-play-bracket { color: var(--red); }
 .truth-play:focus-visible { outline: 2px solid var(--red); outline-offset: 4px; }
+
+.truth-song-source {
+  display: flex;
+  justify-content: space-between;
+  min-height: 36px;
+  align-items: center;
+  color: var(--muted);
+  font-size: 12px;
+  text-decoration: none;
+}
+
+.truth-song-source:focus-visible { outline: 1px solid var(--red); outline-offset: 3px; }
+
+@media (hover: hover) and (pointer: fine) {
+  .truth-play:hover { border-color: var(--red); color: var(--red); }
+  .truth-song-source:hover { color: var(--red); }
+}
 
 .collection-page {
   min-height: calc(100svh - var(--header-height));
