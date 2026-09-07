@@ -164,10 +164,9 @@ export function TruthCarousel() {
                     <div className="truth-song">
                       <div className="truth-song-heading">
                         <h2>{slide.name}</h2>
-                        <p>{slide.artist}</p>
                       </div>
-                      <div className="truth-song-player">
                       {player === slot && selected ? (
+                        <div className="truth-song-player">
                         <iframe
                           src={`https://www.youtube-nocookie.com/embed/${slide.youtubeId}?playsinline=1&rel=0&autoplay=1`}
                           title={slide.alt}
@@ -175,16 +174,12 @@ export function TruthCarousel() {
                           referrerPolicy="strict-origin-when-cross-origin"
                           allowFullScreen
                         />
+                        </div>
                       ) : (
                         <button className="truth-play" type="button" aria-label={`Play ${slide.alt}`} onClick={() => setPlayer(slot)}>
-                          <span className="truth-play-mark" aria-hidden="true">▷</span>
-                          <span>Play <span className="truth-play-bracket" aria-hidden="true">[↗]</span></span>
+                          <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M5 3 13 8 5 13Z" /></svg>
                         </button>
                       )}
-                      </div>
-                      <a className="truth-song-source" href={`https://www.youtube.com/watch?v=${slide.youtubeId}`} target="_blank" rel="noopener noreferrer">
-                        YouTube <span aria-hidden="true">↗</span>
-                      </a>
                     </div>
                   ) : poster}
                   {slide.asset === "if" && <figcaption className="sr-only">{ifPoem.map((stanza, index) => <p key={index}>{stanza.join("\n")}</p>)}</figcaption>}
