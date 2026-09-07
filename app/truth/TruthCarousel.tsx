@@ -164,6 +164,9 @@ export function TruthCarousel() {
                     <div className="truth-song">
                       <div className="truth-song-heading">
                         <h2>{slide.name}</h2>
+                        <svg className="truth-song-wave" width="62" height="24" viewBox="0 0 62 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">
+                          <path d="M1 11v2 M6 9v6 M11 6v12 M16 8v8 M21 3v18 M26 6v12 M31 1v22 M36 4v16 M41 8v8 M46 5v14 M51 8v8 M56 10v4 M61 11v2" />
+                        </svg>
                       </div>
                       {player === slot && selected ? (
                         <div className="truth-song-player">

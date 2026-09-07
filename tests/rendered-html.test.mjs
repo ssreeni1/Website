@@ -48,6 +48,7 @@ test("Truth opens on the poem with only Back, Left and Right navigation", async 
   assert.doesNotMatch(html, /class="truth-(?:dot|pagination|current|controls)"/);
   assert.doesNotMatch(html, /<iframe/);
   assert.equal((html.match(/class="truth-song-heading"/g) ?? []).length, 12);
+  assert.equal((html.match(/class="truth-song-wave"/g) ?? []).length, 12);
   assert.match(html, /<h2>Hunting Nirvana<\/h2>/);
   assert.doesNotMatch(html, /truth-song-source|truth-song-player|<p>SAINt JHN<\/p>/);
   assert.doesNotMatch(html, /src="\/truth\/(?:hunting-nirvana|good-life|momentum|unravel)-/);

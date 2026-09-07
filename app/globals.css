@@ -359,6 +359,12 @@ main {
   line-height: 1.2;
 }
 
+.truth-song-wave {
+  display: block;
+  margin: 18px auto 0;
+  color: var(--red);
+}
+
 /* Keep the actual, unobscured YouTube viewport at least 200 × 200. */
 .truth-song-player {
   width: 100%;
