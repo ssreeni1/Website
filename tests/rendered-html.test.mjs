@@ -32,7 +32,7 @@ test("Truth opens on the poem with only Back, Left and Right navigation", async 
   const slideNames = [...html.matchAll(/aria-roledescription="slide" aria-label="([^"]+)"/g)].map(match => match[1]);
   assert.equal(slideNames.length, 30);
   for (let copy = 0; copy < 3; copy += 1) {
-    assert.deepEqual(slideNames.slice(copy * 10 + 5, copy * 10 + 10), ["Judo", "Momentum", "Figure and sun", "Unravel", "Nolan / Time"]);
+    assert.deepEqual(slideNames.slice(copy * 10 + 5, copy * 10 + 10), ["Nolan / Time", "Momentum", "Figure and sun", "Unravel", "Judo"]);
   }
   assert.match(html, /aria-label="Nolan \/ Time"/);
   assert.match(html, /src="\/truth\/nolan-time-dark.svg"/);

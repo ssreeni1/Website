@@ -10,11 +10,11 @@ const slides: Slide[] = [
   { name: "Mahabharata", asset: "krishna-arjuna", alt: "Krishna teaching Arjuna in their canopied chariot, drawn by four white horses", width: 1280, height: 1600 },
   { name: "Good Life", asset: "good-life", alt: "Good Life — ZHU", artist: "ZHU", width: 1280, height: 720, youtubeId: "0CWVgu2Odjg" },
   { name: "If—", asset: "if", alt: "If—, a poem by Rudyard Kipling", width: 1280, height: 1600 },
-  { name: "Judo", asset: "judo", alt: "Two judo athletes in white gis mid-throw on a red and gold mat", width: 627, height: 640 },
+  { name: "Nolan / Time", asset: "nolan-time", alt: "Nolan / Time: thirteen wireframe diagrams pairing Christopher Nolan's films with their temporal motifs", width: 1800, height: 1840, themedSvg: true },
   { name: "Momentum", asset: "momentum", alt: "Momentum — Av King Hamilton", artist: "Av King Hamilton", width: 1280, height: 720, youtubeId: "6pmdglykhjE" },
   { name: "Figure and sun", asset: "figure-sun", alt: "A textured painting of a green figure raising a dark orb against a golden halo", width: 1200, height: 800 },
   { name: "Unravel", asset: "unravel", alt: "Unravel — Animenz Piano Sheets", artist: "Animenz Piano Sheets", width: 1280, height: 720, youtubeId: "sEQf5lcnj_o" },
-  { name: "Nolan / Time", asset: "nolan-time", alt: "Nolan / Time: thirteen wireframe diagrams pairing Christopher Nolan's films with their temporal motifs", width: 1800, height: 1840, themedSvg: true },
+  { name: "Judo", asset: "judo", alt: "Two judo athletes in white gis mid-throw on a red and gold mat", width: 627, height: 640 },
 ];
 const count = slides.length;
 // Three copies keep both neighbours mounted, including across the loop seam.
