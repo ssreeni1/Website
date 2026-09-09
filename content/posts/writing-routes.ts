@@ -1,4 +1,5 @@
 export const writingRoutes = [
+  { slug: "diffusion-is-all-you-need", title: "WHO CARES? (Diffusion is All You Need)" },
   { slug: "five-lines", title: "Five Lines to Infinity" },
   {
     slug: "permanence-is-the-rarest-asset-class",

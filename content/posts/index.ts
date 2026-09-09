@@ -1,4 +1,5 @@
 import fiveLinesDocument from "./five_lines/index.html?raw";
+import diffusionDocument from "./diffusion-is-all-you-need/index.html?raw";
 import fiveLinesStyles from "./five_lines/styles.css?raw";
 import fiveLinesRuntime from "./five_lines/visuals.js?raw";
 import importedArticleStyles from "./imported-article.css?raw";
@@ -36,6 +37,14 @@ function extractBody(document: string) {
 }
 
 export const posts: readonly Post[] = [
+  {
+    slug: "diffusion-is-all-you-need",
+    title: "WHO CARES? (Diffusion is All You Need)",
+    description: "On AI diffusion, trust, and the human work of turning model capabilities into productivity.",
+    publishedAt: "2026-09-09",
+    document: extractBody(diffusionDocument),
+    styles: importedArticleStyles,
+  },
   {
     slug: "five-lines",
     title: "Five Lines to Infinity",

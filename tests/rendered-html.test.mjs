@@ -235,6 +235,7 @@ test("Find numbers Collection entries with current first, then archive, both new
   assert.ok(directory);
   const expected = [
     "/", "/about", "/truth", "/collection",
+    "/collections/diffusion-is-all-you-need",
     "/collections/five-lines",
     "https://x.com/sanlsrni/status/2059710155881677025",
     "https://atlaseternal.xyz",
@@ -278,6 +279,30 @@ test("serves registered posts as Collection subpages", async () => {
   assert.match(html, /The Session You Cannot Take With You/);
   assert.match(html, /@scope \(\.post-document\[data-post=/);
   assert.doesNotMatch(html, /<footer/i);
+});
+
+test("preserves the Diffusion essay, charts, links, and Collection entry", async () => {
+  const response = await render("/collections/diffusion-is-all-you-need/");
+  assert.equal(response.status, 200);
+  const html = await response.text();
+  assert.match(html, /<h1>WHO CARES\? \(Diffusion is All You Need\)<\/h1>/);
+  assert.match(html, /<em>Who cares\?<\/em>/);
+  assert.match(html, /To get there, look no further: Diffusion is All You Need\./);
+  assert.match(html, /href="https:\/\/x.com\/JakeDinero"/);
+  assert.match(html, /href="https:\/\/x.com\/0xsmac"/);
+  assert.match(html, /href="https:\/\/x.com\/TheEthanDing"/);
+  const article = html.match(/<article class="imported-article">([\s\S]*?)<\/article>/)?.[1];
+  assert.ok(article);
+  assert.equal((article.match(/<li>/g) ?? []).length, 5);
+  assert.equal((article.match(/<img /g) ?? []).length, 2);
+  for (const name of ["productivity", "profit-margins"]) {
+    assert.ok(article.includes(`src="/collections/diffusion-is-all-you-need/${name}.png"`));
+    const asset = await readFile(new URL(`../public/collections/diffusion-is-all-you-need/${name}.png`, import.meta.url));
+    assert.equal(asset.subarray(1, 4).toString(), "PNG");
+  }
+  assert.doesNotMatch(article, /googleusercontent|docs.google.com|<script/);
+  const collection = await (await render("/collection/")).text();
+  assert.match(collection, /href="\/collections\/diffusion-is-all-you-need"/);
 });
 
 test("preserves lists and clean embeds in imported X articles", async () => {
