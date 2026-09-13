@@ -1108,6 +1108,10 @@ main {
 .playback-controls > div { display: flex; justify-content: space-between; gap: 8px; }
 .playback-controls input { width: 100%; height: 24px; margin: 6px 0 0; accent-color: var(--red); cursor: pointer; }
 .playback-controls .playback-scale { font-size: 8px; }
+.scene-speed-controls { flex-shrink: 0; }
+.scene-speed-controls output { color: var(--red); font-variant-numeric: tabular-nums; }
+.scene-speed-controls input { min-height: 32px; }
+.scene-speed-controls input:focus-visible { outline: 1px solid var(--red); outline-offset: 3px; }
 .playback-controls .playback-actions { justify-content: flex-start; gap: 18px; margin-top: 12px; }
 .playback-actions button { font: inherit; color: var(--ink); padding: 6px 0; }
 .playback-actions button:hover, .playback-actions button:focus-visible { color: var(--red); }

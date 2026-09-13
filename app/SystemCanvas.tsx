@@ -7,6 +7,7 @@ import { generateGame, barPoint, offPoint, opponent, validateGame } from "./back
 import { buildSymbolForms, SYMBOL_FEATURE_PATH_COUNT, SYMBOL_FEATURE_SAMPLES } from "./symbol-geometry";
 import { buildRacingPath } from "./racing-path";
 import { applyFormulaSteering, wheelDetailVisibility } from "./formula-model";
+import { playbackDelta } from "./playback-clock";
 
 type VisualMode = 1 | 2 | 3;
 type SceneTheme = "light" | "dark";
@@ -2154,7 +2155,7 @@ function FormulaRail({
             LAP TIME <b data-hud="lap-time">00:00.000</b>
           </span>
           <span>
-            PROGRESS <b data-hud="lap-progress">0.0%</b> · SIMULATION 1×
+            PROGRESS <b data-hud="lap-progress">0.0%</b> · SIMULATION
           </span>
           <span className="signal-copy" data-hud="phase">
             RACING LINE / SIMULATION
@@ -2451,6 +2452,25 @@ function DieFace({ value }: { value: number }) {
   );
 }
 
+function SceneSpeedControl({ mode, rate, onChange }: {
+  mode: 1 | 3;
+  rate: number;
+  onChange: (rate: number) => void;
+}) {
+  const id = mode === 1 ? "lap-speed" : "symbol-speed";
+  const label = mode === 1 ? "LAP PLAYBACK" : "SYMBOL CYCLE";
+  return (
+    <section className="playback-controls scene-speed-controls" aria-label={mode === 1 ? "Car playback" : "Symbol playback"}>
+      <div><label htmlFor={id}>{label}</label><output htmlFor={id}>{rate}×</output></div>
+      <input id={id} type="range" min="0.25" max="4" step="0.25" value={rate}
+        aria-label={mode === 1 ? "Car lap playback speed" : "Symbol cycle playback speed"}
+        aria-valuetext={`${rate} times normal speed`}
+        onChange={event => onChange(Number(event.target.value))} />
+      <div className="playback-scale"><span>0.25× / SLOW</span><span>FAST / 4×</span></div>
+    </section>
+  );
+}
+
 function PlaybackControls({ onChange }: { onChange: (update: Partial<Playback>) => void }) {
   const [pace, setPace] = useState(65);
   const [paused, setPaused] = useState(false);
@@ -2551,6 +2571,13 @@ export function SystemCanvas({ mode, onSwipe }: { mode: VisualMode; onSwipe?: (d
   const [sceneTheme, setSceneTheme] = useState<SceneTheme | null>(null);
   const viewRef = useRef<SceneView>(defaultView(mode));
   const playbackRef = useRef<Playback>({ pace: 65, paused: false, restart: 0 });
+  const [sceneRates, setSceneRates] = useState({ 1: 1, 3: 1 });
+  const sceneRatesRef = useRef(sceneRates);
+  const updateSceneRate = (sceneMode: 1 | 3, rate: number) => {
+    const next = { ...sceneRatesRef.current, [sceneMode]: rate };
+    sceneRatesRef.current = next;
+    setSceneRates(next);
+  };
   const updatePlayback = useCallback((update: Partial<Playback>) => {
     Object.assign(playbackRef.current, update);
   }, []);
@@ -2695,9 +2722,12 @@ export function SystemCanvas({ mode, onSwipe }: { mode: VisualMode; onSwipe?: (d
         frame = window.requestAnimationFrame(animate);
         return;
       }
-      if (controller && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) elapsed += delta;
+      // Keep pose, wheel travel, scans, morphs and telemetry on one continuous
+      // playback clock. A rate change affects future time, not current position.
+      const sceneDelta = mode === 2 ? delta : playbackDelta(delta, sceneRatesRef.current[mode]);
+      if (controller && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) elapsed += sceneDelta;
       if (controller) {
-        controller.update(elapsed, delta, viewRef.current);
+        controller.update(elapsed, sceneDelta, viewRef.current);
       }
       if (controller) {
         renderer.render(scene, camera);
@@ -2759,6 +2789,9 @@ export function SystemCanvas({ mode, onSwipe }: { mode: VisualMode; onSwipe?: (d
           <BackgammonRail side="left" controls={<PlaybackControls onChange={updatePlayback} />} />
         ) : (
           <SymbolRail side="left" />
+        )}
+        {mode !== 2 && (
+          <SceneSpeedControl mode={mode} rate={sceneRates[mode]} onChange={rate => updateSceneRate(mode, rate)} />
         )}
       </aside>
 
