@@ -1,5 +1,6 @@
 import fiveLinesDocument from "./five_lines/index.html?raw";
 import diffusionDocument from "./diffusion-is-all-you-need/index.html?raw";
+import technoeschatologyDocument from "./technoeschatology/index.html?raw";
 import fiveLinesStyles from "./five_lines/styles.css?raw";
 import fiveLinesRuntime from "./five_lines/visuals.js?raw";
 import importedArticleStyles from "./imported-article.css?raw";
@@ -37,6 +38,14 @@ function extractBody(document: string) {
 }
 
 export const posts: readonly Post[] = [
+  {
+    slug: "technoeschatology",
+    title: "Technoeschatology",
+    description: "On technology, apocalyptic narratives, open exits, and the systems that might close them.",
+    publishedAt: "2026-09-20",
+    document: extractBody(technoeschatologyDocument),
+    styles: importedArticleStyles,
+  },
   {
     slug: "diffusion-is-all-you-need",
     title: "WHO CARES? (Diffusion is All You Need)",

@@ -1,4 +1,5 @@
 export const writingRoutes = [
+  { slug: "technoeschatology", title: "Technoeschatology" },
   { slug: "diffusion-is-all-you-need", title: "WHO CARES? (Diffusion is All You Need)" },
   { slug: "five-lines", title: "Five Lines to Infinity" },
   {

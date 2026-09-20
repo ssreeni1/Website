@@ -235,6 +235,7 @@ test("Find numbers Collection entries with current first, then archive, both new
   assert.ok(directory);
   const expected = [
     "/", "/about", "/truth", "/collection",
+    "/collections/technoeschatology",
     "/collections/diffusion-is-all-you-need",
     "/collections/five-lines",
     "https://x.com/sanlsrni/status/2059710155881677025",
@@ -303,6 +304,25 @@ test("preserves the Diffusion essay, charts, links, and Collection entry", async
   assert.doesNotMatch(article, /googleusercontent|docs.google.com|<script/);
   const collection = await (await render("/collection/")).text();
   assert.match(collection, /href="\/collections\/diffusion-is-all-you-need"/);
+});
+
+test("preserves the Technoeschatology essay, artwork, references, and principles", async () => {
+  const response = await render("/collections/technoeschatology/");
+  assert.equal(response.status, 200);
+  const html = await response.text();
+  assert.match(html, /<h1>Technoeschatology<\/h1>/);
+  assert.match(html, /If you’re reading this and found this, nice\./);
+  assert.match(html, /href="https:\/\/firstthings\.com\/voyages-to-the-end-of-the-world/);
+  assert.match(html, /href="https:\/\/firstthings\.com\/the-pope-and-the-antichrist/);
+  assert.match(html, /The Antichrist is a counterfeit and not an opponent\./);
+  assert.match(html, /The order brought by the Antichrist comes at hidden, immense costs\./);
+  assert.equal((html.match(/<li>/g) ?? []).length, 5);
+  assert.match(html, /src="\/collections\/technoeschatology\/cover\.png"/);
+  const artwork = await readFile(new URL("../public/collections/technoeschatology/cover.png", import.meta.url));
+  assert.equal(artwork.subarray(1, 4).toString(), "PNG");
+  const article = html.match(/<article class="imported-article">([\s\S]*?)<\/article>/)?.[1];
+  assert.ok(article);
+  assert.doesNotMatch(article, /googleusercontent|docs\.google\.com|<script/);
 });
 
 test("preserves lists and clean embeds in imported X articles", async () => {
