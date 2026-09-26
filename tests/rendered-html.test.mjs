@@ -326,11 +326,11 @@ test("preserves the Technoeschatology essay, artwork, references, and principles
   assert.doesNotMatch(article, /googleusercontent|docs\.google\.com|<script/);
 });
 
-test("serves Performance Art under its site title while preserving the essay", async () => {
+test("serves Waltz at the End of History while preserving the essay", async () => {
   const response = await render("/collections/performance-art/");
   assert.equal(response.status, 200);
   const html = await response.text();
-  assert.match(html, /<h1>Performance Art<\/h1>/);
+  assert.match(html, /<h1>Waltz at the End of History<\/h1>/);
   assert.match(html, /Your invitation to the ball comes in the form of a \$200\/mo subscription\./);
   assert.match(html, /We’re waltzing at the end of history\./);
   assert.match(html, /Maybe it’s time to put in my Airpods\./);
