@@ -40,7 +40,7 @@ function extractBody(document: string) {
 
 export const posts: readonly Post[] = [
   {
-    slug: "performance-art",
+    slug: "waltz-at-the-end-of-history",
     title: "Waltz at the End of History",
     description: "A waltz at the end of history.",
     publishedAt: "2026-09-26",
