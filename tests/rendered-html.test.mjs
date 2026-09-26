@@ -235,6 +235,7 @@ test("Find numbers Collection entries with current first, then archive, both new
   assert.ok(directory);
   const expected = [
     "/", "/about", "/truth", "/collection",
+    "/collections/performance-art",
     "/collections/technoeschatology",
     "/collections/diffusion-is-all-you-need",
     "/collections/five-lines",
@@ -323,6 +324,17 @@ test("preserves the Technoeschatology essay, artwork, references, and principles
   const article = html.match(/<article class="imported-article">([\s\S]*?)<\/article>/)?.[1];
   assert.ok(article);
   assert.doesNotMatch(article, /googleusercontent|docs\.google\.com|<script/);
+});
+
+test("serves Performance Art under its site title while preserving the essay", async () => {
+  const response = await render("/collections/performance-art/");
+  assert.equal(response.status, 200);
+  const html = await response.text();
+  assert.match(html, /<h1>Performance Art<\/h1>/);
+  assert.match(html, /Your invitation to the ball comes in the form of a \$200\/mo subscription\./);
+  assert.match(html, /We’re waltzing at the end of history\./);
+  assert.match(html, /Maybe it’s time to put in my Airpods\./);
+  assert.match(html, /href="\/collections\/performance-art"/);
 });
 
 test("preserves lists and clean embeds in imported X articles", async () => {

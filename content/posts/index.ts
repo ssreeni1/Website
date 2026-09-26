@@ -1,6 +1,7 @@
 import fiveLinesDocument from "./five_lines/index.html?raw";
 import diffusionDocument from "./diffusion-is-all-you-need/index.html?raw";
 import technoeschatologyDocument from "./technoeschatology/index.html?raw";
+import performanceArtDocument from "./performance-art/index.html?raw";
 import fiveLinesStyles from "./five_lines/styles.css?raw";
 import fiveLinesRuntime from "./five_lines/visuals.js?raw";
 import importedArticleStyles from "./imported-article.css?raw";
@@ -38,6 +39,14 @@ function extractBody(document: string) {
 }
 
 export const posts: readonly Post[] = [
+  {
+    slug: "performance-art",
+    title: "Performance Art",
+    description: "A waltz at the end of history.",
+    publishedAt: "2026-09-26",
+    document: extractBody(performanceArtDocument),
+    styles: importedArticleStyles,
+  },
   {
     slug: "technoeschatology",
     title: "Technoeschatology",
