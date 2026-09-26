@@ -332,6 +332,9 @@ test("serves Waltz at the End of History while preserving the essay", async () =
   const html = await response.text();
   assert.match(html, />PERFORMANCE ART<\/span>/);
   assert.match(html, /<h1>Waltz at the End of History<\/h1>/);
+  assert.match(html, /src="\/collections\/performance-art\/cover\.png"/);
+  const artwork = await readFile(new URL("../public/collections/performance-art/cover.png", import.meta.url));
+  assert.equal(artwork.subarray(1, 4).toString(), "PNG");
   assert.match(html, /Your invitation to the ball comes in the form of a \$200\/mo subscription\./);
   assert.match(html, /We’re waltzing at the end of history\./);
   assert.match(html, /Maybe it’s time to put in my Airpods\./);
