@@ -235,7 +235,7 @@ test("Find numbers Collection entries with current first, then archive, both new
   assert.ok(directory);
   const expected = [
     "/", "/about", "/truth", "/collection",
-    "/collections/waltz-at-the-end-of-history",
+    "/collections/a-waltz-at-the-end-of-history",
     "/collections/technoeschatology",
     "/collections/diffusion-is-all-you-need",
     "/collections/five-lines",
@@ -326,28 +326,31 @@ test("preserves the Technoeschatology essay, artwork, references, and principles
   assert.doesNotMatch(article, /googleusercontent|docs\.google\.com|<script/);
 });
 
-test("serves Waltz at the End of History while preserving the essay", async () => {
-  const response = await render("/collections/waltz-at-the-end-of-history/");
+test("serves A Waltz at the End of History while preserving the essay", async () => {
+  const response = await render("/collections/a-waltz-at-the-end-of-history/");
   assert.equal(response.status, 200);
   const html = await response.text();
   assert.match(html, />PERFORMANCE ART<\/span>/);
-  assert.match(html, /<h1>Waltz at the End of History<\/h1>/);
-  assert.match(html, /src="\/collections\/waltz-at-the-end-of-history\/cover\.png"/);
-  const artwork = await readFile(new URL("../public/collections/waltz-at-the-end-of-history/cover.png", import.meta.url));
+  assert.match(html, /<h1>A Waltz at the End of History<\/h1>/);
+  assert.match(html, /src="\/collections\/a-waltz-at-the-end-of-history\/cover\.png"/);
+  const artwork = await readFile(new URL("../public/collections/a-waltz-at-the-end-of-history/cover.png", import.meta.url));
   assert.equal(artwork.subarray(1, 4).toString(), "PNG");
   assert.match(html, /Your invitation to the ball comes in the form of a \$200\/mo subscription\./);
   assert.match(html, /We’re waltzing at the end of history\./);
   assert.match(html, /Maybe it’s time to put in my Airpods\./);
-  assert.match(html, /href="\/collections\/waltz-at-the-end-of-history"/);
+  assert.match(html, /<strong>Maybe it’s time to put in my Airpods\.<\/strong>/);
+  assert.match(html, /href="\/collections\/a-waltz-at-the-end-of-history"/);
 });
 
-test("keeps the prior Performance Art URL as a static redirect", async () => {
-  const redirect = await readFile(
-    new URL("../dist/client/collections/performance-art/index.html", import.meta.url),
-    "utf8",
-  );
-  assert.match(redirect, /url=\/collections\/waltz-at-the-end-of-history\//);
-  assert.match(redirect, /rel="canonical" href="https:\/\/saneel\.xyz\/collections\/waltz-at-the-end-of-history\//);
+test("keeps prior article URLs as static redirects", async () => {
+  for (const oldSlug of ["performance-art", "waltz-at-the-end-of-history"]) {
+    const redirect = await readFile(
+      new URL(`../dist/client/collections/${oldSlug}/index.html`, import.meta.url),
+      "utf8",
+    );
+    assert.match(redirect, /url=\/collections\/a-waltz-at-the-end-of-history\//);
+    assert.match(redirect, /rel="canonical" href="https:\/\/saneel\.xyz\/collections\/a-waltz-at-the-end-of-history\//);
+  }
 });
 
 test("preserves lists and clean embeds in imported X articles", async () => {

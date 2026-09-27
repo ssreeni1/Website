@@ -1,5 +1,5 @@
 export const writingRoutes = [
-  { slug: "waltz-at-the-end-of-history", title: "Waltz at the End of History" },
+  { slug: "a-waltz-at-the-end-of-history", title: "A Waltz at the End of History" },
   { slug: "technoeschatology", title: "Technoeschatology" },
   { slug: "diffusion-is-all-you-need", title: "WHO CARES? (Diffusion is All You Need)" },
   { slug: "five-lines", title: "Five Lines to Infinity" },
