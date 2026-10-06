@@ -12,6 +12,16 @@ const externalEntries = [
   { title: "Eternal Atlas", date: "2026-05-08", url: "https://atlaseternal.xyz" },
   { title: "pain.flights", date: "2026-04-28", url: "https://pain.flights" },
   { title: "Superpositioned", date: "2026-03-02", url: "https://superpositioned.co" },
+  {
+    title: "Things Hidden Since the Foundation of Blockspace",
+    date: "2022-10-19",
+    url: "https://www.aniccaresearch.tech/blog/things-hidden-since-foundation-of-blockspace",
+  },
+  {
+    title: "Consensus Capital Markets",
+    date: "2022-01-29",
+    url: "https://www.aniccaresearch.tech/blog/consensus-capital-markets",
+  },
   { title: "RICKS Mechanism Analysis", date: "2021-10-01", url: "https://observablehq.com/@ssreeni1/picklerick" },
 ];
 

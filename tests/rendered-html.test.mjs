@@ -248,7 +248,10 @@ test("Find numbers Collection entries with current first, then archive, both new
     "/collections/hyperspeculation-genesis-ii",
     "/collections/shigetas-dream", "/collections/genesis-i",
     "/collections/the-hedonists-stone", "/collections/speculation-is-dead",
-    "/collections/building-trading", "https://observablehq.com/@ssreeni1/picklerick",
+    "/collections/building-trading",
+    "https://www.aniccaresearch.tech/blog/things-hidden-since-foundation-of-blockspace",
+    "https://www.aniccaresearch.tech/blog/consensus-capital-markets",
+    "https://observablehq.com/@ssreeni1/picklerick",
   ];
   assert.deepEqual([...directory.matchAll(/href="([^"]+)"/g)].map(match => match[1]), expected);
   assert.deepEqual([...directory.matchAll(/<b class="finder-number">(\d+)<\/b>/g)].map(match => match[1]), expected.map((_, i) => String(i + 1).padStart(2, "0")));
