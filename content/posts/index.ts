@@ -2,6 +2,8 @@ import fiveLinesDocument from "./five_lines/index.html?raw";
 import diffusionDocument from "./diffusion-is-all-you-need/index.html?raw";
 import technoeschatologyDocument from "./technoeschatology/index.html?raw";
 import performanceArtDocument from "./performance-art/index.html?raw";
+import blockspaceDocument from "./things-hidden-since-foundation-of-blockspace/index.html?raw";
+import consensusDocument from "./consensus-capital-markets/index.html?raw";
 import fiveLinesStyles from "./five_lines/styles.css?raw";
 import fiveLinesRuntime from "./five_lines/visuals.js?raw";
 import importedArticleStyles from "./imported-article.css?raw";
@@ -39,6 +41,22 @@ function extractBody(document: string) {
 }
 
 export const posts: readonly Post[] = [
+  {
+    slug: "things-hidden-since-foundation-of-blockspace",
+    title: "Things Hidden Since the Foundation of Blockspace",
+    description: "The implicit costs of crypto transactions and the market microstructure of blockspace.",
+    publishedAt: "2022-10-19",
+    document: extractBody(blockspaceDocument),
+    styles: importedArticleStyles,
+  },
+  {
+    slug: "consensus-capital-markets",
+    title: "Consensus Capital Markets",
+    description: "Why blockspace needs capital markets for consensus producers and consumers.",
+    publishedAt: "2022-01-29",
+    document: extractBody(consensusDocument),
+    styles: importedArticleStyles,
+  },
   {
     slug: "a-waltz-at-the-end-of-history",
     title: "A Waltz at the End of History",

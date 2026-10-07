@@ -169,6 +169,14 @@
   margin-top: clamp(48px, 7vw, 78px);
 }
 
+.imported-media figcaption {
+  margin-top: 10px;
+  color: var(--muted);
+  font: 400 12px/1.45 var(--font-geist-mono), monospace;
+}
+
+.imported-media figcaption p { margin: 0; }
+
 .imported-embed {
   margin-top: 52px;
   margin-bottom: 64px;

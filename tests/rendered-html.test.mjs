@@ -249,8 +249,8 @@ test("Find numbers Collection entries with current first, then archive, both new
     "/collections/shigetas-dream", "/collections/genesis-i",
     "/collections/the-hedonists-stone", "/collections/speculation-is-dead",
     "/collections/building-trading",
-    "https://www.aniccaresearch.tech/blog/things-hidden-since-foundation-of-blockspace",
-    "https://www.aniccaresearch.tech/blog/consensus-capital-markets",
+    "/collections/things-hidden-since-foundation-of-blockspace",
+    "/collections/consensus-capital-markets",
     "https://observablehq.com/@ssreeni1/picklerick",
   ];
   assert.deepEqual([...directory.matchAll(/href="([^"]+)"/g)].map(match => match[1]), expected);
@@ -353,6 +353,41 @@ test("keeps prior article URLs as static redirects", async () => {
     );
     assert.match(redirect, /url=\/collections\/a-waltz-at-the-end-of-history\//);
     assert.match(redirect, /rel="canonical" href="https:\/\/saneel\.xyz\/collections\/a-waltz-at-the-end-of-history\//);
+  }
+});
+
+test("imports Anicca research as native articles with local figures", async () => {
+  const articles = [
+    [
+      "things-hidden-since-foundation-of-blockspace",
+      "Things Hidden Since the Foundation of Blockspace",
+      "https://www.aniccaresearch.tech/blog/things-hidden-since-foundation-of-blockspace",
+      16,
+      8,
+    ],
+    [
+      "consensus-capital-markets",
+      "Consensus Capital Markets",
+      "https://www.aniccaresearch.tech/blog/consensus-capital-markets",
+      6,
+      7,
+    ],
+  ];
+  for (const [slug, title, source, imageCount, headingCount] of articles) {
+    const response = await render(`/collections/${slug}/`);
+    assert.equal(response.status, 200, slug);
+    const html = await response.text();
+    const article = html.match(/<article class="imported-article">([\s\S]*?)<\/article>/)?.[1];
+    assert.ok(article, slug);
+    assert.match(article, new RegExp(`<h1>${title}<\\/h1>`), slug);
+    assert.match(article, new RegExp(`href="${source}"`), slug);
+    assert.equal((article.match(/class="imported-media"/g) ?? []).length, imageCount, slug);
+    assert.equal((article.match(/<h2>/g) ?? []).length, headingCount, slug);
+    assert.doesNotMatch(article, /squarespace-cdn|images\.squarespace/, slug);
+    const assets = await readdir(
+      new URL(`../public/collections/${slug}/`, import.meta.url),
+    );
+    assert.equal(assets.filter((file) => file.endsWith(".png")).length, imageCount, slug);
   }
 });
 

@@ -1,4 +1,9 @@
 export const writingRoutes = [
+  {
+    slug: "things-hidden-since-foundation-of-blockspace",
+    title: "Things Hidden Since the Foundation of Blockspace",
+  },
+  { slug: "consensus-capital-markets", title: "Consensus Capital Markets" },
   { slug: "a-waltz-at-the-end-of-history", title: "A Waltz at the End of History" },
   { slug: "technoeschatology", title: "Technoeschatology" },
   { slug: "diffusion-is-all-you-need", title: "WHO CARES? (Diffusion is All You Need)" },
