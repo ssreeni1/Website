@@ -4,6 +4,7 @@ import technoeschatologyDocument from "./technoeschatology/index.html?raw";
 import performanceArtDocument from "./performance-art/index.html?raw";
 import blockspaceDocument from "./things-hidden-since-foundation-of-blockspace/index.html?raw";
 import consensusDocument from "./consensus-capital-markets/index.html?raw";
+import fossilFoolsDocument from "./fossil-fools/index.html?raw";
 import fiveLinesStyles from "./five_lines/styles.css?raw";
 import fiveLinesRuntime from "./five_lines/visuals.js?raw";
 import importedArticleStyles from "./imported-article.css?raw";
@@ -41,6 +42,14 @@ function extractBody(document: string) {
 }
 
 export const posts: readonly Post[] = [
+  {
+    slug: "fossil-fools",
+    title: "Fossil Fools",
+    description: "A reading of Digger through Girard, sacrifice, spectacle, and apocalypse.",
+    publishedAt: "2026-10-09",
+    document: extractBody(fossilFoolsDocument),
+    styles: importedArticleStyles,
+  },
   {
     slug: "things-hidden-since-foundation-of-blockspace",
     title: "Things Hidden Since the Foundation of Blockspace",

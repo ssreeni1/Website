@@ -235,6 +235,7 @@ test("Find numbers Collection entries with current first, then archive, both new
   assert.ok(directory);
   const expected = [
     "/", "/about", "/truth", "/collection",
+    "/collections/fossil-fools",
     "/collections/a-waltz-at-the-end-of-history",
     "/collections/technoeschatology",
     "/collections/diffusion-is-all-you-need",
@@ -327,6 +328,18 @@ test("preserves the Technoeschatology essay, artwork, references, and principles
   const article = html.match(/<article class="imported-article">([\s\S]*?)<\/article>/)?.[1];
   assert.ok(article);
   assert.doesNotMatch(article, /googleusercontent|docs\.google\.com|<script/);
+});
+
+test("serves Fossil Fools with its supplied hero image", async () => {
+  const response = await render("/collections/fossil-fools/");
+  assert.equal(response.status, 200);
+  const html = await response.text();
+  assert.match(html, /<h1>Fossil Fools<\/h1>/);
+  assert.match(html, /Spoilers ahead for the movie Digger\./);
+  assert.match(html, /What are the odds <\/em><em>Iñárritu \(director\) has read Girard\?<\/em>/);
+  assert.match(html, /src="\/collections\/fossil-fools\/cover\.png"/);
+  const artwork = await readFile(new URL("../public/collections/fossil-fools/cover.png", import.meta.url));
+  assert.equal(artwork.subarray(1, 4).toString(), "PNG");
 });
 
 test("serves A Waltz at the End of History while preserving the essay", async () => {
