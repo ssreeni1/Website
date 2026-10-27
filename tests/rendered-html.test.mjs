@@ -160,6 +160,8 @@ test("serves the linked About page", async () => {
     assert.match(html, /an assortment of investing\/data science/);
     assert.match(html, /https:\/\/ritual\.net/);
     assert.match(html, /https:\/\/accomplice\.co/);
+    assert.match(html, /Investor at/);
+    assert.doesNotMatch(html, /Partner at/);
     assert.match(html, /https:\/\/met\.berkeley\.edu\//);
     assert.match(
       html,
@@ -168,11 +170,30 @@ test("serves the linked About page", async () => {
     assert.match(html, /https:\/\/center\.study\//);
     assert.match(html, /https:\/\/x\.com\/sanlsrni/);
     assert.match(html, /https:\/\/www\.linkedin\.com\/in\/snlsrn\//);
+    assert.match(html, /href="\/investments\/">\$<\/a>/);
     assert.match(html, /Home\s*<span>\[H\]<\/span>/);
     assert.match(html, /About\s*<span>\[A\]<\/span>/);
     assert.match(html, /Collection\s*<span>\[C\]<\/span>/);
     assert.doesNotMatch(html, /Interactive Formula car/);
   }
+});
+
+test("serves the linked investments page with the requested links", async () => {
+  const response = await render("/investments/");
+  assert.equal(response.status, 200);
+  const html = await response.text();
+  assert.match(html, /<title>Investments — Saneel Sreeni<\/title>/);
+  assert.match(html, /Open-ended learning for financial markets/);
+  assert.match(html, /href="https:\/\/nof1\.ai"/);
+  assert.match(html, /href="https:\/\/arcana\.io"/);
+  assert.match(html, /href="https:\/\/entropy\.io"/);
+  assert.match(html, /href="https:\/\/plasma\.org"/);
+  assert.match(html, /href="https:\/\/meetautumn\.com"/);
+  assert.match(html, />Autumn<\/a>: Full-stack dental billing/);
+  assert.doesNotMatch(html, /Pine Street Labs/);
+  assert.equal((html.match(/<header class="topbar"/g) ?? []).length, 1);
+  assert.match(html, /Back\s*<span>\[B\]<\/span>/);
+  assert.doesNotMatch(html, /Home\s*<span>\[H\]<\/span>/);
 });
 
 test("serves the linked Collection archive without descriptions", async () => {

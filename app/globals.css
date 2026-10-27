@@ -222,6 +222,18 @@ main {
   margin: 0 0 1.05em;
 }
 
+.investments-copy ul {
+  max-width: 940px;
+  margin: 0 0 1.05em;
+  padding-left: 1.15em;
+}
+
+.investments-copy li {
+  margin: 0 0 .42em;
+  padding-left: .15em;
+}
+
+
 .about-copy a {
   color: var(--red);
   white-space: nowrap;

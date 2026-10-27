@@ -39,7 +39,12 @@ export function SiteNav({ collectionEntries }: { collectionEntries: readonly Col
   const router = useRouter();
   const pathname = usePathname();
   const isTruth = /^\/truth\/?$/.test(pathname);
-  const backHref = isTruth ? "/about" : pathname.startsWith("/collections/") ? "/collection" : undefined;
+  const isInvestments = /^\/investments\/?$/.test(pathname);
+  const backHref = isTruth || isInvestments
+    ? "/about"
+    : pathname.startsWith("/collections/")
+      ? "/collection"
+      : undefined;
   const [finderOpen, setFinderOpen] = useState(false);
   const [finderQuery, setFinderQuery] = useState("");
   const [finderIndex, setFinderIndex] = useState(0);
@@ -169,9 +174,9 @@ export function SiteNav({ collectionEntries }: { collectionEntries: readonly Col
   return (
     <>
       <header className="topbar">
-        {isTruth ? (
+        {isTruth || isInvestments ? (
           <nav className="topbar-nav" aria-label="Back navigation">
-            <Link href="/about">Back <span>[B]</span></Link>
+            <Link href={backHref ?? "/about"}>Back <span>[B]</span></Link>
           </nav>
         ) : <>
         <Link className="mark" href="/" aria-label="Saneel Sreeni, home">

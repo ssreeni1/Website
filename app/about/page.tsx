@@ -34,7 +34,7 @@ export default function AboutPage() {
             Ritual
           </a>
           , which builds infrastructure for autonomous intelligence, and a
-          Partner at{" "}
+          Investor at{" "}
           <a href="https://accomplice.co" {...externalLinkProps}>
             Accomplice
           </a>
@@ -79,6 +79,7 @@ export default function AboutPage() {
             LI
           </a>
           <Link href="/truth/">?</Link>
+          <Link href="/investments/">$</Link>
         </nav>
       </article>
     </main>
