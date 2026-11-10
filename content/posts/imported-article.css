@@ -290,10 +290,9 @@
 .imported-prose .cite-group { white-space: nowrap; }
 .imported-prose a.cite {
   text-decoration: none;
-  color: inherit;
-  border-bottom: 1px dotted rgb(var(--red-rgb) / .7);
+  color: var(--red);
 }
-.imported-prose a.cite:hover { color: var(--red); }
+.imported-prose a.cite:hover { text-decoration: underline; }
 .imported-prose li[id] { scroll-margin-top: calc(var(--header-height, 60px) + 24px); }
 
 /* Bracketed links (Painting Scenes) */
