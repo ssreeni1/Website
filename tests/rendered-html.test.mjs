@@ -256,6 +256,7 @@ test("Find numbers Collection entries with current first, then archive, both new
   assert.ok(directory);
   const expected = [
     "/", "/about", "/truth", "/collection",
+    "/collections/painting-scenes",
     "/collections/fossil-fools",
     "/collections/a-waltz-at-the-end-of-history",
     "/collections/technoeschatology",
@@ -349,6 +350,23 @@ test("preserves the Technoeschatology essay, artwork, references, and principles
   const article = html.match(/<article class="imported-article">([\s\S]*?)<\/article>/)?.[1];
   assert.ok(article);
   assert.doesNotMatch(article, /googleusercontent|docs\.google\.com|<script/);
+});
+
+test("serves Painting Scenes with its cover, diagram, and appendix", async () => {
+  const response = await render("/collections/painting-scenes/");
+  assert.equal(response.status, 200);
+  const html = await response.text();
+  assert.match(html, /<h1>Painting Scenes<\/h1>/);
+  assert.match(html, /<h2>I\. The grass<\/h2>/);
+  assert.match(html, /<h3>The East India Company<\/h3>/);
+  assert.match(html, /<h2>Appendix: the construction in full<\/h2>/);
+  assert.match(html, /src="\/collections\/painting-scenes\/cover\.png"/);
+  assert.match(html, /src="\/collections\/painting-scenes\/image-01\.png"/);
+  assert.doesNotMatch(html, /googleusercontent|docs\.google\.com|google\.com\/url/);
+  for (const file of ["cover.png", "image-01.png"]) {
+    const image = await readFile(new URL(`../public/collections/painting-scenes/${file}`, import.meta.url));
+    assert.equal(image.subarray(1, 4).toString(), "PNG");
+  }
 });
 
 test("serves Fossil Fools with its supplied hero image", async () => {

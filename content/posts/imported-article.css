@@ -113,6 +113,14 @@
   line-height: 1.08;
 }
 
+.imported-prose h3 {
+  margin: clamp(40px, 5.5vw, 60px) 0 18px;
+  font-size: clamp(21px, 2.4vw, 27px);
+  font-weight: 500;
+  letter-spacing: -.025em;
+  line-height: 1.18;
+}
+
 .imported-prose strong { font-weight: 600; }
 .imported-prose em { font-family: Georgia, "Times New Roman", serif; }
 

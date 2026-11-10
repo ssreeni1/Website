@@ -5,6 +5,7 @@ import performanceArtDocument from "./performance-art/index.html?raw";
 import blockspaceDocument from "./things-hidden-since-foundation-of-blockspace/index.html?raw";
 import consensusDocument from "./consensus-capital-markets/index.html?raw";
 import fossilFoolsDocument from "./fossil-fools/index.html?raw";
+import paintingScenesDocument from "./painting-scenes/index.html?raw";
 import fiveLinesStyles from "./five_lines/styles.css?raw";
 import fiveLinesRuntime from "./five_lines/visuals.js?raw";
 import importedArticleStyles from "./imported-article.css?raw";
@@ -42,6 +43,14 @@ function extractBody(document: string) {
 }
 
 export const posts: readonly Post[] = [
+  {
+    slug: "painting-scenes",
+    title: "Painting Scenes",
+    description: "A generative theory of institutions built from Gans and Katz: scenes, centers, signs, and the gaps that birth them.",
+    publishedAt: "2026-11-10",
+    document: extractBody(paintingScenesDocument),
+    styles: importedArticleStyles,
+  },
   {
     slug: "fossil-fools",
     title: "Fossil Fools",
