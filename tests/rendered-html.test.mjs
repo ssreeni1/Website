@@ -240,7 +240,7 @@ test("serves the linked Collection archive without descriptions", async () => {
   const current = html.match(/<ol[^>]*id="collection-period-list-current"[^>]*>([\s\S]*?)<\/ol>/)?.[1];
   const archive = html.match(/<ol[^>]*id="collection-period-list-archive"[^>]*>([\s\S]*?)<\/ol>/)?.[1];
   assert.ok(current && archive);
-  for (const href of ["https://pain.flights", "/collections/when-everything-goes-to-zero", "/collections/permanence-is-the-rarest-asset-class"]) {
+  for (const href of ["https://pain.flights", "/collections/when-everything-goes-to-zero", "/collections/permanence-is-the-rarest-asset-class", "/collections/technoeschatology", "/collections/fossil-fools"]) {
     assert.ok(!current.includes(`href="${href}"`));
     assert.ok(archive.includes(`href="${href}"`));
   }
@@ -257,14 +257,14 @@ test("Find numbers Collection entries with current first, then archive, both new
   const expected = [
     "/", "/about", "/truth", "/collection",
     "/collections/painting-scenes",
-    "/collections/fossil-fools",
     "/collections/a-waltz-at-the-end-of-history",
-    "/collections/technoeschatology",
     "/collections/diffusion-is-all-you-need",
     "/collections/five-lines",
     "https://x.com/sanlsrni/status/2059710155881677025",
     "https://atlaseternal.xyz",
     "https://superpositioned.co",
+    "/collections/fossil-fools",
+    "/collections/technoeschatology",
     "/collections/permanence-is-the-rarest-asset-class",
     "https://pain.flights",
     "/collections/when-everything-goes-to-zero",

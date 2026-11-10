@@ -19,6 +19,8 @@ const archivedUrls = new Set([
   "https://pain.flights",
   "/collections/when-everything-goes-to-zero",
   "/collections/permanence-is-the-rarest-asset-class",
+  "/collections/technoeschatology",
+  "/collections/fossil-fools",
 ]);
 
 const datedEntries = [
