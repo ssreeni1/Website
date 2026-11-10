@@ -352,7 +352,7 @@ test("preserves the Technoeschatology essay, artwork, references, and principles
   assert.doesNotMatch(article, /googleusercontent|docs\.google\.com|<script/);
 });
 
-test("serves Painting Scenes with its cover, diagram, and appendix", async () => {
+test("serves Painting Scenes with its cover, themed diagram, and linked citations", async () => {
   const response = await render("/collections/painting-scenes/");
   assert.equal(response.status, 200);
   const html = await response.text();
@@ -361,9 +361,12 @@ test("serves Painting Scenes with its cover, diagram, and appendix", async () =>
   assert.match(html, /<h3>The East India Company<\/h3>/);
   assert.match(html, /<h2>Appendix: the construction in full<\/h2>/);
   assert.match(html, /src="\/collections\/painting-scenes\/cover\.png"/);
-  assert.match(html, /src="\/collections\/painting-scenes\/image-01\.png"/);
+  assert.match(html, /<figure class="imported-diagram"[^>]*>[\s\S]*?<svg viewBox="0 0 1000 380"/);
+  assert.match(html, /<em class="cite-group">\[<a class="cite" href="#a4">A4<\/a>, <a class="cite" href="#p1">P1<\/a>\]<\/em>/);
+  assert.match(html, /<li id="a4"><strong>A4\./);
+  assert.doesNotMatch(html, /\((?:[ADPRKT]\d+a?)(?:, ?[ADPRKT]\d+a?)*\)/);
   assert.doesNotMatch(html, /googleusercontent|docs\.google\.com|google\.com\/url/);
-  for (const file of ["cover.png", "image-01.png"]) {
+  for (const file of ["cover.png"]) {
     const image = await readFile(new URL(`../public/collections/painting-scenes/${file}`, import.meta.url));
     assert.equal(image.subarray(1, 4).toString(), "PNG");
   }

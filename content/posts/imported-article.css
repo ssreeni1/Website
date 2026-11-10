@@ -240,3 +240,65 @@
   .imported-embed { padding: 20px; }
   .imported-embed header { align-items: flex-start; flex-direction: column; gap: 6px; }
 }
+
+/* Inline diagrams (site-themed SVG) */
+.imported-diagram {
+  --d-line: rgb(var(--ink-rgb) / .16);
+  --d-grid: rgb(var(--ink-rgb) / .055);
+  --d-surface: color-mix(in srgb, var(--ink) 3%, var(--paper));
+  width: min(calc(100vw - 40px), 1000px);
+  margin: clamp(48px, 7vw, 78px) 0 clamp(48px, 7vw, 66px) 50%;
+  transform: translateX(-50%);
+}
+.imported-diagram-title {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+.imported-diagram-title span {
+  color: var(--muted);
+  font: 500 10px/1.2 var(--font-geist-mono), monospace;
+  letter-spacing: .1em;
+}
+.imported-diagram-title p { margin: 0; font-size: 15px; font-weight: 600; }
+.imported-diagram-scroll { overflow-x: auto; }
+.imported-diagram svg { display: block; width: 100%; min-width: 680px; height: auto; background: var(--paper); }
+.imported-diagram figcaption {
+  margin-top: 11px;
+  color: var(--muted);
+  font: 400 12px/1.45 var(--font-geist-mono), monospace;
+}
+.imported-diagram .d-grid path { fill: none; stroke: var(--d-grid); stroke-width: 1; }
+.imported-diagram .d-node { fill: var(--d-surface); stroke: var(--d-line); stroke-width: 1; }
+.imported-diagram .d-dashed { stroke-dasharray: 5 5; }
+.imported-diagram .d-signal {
+  fill: color-mix(in srgb, var(--red) 5%, var(--d-surface));
+  stroke: color-mix(in srgb, var(--red) 80%, transparent);
+}
+.imported-diagram .d-boundary { fill: none; stroke: var(--d-line); stroke-width: 1; stroke-dasharray: 5 6; }
+.imported-diagram .d-edge { fill: none; stroke: var(--muted); stroke-width: 1.1; }
+.imported-diagram .d-return { stroke-dasharray: 5 7; }
+.imported-diagram .d-arrow { fill: var(--muted); }
+.imported-diagram text { font-family: var(--font-geist-mono), monospace; }
+.imported-diagram .d-title { fill: var(--ink); font-size: 12px; letter-spacing: .06em; }
+.imported-diagram .d-note { fill: var(--muted); font-size: 8px; letter-spacing: .06em; }
+.imported-diagram .d-label { fill: var(--red); font-size: 9px; letter-spacing: .1em; }
+.imported-diagram .d-boundary-label { fill: var(--muted); font-size: 8px; letter-spacing: .09em; }
+
+/* Citations that link to the appendix */
+.imported-prose .cite-group { white-space: nowrap; }
+.imported-prose a.cite {
+  text-decoration: none;
+  color: inherit;
+  border-bottom: 1px dotted rgb(var(--red-rgb) / .7);
+}
+.imported-prose a.cite:hover { color: var(--red); }
+.imported-prose li[id] { scroll-margin-top: calc(var(--header-height, 60px) + 24px); }
+
+/* Bracketed links (Painting Scenes) */
+.post-document[data-post="painting-scenes"] .imported-prose a:not(.cite) {
+  text-decoration: none;
+}
+.post-document[data-post="painting-scenes"] .imported-prose a:not(.cite)::before { content: "["; color: var(--red); }
+.post-document[data-post="painting-scenes"] .imported-prose a:not(.cite)::after { content: "]"; color: var(--red); }
