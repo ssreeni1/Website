@@ -298,7 +298,12 @@
 
 /* Bracketed links (Painting Scenes) */
 .post-document[data-post="painting-scenes"] .imported-prose a:not(.cite) {
+  color: var(--red);
   text-decoration: none;
+}
+.post-document[data-post="painting-scenes"] .imported-prose a:not(.cite):hover {
+  text-decoration: underline;
+  text-decoration-color: var(--red);
 }
 .post-document[data-post="painting-scenes"] .imported-prose a:not(.cite)::before { content: "["; color: var(--red); }
 .post-document[data-post="painting-scenes"] .imported-prose a:not(.cite)::after { content: "]"; color: var(--red); }
