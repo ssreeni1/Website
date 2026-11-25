@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Flow$</title>
+  <meta name="description" content="A graph-first explainer of Red Deer Investments' Kings Don't Buy Flow: how annuity money funds credit, who owns the loan-making machines, where the weak link sits, and what happened through November 2026.">
+  <meta name="theme-color" content="#0a0b0d">
+  <meta name="color-scheme" content="dark">
+
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="Kings Don't Buy Flow: the graph">
+  <meta property="og:description" content="One network of managers, insurers, reinsurers and platforms that changes as the story moves: follow the money, shock it, and see what actually happened. Data as of Nov 19, 2026.">
+  <meta property="og:site_name" content="Kings Don't Buy Flow: an explainer">
+  <meta property="article:published_time" content="2026-11-19">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Kings Don't Buy Flow: the graph">
+  <meta name="twitter:description" content="A graph-first explainer of how alternative managers use life insurers to fund credit, with a live stress model. Independent; not investment advice.">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500&display=swap">
+
+  <link rel="stylesheet" href="tokens.css">
+  <link rel="stylesheet" href="graph.css">
+</head>
+<body>
+  <div class="app" id="app">
+    <div class="stage" id="stage" aria-label="Network of asset managers, insurers, reinsurers and platforms. Use the step text for the story; click nodes for details.">
+      <canvas class="stage__canvas" id="gl-canvas" aria-hidden="true"></canvas>
+      <svg class="stage__svg" id="gl-svg" role="group" aria-label="Network map">
+        <g class="g-nodes"></g>
+        <g class="g-labels" aria-hidden="true"></g>
+      </svg>
+    </div>
+
+    <header class="brand">
+      <span class="brand__name">Flow$</span>
+    </header>
+
+    <div class="tools" id="tools">
+      <div class="search" role="search">
+        <svg class="search__icon" viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="4.8" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M10.6 10.6 14 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        <input class="search__input" id="search" type="search" autocomplete="off" spellcheck="false"
+               placeholder="Find a firm" aria-label="Find a firm" aria-autocomplete="list" aria-controls="search-list" aria-expanded="false">
+        <ul class="search__list" id="search-list" role="listbox" hidden></ul>
+        <div class="search__msg" id="search-msg" hidden></div>
+      </div>
+      <div class="ctl" role="toolbar" aria-label="Map view">
+        <button type="button" class="ctl__btn" id="zoom-in" aria-label="Zoom in">+</button>
+        <button type="button" class="ctl__btn" id="zoom-out" aria-label="Zoom out">−</button>
+        <button type="button" class="ctl__btn ctl__btn--text" id="fit">Fit</button>
+      </div>
+    </div>
+
+    <section class="panel" id="panel" aria-live="polite">
+      <div class="panel__nav" id="sheet-nav">
+        <button type="button" class="sheet-btn" id="prev" aria-label="Previous step">‹</button>
+        <span class="sheet-pos" id="sheet-pos"></span>
+        <button type="button" class="sheet-btn" id="next" aria-label="Next step">›</button>
+      </div>
+      <div class="panel__inner" id="panel-inner"></div>
+    </section>
+
+    <section class="shock" id="shock" hidden aria-label="How hard is the shock?">
+      <div class="shock__head">
+        <span class="shock__title">How hard is the shock?</span>
+        <button type="button" class="shock__reset" id="shock-reset">Reset</button>
+      </div>
+      <div class="shock__sliders" id="shock-sliders"></div>
+      <div class="shock__foot">
+        <label class="qj"><input type="checkbox" id="qj"> <span>Cayman wins trusted status, so less collateral is needed</span></label>
+      </div>
+    </section>
+
+    <nav class="dots" id="dots" aria-label="Steps"></nav>
+
+    <aside class="card" id="card" hidden aria-live="polite"></aside>
+    <div class="hint" id="hint"></div>
+
+    <noscript><p class="noscript">This page draws an interactive network and needs JavaScript.</p></noscript>
+  </div>
+
+  <script src="d3.min.js"></script>
+  <script src="bundle.js"></script>
+  <script src="model2.js"></script>
+  <script src="scenes.js"></script>
+  <script src="graph.js"></script>
+</body>
+</html>

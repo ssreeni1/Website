@@ -256,6 +256,7 @@ test("Find numbers Collection entries with current first, then archive, both new
   assert.ok(directory);
   const expected = [
     "/", "/about", "/truth", "/collection",
+    "/collections/flow",
     "/collections/painting-scenes",
     "/collections/a-waltz-at-the-end-of-history",
     "/collections/diffusion-is-all-you-need",

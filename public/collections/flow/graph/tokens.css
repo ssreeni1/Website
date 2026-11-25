@@ -1,0 +1,57 @@
+/* Design tokens — shared by every stylesheet. Do not redefine these elsewhere. */
+:root {
+  /* surfaces */
+  --bg: #0a0b0d;
+  --bg-raised: #111317;
+  --bg-inset: #07080a;
+  --line: #23262c;
+  --line-strong: #353a42;
+
+  /* text */
+  --text: #e9e6df;
+  --text-dim: #a5a7ab;
+  --text-faint: #6c7078;
+
+  /* the one accent: regal gold. Used for emphasis, links, active controls. */
+  --accent: #d8b25a;
+  --accent-dim: #8a7340;
+  --accent-wash: rgba(216, 178, 90, 0.10);
+
+  /* semantic: green = new money / flow */
+  --flow: #3ddc97;
+  --flow-dim: #1f7a55;
+  --flow-wash: rgba(61, 220, 151, 0.12);
+
+  /* semantic: red = stress, 5 steps, intensity scales with severity */
+  --stress-0: #3a3f47; /* none / neutral */
+  --stress-1: #7a4a45;
+  --stress-2: #b0503f;
+  --stress-3: #d9482f;
+  --stress-4: #ff3b24;
+  --stress-wash: rgba(255, 59, 36, 0.12);
+
+  /* provenance tags */
+  --tag-author: #d8b25a;   /* figure stated by Red Deer */
+  --tag-reported: #8fb4d9; /* reported by news / regulator */
+  --tag-modelled: #b79cf0; /* produced by this page's illustrative model */
+
+  /* type */
+  --font-display: "Newsreader", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  --font-body: "IBM Plex Sans", -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  --fs-hero: clamp(2.1rem, 5.2vw, 4.6rem);
+  --fs-h2: clamp(1.9rem, 4vw, 3.4rem);
+  --fs-h3: clamp(1.15rem, 1.8vw, 1.45rem);
+  --fs-figure: clamp(3rem, 9vw, 7rem);
+  --fs-body: clamp(1rem, 1.05vw, 1.125rem);
+  --fs-small: 0.82rem;
+  --fs-micro: 0.72rem;
+
+  /* layout */
+  --col: 44rem;        /* reading column */
+  --col-wide: 72rem;   /* charts, tables */
+  --gutter: clamp(1rem, 4vw, 2.5rem);
+  --scene-pad: clamp(5rem, 14vh, 10rem);
+  --radius: 4px;
+}

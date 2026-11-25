@@ -17,6 +17,7 @@ import hedonistsStoneDocument from "./the-hedonists-stone/index.html?raw";
 import speculationDocument from "./speculation-is-dead/index.html?raw";
 import buildingTradingDocument from "./building-trading/index.html?raw";
 import permanenceDocument from "./permanence-is-the-rarest-asset-class/index.html?raw";
+import flowDocument from "./flow/index.html?raw";
 import { writingRoutes } from "./writing-routes";
 
 export type Post = {
@@ -43,6 +44,17 @@ function extractBody(document: string) {
 }
 
 export const posts: readonly Post[] = [
+  {
+    slug: "flow",
+    title: "Flow$",
+    description: "An interactive map of how annuity money funds private credit: who owns the lenders, who buys their loans, where the weak link sits, and what has happened since. A reading of Red Deer Investments' Kings Don't Buy Flow.",
+    publishedAt: "2026-11-25",
+    document: extractBody(flowDocument),
+    // The map is a self-contained static app under public/collections/flow/graph/.
+    // It fills the viewport below the site header; nothing else on the page scrolls.
+    styles: `.post-document[data-post="flow"] { background: #0a0b0d; }
+.post-document[data-post="flow"] .flow-frame { display: block; width: 100%; height: calc(100svh - var(--header-height)); border: 0; background: #0a0b0d; }`,
+  },
   {
     slug: "painting-scenes",
     title: "Painting Scenes",

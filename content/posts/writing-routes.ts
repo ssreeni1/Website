@@ -1,4 +1,5 @@
 export const writingRoutes = [
+  { slug: "flow", title: "Flow$" },
   { slug: "painting-scenes", title: "Painting Scenes" },
   { slug: "fossil-fools", title: "Fossil Fools" },
   {
